@@ -1,0 +1,41 @@
+# Asegúrate de que tu Dockerfile.dev.dock incluya estos pasos:
+
+FROM golang:1.21-alpine AS base
+
+# Instalar dependencias del sistema
+RUN apk add --no-cache git ca-certificates tzdata curl
+
+# Configurar timezone
+ENV TZ=America/Santiago
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Instalar Air para hot reload
+RUN go install github.com/cosmtrek/air@v1.45.0
+
+# Crear directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de módulos primero
+COPY go.mod go.sum ./
+
+# Descargar dependencias
+RUN go mod download
+
+# Copiar todo el código fuente
+COPY . .
+
+# Crear usuario no-root y asignar permisos
+RUN adduser -D -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
+# Cambiar a usuario no-root
+USER appuser
+
+# Variables de entorno
+ENV GIN_MODE=debug
+ENV API_PORT=8081
+ENV ENVIRONMENT=development
+
+EXPOSE 8081
+
+CMD ["air", "-c", ".air.toml"]

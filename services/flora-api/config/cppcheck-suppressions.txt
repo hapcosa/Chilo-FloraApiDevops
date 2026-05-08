@@ -1,0 +1,30 @@
+// Supresiones para cppcheck - Flora de Chiloé API
+// Falsos positivos del sistema
+missingIncludeSystem
+unmatchedSuppression
+
+// Pistache framework
+unusedFunction:*/pistache/*
+noExplicitConstructor:*/pistache/*
+
+// PostgreSQL y libpqxx
+unusedFunction:*/pqxx/*
+noExplicitConstructor:*/pqxx/*
+
+// Supresiones específicas del proyecto
+// Constructores en modelos (a menudo tienen parámetros por defecto)
+noExplicitConstructor:src/models/*.cpp
+noExplicitConstructor:include/models/*.hpp
+
+// Variables no inicializadas en controladores (se inicializan en tiempo de ejecución)
+uninitMemberVar:src/controllers/*.cpp
+
+// Funciones no utilizadas en repositorios (pueden ser para uso futuro)
+unusedFunction:src/repository/*.cpp
+
+// Supresiones para archivos de configuración
+unusedFunction:src/utils/config.cpp
+unusedFunction:src/utils/dotenv.cpp
+
+// Supresiones para archivos de imagen (si los métodos no se usan aún)
+unusedFunction:src/models/imagen.cpp

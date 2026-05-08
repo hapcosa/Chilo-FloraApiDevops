@@ -1,0 +1,191 @@
+ARG UBUNTU_VERSION=22.04
+FROM ubuntu:${UBUNTU_VERSION} AS base
+
+# Configurar timezone y locale
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=America/Santiago
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Instalar dependencias del sistema + herramientas de desarrollo
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    meson \
+    ninja-build \
+    git \
+    pkg-config \
+    libpq-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    libboost-all-dev \
+    curl \
+    ca-certificates \
+    inotify-tools \
+    gdb \
+    valgrind \
+    && rm -rf /var/lib/apt/lists/*
+
+# Instalar nlohmann/json
+RUN mkdir -p /usr/include/nlohmann && \
+    curl -L https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp \
+    -o /usr/include/nlohmann/json.hpp
+
+# Compilar Pistache
+RUN git clone --depth=1 --branch=master https://github.com/pistacheio/pistache.git /tmp/pistache && \
+    cd /tmp/pistache && \
+    meson setup build --buildtype=debug --prefix=/usr/local && \
+    cd build && ninja && ninja install && \
+    rm -rf /tmp/pistache
+
+# Compilar libpqxx
+RUN git clone --depth=1 --branch=7.8.1 https://github.com/jtv/libpqxx.git /tmp/libpqxx && \
+    cd /tmp/libpqxx && \
+    mkdir build && cd build && \
+    cmake -G "Unix Makefiles" \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DBUILD_SHARED_LIBS=ON \
+        -DSKIP_BUILD_TEST=ON \
+        -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+    make -j$(nproc) && make install && \
+    rm -rf /tmp/libpqxx
+
+# Compilar bcrypt
+RUN git clone --depth=1 https://github.com/trusch/libbcrypt.git /tmp/libbcrypt && \
+    cd /tmp/libbcrypt && \
+    cmake . && make && make install && \
+    rm -rf /tmp/libbcrypt
+
+# Compilar jwt-cpp
+RUN git clone --depth=1 https://github.com/Thalhammer/jwt-cpp.git /tmp/jwt-cpp && \
+    cd /tmp/jwt-cpp && \
+    mkdir build && cd build && \
+    cmake .. && make && make install && \
+    rm -rf /tmp/jwt-cpp
+
+# Actualizar cache de bibliotecas
+RUN ldconfig
+
+# Crear usuario de desarrollo ANTES de crear directorios
+RUN groupadd -g 1000 developer && useradd -u 1000 -g developer -m -s /bin/bash developer
+
+# Crear directorio de trabajo y asignar permisos
+WORKDIR /app
+RUN chown -R developer:developer /app
+
+# Crear directorio build con permisos correctos
+RUN mkdir -p /app/build && chown -R developer:developer /app/build
+
+# Cambiar a usuario de desarrollo
+USER developer
+
+# Configurar variables de entorno para desarrollo
+ENV CMAKE_BUILD_TYPE=Debug
+ENV API_PORT=9081
+ENV API_HOST=0.0.0.0
+ENV RELOAD_ON_CHANGE=true
+
+EXPOSE ${API_PORT}
+
+# Crear script de hot reload mejorado directamente en el contenedor
+RUN cat > /home/developer/dev-server.sh << 'EOF'
+#!/bin/bash
+set -e
+
+echo "🚀 Starting Flora API Development Server with Hot Reload"
+
+# Función para compilar
+build_app() {
+    echo "🔨 Building application..."
+
+    # Crear directorio build con permisos correctos
+    mkdir -p /app/build
+    cd /app/build
+
+    # Limpiar configuración anterior si hay problemas
+    if [ -f "CMakeCache.txt" ]; then
+        rm -f CMakeCache.txt
+    fi
+
+    # Configurar y compilar
+    if cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug .. && make -j$(nproc); then
+        echo "✅ Build completed successfully"
+        cd ..
+        return 0
+    else
+        echo "❌ Build failed"
+        cd ..
+        return 1
+    fi
+}
+
+# Función para ejecutar la aplicación
+run_app() {
+    if [ -f "/app/build/chiloe_flora_api" ]; then
+        echo "🌿 Starting Flora API..."
+        cd /app
+        ./build/chiloe_flora_api &
+        APP_PID=$!
+        echo "📝 Application PID: $APP_PID"
+        return 0
+    else
+        echo "❌ Executable not found"
+        return 1
+    fi
+}
+
+# Función para limpiar procesos
+cleanup() {
+    echo "🧹 Cleaning up..."
+    if [ ! -z "$APP_PID" ] && kill -0 $APP_PID 2>/dev/null; then
+        kill $APP_PID
+        wait $APP_PID 2>/dev/null || true
+    fi
+    exit 0
+}
+
+# Configurar trap para limpieza
+trap cleanup SIGTERM SIGINT
+
+# Compilación inicial
+echo "🏗️  Initial build..."
+if build_app; then
+    run_app
+    APP_PID=$!
+else
+    echo "❌ Initial build failed. Waiting for file changes..."
+fi
+
+# Monitoreo de cambios
+echo "👀 Watching for file changes in src/ and include/ directories..."
+while inotifywait -e modify,create,delete,move -r /app/src /app/include /app/CMakeLists.txt 2>/dev/null; do
+    echo "📝 File change detected..."
+
+    # Matar proceso actual
+    if [ ! -z "$APP_PID" ] && kill -0 $APP_PID 2>/dev/null; then
+        echo "⏹️  Stopping current application..."
+        kill $APP_PID
+        wait $APP_PID 2>/dev/null || true
+    fi
+
+    # Pequeño delay para evitar múltiples recompilaciones
+    sleep 2
+
+    # Recompilar y ejecutar
+    if build_app; then
+        run_app
+        APP_PID=$!
+    else
+        echo "❌ Build failed. Waiting for next change..."
+    fi
+done
+EOF
+
+# Hacer ejecutable el script
+RUN chmod +x /home/developer/dev-server.sh
+
+# Healthcheck para desarrollo
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:${API_PORT}/health || exit 1
+
+# Comando por defecto para desarrollo - usar el script de hot reload
+CMD ["/home/developer/dev-server.sh"]

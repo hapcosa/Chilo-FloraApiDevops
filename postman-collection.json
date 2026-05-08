@@ -1,0 +1,896 @@
+{
+  "info": {
+    "name": "Flora Chiloé - Auth Service via Gateway",
+    "description": "Colección completa para el servicio de autenticación de Flora Chiloé usando nginx gateway",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost",
+      "description": "Base URL del gateway nginx"
+    },
+    {
+      "key": "auth_base",
+      "value": "{{base_url}}/api/v1/auth",
+      "description": "Base URL para rutas de auth"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "description": "JWT access token obtenido del login"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "description": "JWT refresh token obtenido del login"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "description": "ID del usuario logueado"
+    },
+    {
+      "key": "test_email",
+      "value": "test@florachiloe.cl",
+      "description": "Email de prueba"
+    },
+    {
+      "key": "test_password",
+      "value": "TestPassword123!",
+      "description": "Password de prueba"
+    }
+  ],
+  "item": [
+    {
+      "name": "🏥 Health Checks",
+      "description": "Endpoints para verificar el estado de los servicios",
+      "item": [
+        {
+          "name": "Gateway Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Health check del gateway nginx"
+          },
+          "response": []
+        },
+        {
+          "name": "Auth Service Ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ready",
+              "host": ["{{base_url}}"],
+              "path": ["ready"]
+            },
+            "description": "Readiness probe del auth service"
+          },
+          "response": []
+        },
+        {
+          "name": "Auth Service Alive",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/alive",
+              "host": ["{{base_url}}"],
+              "path": ["alive"]
+            },
+            "description": "Liveness probe del auth service"
+          },
+          "response": []
+        },
+        {
+          "name": "Service Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/metrics",
+              "host": ["{{base_url}}"],
+              "path": ["metrics"]
+            },
+            "description": "Métricas de Prometheus del auth service"
+          },
+          "response": []
+        },
+        {
+          "name": "Nginx Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/nginx_status",
+              "host": ["{{base_url}}"],
+              "path": ["nginx_status"]
+            },
+            "description": "Estado del servidor nginx"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔐 Authentication - Public",
+      "description": "Endpoints públicos de autenticación (no requieren token)",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.access_token) {",
+                  "        pm.environment.set('access_token', response.access_token);",
+                  "        pm.environment.set('refresh_token', response.refresh_token);",
+                  "        pm.environment.set('user_id', response.user.id);",
+                  "        console.log('✅ Usuario registrado y tokens guardados');",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has required fields', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('access_token');",
+                  "    pm.expect(jsonData).to.have.property('refresh_token');",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Generar email único para evitar conflictos",
+                  "const timestamp = Date.now();",
+                  "const randomEmail = `test${timestamp}@florachiloe.cl`;",
+                  "pm.environment.set('test_email', randomEmail);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\",\n  \"name\": \"Test User\"\n}"
+            },
+            "url": {
+              "raw": "{{auth_base}}/register",
+              "host": ["{{auth_base}}"],
+              "path": ["register"]
+            },
+            "description": "Registrar un nuevo usuario"
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.access_token) {",
+                  "        pm.environment.set('access_token', response.access_token);",
+                  "        pm.environment.set('refresh_token', response.refresh_token);",
+                  "        pm.environment.set('user_id', response.user.id);",
+                  "        console.log('✅ Login exitoso, tokens guardados');",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Login successful', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('access_token');",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{auth_base}}/login",
+              "host": ["{{auth_base}}"],
+              "path": ["login"]
+            },
+            "description": "Iniciar sesión con email y contraseña"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.access_token) {",
+                  "        pm.environment.set('access_token', response.access_token);",
+                  "        pm.environment.set('refresh_token', response.refresh_token);",
+                  "        console.log('✅ Tokens renovados exitosamente');",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('New tokens received', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('access_token');",
+                  "    pm.expect(jsonData).to.have.property('refresh_token');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{auth_base}}/refresh",
+              "host": ["{{auth_base}}"],
+              "path": ["refresh"]
+            },
+            "description": "Renovar access token usando refresh token"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Token is valid', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.test('User info returned', function () {",
+                  "        pm.expect(response).to.have.property('user');",
+                  "        pm.expect(response.user).to.have.property('id');",
+                  "        pm.expect(response.user).to.have.property('email');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{auth_base}}/verify",
+              "host": ["{{auth_base}}"],
+              "path": ["verify"]
+            },
+            "description": "Verificar la validez de un token JWT (usado por nginx)"
+          },
+          "response": []
+        },
+        {
+          "name": "Who Am I",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User info returned', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{auth_base}}/whoami",
+              "host": ["{{auth_base}}"],
+              "path": ["whoami"]
+            },
+            "description": "Obtener información del usuario actual"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔗 OAuth 2.0",
+      "description": "Endpoints de autenticación OAuth con Google y GitHub",
+      "item": [
+        {
+          "name": "Google OAuth URL",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{auth_base}}/google",
+              "host": ["{{auth_base}}"],
+              "path": ["google"]
+            },
+            "description": "Obtener URL de autenticación de Google (redirige al consentimiento)"
+          },
+          "response": []
+        },
+        {
+          "name": "GitHub OAuth URL",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{auth_base}}/github",
+              "host": ["{{auth_base}}"],
+              "path": ["github"]
+            },
+            "description": "Obtener URL de autenticación de GitHub (redirige al consentimiento)"
+          },
+          "response": []
+        },
+        {
+          "name": "Google Callback (Manual Test)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Nota: Este endpoint normalmente es llamado por Google",
+                  "// Solo para testing manual con código válido",
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.access_token) {",
+                  "        pm.environment.set('access_token', response.access_token);",
+                  "        pm.environment.set('refresh_token', response.refresh_token);",
+                  "        pm.environment.set('user_id', response.user.id);",
+                  "        console.log('✅ OAuth login exitoso');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{auth_base}}/callback/google?code=MANUAL_TEST_CODE&state=MANUAL_TEST_STATE",
+              "host": ["{{auth_base}}"],
+              "path": ["callback", "google"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "MANUAL_TEST_CODE",
+                  "description": "Código de autorización de Google"
+                },
+                {
+                  "key": "state",
+                  "value": "MANUAL_TEST_STATE",
+                  "description": "Estado CSRF"
+                }
+              ]
+            },
+            "description": "Callback de Google OAuth (normalmente llamado por Google, aquí para testing)"
+          },
+          "response": []
+        },
+        {
+          "name": "GitHub Callback (Manual Test)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Nota: Este endpoint normalmente es llamado por GitHub",
+                  "// Solo para testing manual con código válido",
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.access_token) {",
+                  "        pm.environment.set('access_token', response.access_token);",
+                  "        pm.environment.set('refresh_token', response.refresh_token);",
+                  "        pm.environment.set('user_id', response.user.id);",
+                  "        console.log('✅ OAuth login exitoso');",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{auth_base}}/callback/github?code=MANUAL_TEST_CODE&state=MANUAL_TEST_STATE",
+              "host": ["{{auth_base}}"],
+              "path": ["callback", "github"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "MANUAL_TEST_CODE",
+                  "description": "Código de autorización de GitHub"
+                },
+                {
+                  "key": "state",
+                  "value": "MANUAL_TEST_STATE",
+                  "description": "Estado CSRF"
+                }
+              ]
+            },
+            "description": "Callback de GitHub OAuth (normalmente llamado por GitHub, aquí para testing)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "👤 User Profile - Protected",
+      "description": "Endpoints protegidos para manejo de perfil de usuario",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Profile data returned', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "    pm.expect(jsonData.user).to.have.property('email');",
+                  "    pm.expect(jsonData.user).to.have.property('username');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{auth_base}}/me",
+              "host": ["{{auth_base}}"],
+              "path": ["me"]
+            },
+            "description": "Obtener el perfil del usuario autenticado"
+          },
+          "response": []
+        },
+        {
+          "name": "Update My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Profile updated', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test User Updated\",\n  \"avatar\": \"https://example.com/avatar.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{auth_base}}/me",
+              "host": ["{{auth_base}}"],
+              "path": ["me"]
+            },
+            "description": "Actualizar el perfil del usuario autenticado"
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Password changed successfully', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{test_password}}\",\n  \"new_password\": \"NewTestPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{auth_base}}/change-password",
+              "host": ["{{auth_base}}"],
+              "path": ["change-password"]
+            },
+            "description": "Cambiar la contraseña del usuario autenticado"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Limpiar tokens después del logout",
+                  "if (pm.response.code === 200) {",
+                  "    pm.environment.unset('access_token');",
+                  "    pm.environment.unset('refresh_token');",
+                  "    pm.environment.unset('user_id');",
+                  "    console.log('🚪 Logout exitoso, tokens eliminados');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{auth_base}}/logout",
+              "host": ["{{auth_base}}"],
+              "path": ["logout"]
+            },
+            "description": "Cerrar sesión y revocar el token actual"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "👑 Admin Panel - Super Protected",
+      "description": "Endpoints de administración (solo para usuarios admin)",
+      "item": [
+        {
+          "name": "List All Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Users list returned', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('users');",
+                  "    pm.expect(jsonData.users).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{auth_base}}/admin/users",
+              "host": ["{{auth_base}}"],
+              "path": ["admin", "users"]
+            },
+            "description": "Listar todos los usuarios (solo admin)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User data returned', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{auth_base}}/admin/users/{{user_id}}",
+              "host": ["{{auth_base}}"],
+              "path": ["admin", "users", "{{user_id}}"]
+            },
+            "description": "Obtener un usuario específico por ID (solo admin)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User updated', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Admin Updated User\",\n  \"avatar\": \"https://example.com/admin-avatar.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{auth_base}}/admin/users/{{user_id}}",
+              "host": ["{{auth_base}}"],
+              "path": ["admin", "users", "{{user_id}}"]
+            },
+            "description": "Actualizar un usuario específico (solo admin)"
+          },
+          "response": []
+        },
+        {
+          "name": "Activate User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User activated', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{auth_base}}/admin/users/{{user_id}}/activate",
+              "host": ["{{auth_base}}"],
+              "path": ["admin", "users", "{{user_id}}", "activate"]
+            },
+            "description": "Activar un usuario específico (solo admin)"
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivate User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User deactivated', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{auth_base}}/admin/users/{{user_id}}/deactivate",
+              "host": ["{{auth_base}}"],
+              "path": ["admin", "users", "{{user_id}}", "deactivate"]
+            },
+            "description": "Desactivar un usuario específico (solo admin)"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('User deleted', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{auth_base}}/admin/users/{{user_id}}",
+              "host": ["{{auth_base}}"],
+              "path": ["admin", "users", "{{user_id}}"]
+            },
+            "description": "Eliminar un usuario específico (solo admin) - PELIGROSO"
+          },
+          "response": []
+        }
+      ]
+    }]
+}

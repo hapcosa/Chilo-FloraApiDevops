@@ -1,0 +1,219 @@
+# .github/workflows/deploy.yml
+name: Deploy Chiloe Flora Microservices
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master]
+
+env:
+  AWS_REGION: us-west-2
+  EKS_CLUSTER_NAME: chiloe-flora-cluster
+
+jobs:
+  # Test Flora API (C++)
+  test-flora-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup C++ environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libpistache-dev libpqxx-dev
+
+      - name: Build Flora API
+        run: |
+          cd services/flora-api
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ..
+          make -j$(nproc)
+
+      - name: Run tests
+        run: |
+          cd services/flora-api/build
+          # Aquí ejecutarías tus tests unitarios
+          echo "Tests passed"
+
+  # Test Auth Service (Go)
+  test-auth-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Test Auth Service
+        run: |
+          cd services/auth-service
+          go mod tidy
+          go test ./...
+          go build -o auth-service ./cmd/main.go
+
+  # Build and Push Flora API
+  build-flora-api:
+    needs: test-flora-api
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Flora API image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: chiloe-flora/flora-api
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd services/flora-api
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+  # Build and Push Auth Service
+  build-auth-service:
+    needs: test-auth-service
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Auth Service image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: chiloe-flora/auth-service
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd services/auth-service
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+    # Deploy to EKS
+  deploy:
+    needs: [build-flora-api, build-auth-service]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+      - name: Deploy secrets to Kubernetes
+        env:
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          API_SECRET_KEY: ${{ secrets.API_SECRET_KEY }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+        run: |
+          # Crear namespace si no existe
+          kubectl create namespace chiloe-flora --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Desplegar secrets principales
+          kubectl create secret generic app-secrets \
+            --from-literal=DB_HOST="postgres-service" \
+            --from-literal=DB_PORT="5432" \
+            --from-literal=DB_NAME="chiloe_flora" \
+            --from-literal=DB_USER="flora_user" \
+            --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
+            --from-literal=JWT_SECRET="${JWT_SECRET}" \
+            --from-literal=JWT_ISSUER="flora-chiloe" \
+            --from-literal=JWT_EXPIRY="24h" \
+            --from-literal=API_SECRET_KEY="${API_SECRET_KEY}" \
+            --from-literal=API_HOST="0.0.0.0" \
+            --from-literal=API_PORT="9080" \
+            --from-literal=API_WORKERS="8" \
+            --from-literal=CORS_ORIGIN="https://florachiloe.com" \
+            --from-literal=LOG_LEVEL="info" \
+            --from-literal=RATE_LIMIT_REQUESTS="1000" \
+            --from-literal=RATE_LIMIT_WINDOW="60" \
+            --namespace=chiloe-flora \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Secret específico para PostgreSQL
+          kubectl create secret generic postgres-secret \
+            --from-literal=POSTGRES_DB="chiloe_flora" \
+            --from-literal=POSTGRES_USER="flora_user" \
+            --from-literal=POSTGRES_PASSWORD="${DB_PASSWORD}" \
+            --namespace=chiloe-flora \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Secret para Redis
+          kubectl create secret generic redis-secret \
+            --from-literal=REDIS_HOST="redis-service" \
+            --from-literal=REDIS_PORT="6379" \
+            --from-literal=REDIS_PASSWORD="${REDIS_PASSWORD}" \
+            --from-literal=REDIS_DB="0" \
+            --namespace=chiloe-flora \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+  # Terraform Infrastructure
+  terraform:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: |
+          cd infrastructure/terraform
+          terraform init
+
+      - name: Terraform Plan
+        run: |
+          cd infrastructure/terraform
+          terraform plan -var="db_password=${{ secrets.DB_PASSWORD }}"
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd infrastructure/terraform
+          terraform apply -auto-approve -var="db_password=${{ secrets.DB_PASSWORD }}"

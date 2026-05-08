@@ -1,17 +1,16 @@
 apiVersion: v1
-kind: Pod
+kind: Service
 metadata:
-  name: $title$
+  name: auth-service
+  namespace: chiloe-flora
   labels:
-    role: $title$
+    app: auth-service
 spec:
-  containers:
-    - name: $title$
-      image: $nginx$
-      imagePullPolicy: IfNotPresent
-      ports:
-        - name: $title$
-          containerPort: $80$
-          protocol: $TCP$
-  restartPolicy: Always
-  $END$
+  selector:
+    app: auth-service
+  ports:
+    - port: 8081
+      targetPort: 8081
+      protocol: TCP
+      name: http
+  type: ClusterIP

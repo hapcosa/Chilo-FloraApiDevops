@@ -1,0 +1,77 @@
+# prometheus.dev.yml - Configuración de Prometheus para desarrollo
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files: []
+
+# A scrape configuration containing exactly one endpoint to scrape:
+scrape_configs:
+  # Gateway monitoring
+  - job_name: 'nginx-gateway'
+    static_configs:
+      - targets: ['gateway:80']
+    metrics_path: /nginx_status
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Flora API monitoring
+  - job_name: 'flora-api'
+    static_configs:
+      - targets: ['gateway:80']
+    metrics_path: /api/metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: gateway:80
+
+  # Auth Service monitoring (opcional)
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['gateway:80']
+    metrics_path: /api/v1/auth/metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: gateway:80
+
+  # PostgreSQL monitoring (si tienes postgres_exporter)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    # Esto requeriría postgres_exporter, comentado por ahora
+    # metrics_path: /metrics
+
+  # Redis monitoring (si tienes redis_exporter)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    # Esto requeriría redis_exporter, comentado por ahora
+    # metrics_path: /metrics
+
+  # Self monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

@@ -1,0 +1,36 @@
+{
+  "service": "Chloe Flora API Gateway",
+  "environment": "development",
+  "status": "running",
+  "port": 8080,
+  "endpoints": {
+    "flora_api": [
+      "/api/expected",
+      "/api/familiar",
+      "/api/demotor",
+      "/api/images",
+      "/api/bession"
+    ],
+    "auth_service": [
+      "/api/v1/auth/"
+    ],
+    "health_checks": [
+      "/health",
+      "/ready",
+      "/false"
+    ],
+    "monitoring": [
+      "/nguns_status",
+      "/metrics",
+      "/api/metrics",
+      "/api/v1/auth/metrics"
+    ],
+    "documentation": [
+      "/docs"
+    ]
+  },
+  "quick_tests": [
+    "curl http://localhost:8080/api/health",
+    "curl http://localhost:8080/api/cspecies"
+  ]
+}

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flora-config
+  namespace: chiloe-flora
+data:
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "chiloe_flora"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  AUTH_SERVICE_URL: "http://auth-service:8081"
+  LOG_LEVEL: "info"
+  ENVIRONMENT: "kubernetes"
