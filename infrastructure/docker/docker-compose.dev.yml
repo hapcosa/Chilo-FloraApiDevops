@@ -1,0 +1,252 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: chiloe-postgres-dev
+    environment:
+      POSTGRES_DB: ${DB_NAME_DEV:-chiloe_flora_dev}
+      POSTGRES_USER: ${DB_USER_DEV:-dev_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD_DEV:-dev_password}
+    ports:
+      - "${DB_PORT_DEV:-5432}:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - chiloe-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER_DEV:-dev_user} -d ${DB_NAME_DEV:-chiloe_flora_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: chiloe-redis-dev
+    ports:
+      - "${REDIS_PORT_DEV:-6379}:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - chiloe-dev-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Flora API (C++) - Tu servicio principal - CONFIGURACIÓN CORREGIDA
+  flora-api:
+    build:
+      context: ../../services/flora-api
+      dockerfile: Dockerfile.dev.dock
+    container_name: chiloe-flora-api-dev
+    ports:
+      - "${API_PORT_DEV:-9081}:9081"
+    environment:
+      # Variables de entorno para la aplicación C++
+      - API_PORT=9081
+      - API_HOST=0.0.0.0
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME_DEV:-chiloe_flora_dev}
+      - DB_USER=${DB_USER_DEV:-dev_user}
+      - DB_PASSWORD=${DB_PASSWORD_DEV:-dev_password}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AUTH_SERVICE_URL=http://auth-service:8081
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=development
+      - CMAKE_BUILD_TYPE=Debug
+    volumes:
+      # Montar código fuente para hot reload
+      - ../../services/flora-api/src:/app/src:cached
+      - ../../services/flora-api/include:/app/include:cached
+      - ../../services/flora-api/CMakeLists.txt:/app/CMakeLists.txt:cached
+      # Volumen separado para build
+      - flora_api_build:/app/build
+      # Directorio para imágenes subidas
+      - flora_api_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chiloe-dev-network
+    stdin_open: true
+    tty: true
+    user: "1000:1000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9081/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Auth Service (Go) - CONFIGURACIÓN CORREGIDA
+  auth-service:
+    build:
+      context: ../../services/auth-service
+      dockerfile: Dockerfile.dev.dock
+    container_name: chiloe-auth-dev
+    ports:
+      - "8081:8081"
+    environment:
+      - API_PORT=8081
+      - API_HOST=0.0.0.0
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME_DEV:-chiloe_flora_dev}
+      - DB_USER=${DB_USER_DEV:-dev_user}
+      - DB_PASSWORD=${DB_PASSWORD_DEV:-dev_password}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-for-development-change-in-production}
+      - ENVIRONMENT=development
+      - GIN_MODE=debug
+      # OAuth configuration (opcional)
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - OAUTH_REDIRECT_URL=http://localhost:8080/api/v1/auth/callback
+    volumes:
+      # Solo montar archivos específicos para hot reload, no todo el directorio
+      - ../../services/auth-service:/app:cached
+      # Excluir directorios problemáticos
+      - /app/tmp
+      - /app/.git
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chiloe-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # API Gateway (Nginx) - CONFIGURACIÓN CORREGIDA
+  gateway:
+    image: nginx:1.25-alpine
+    container_name: chiloe-gateway-dev
+    ports:
+      - "${GATEWAY_PORT:-8080}:80"
+    volumes:
+      # Usar la configuración corregida
+      - ../../services/gateway/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      - ../../services/gateway/docs-api.json:/etc/nginx/html/docs-api.json:ro
+      # Crear directorio de logs3
+      - gateway_logs:/var/log/nginx
+    depends_on:
+      flora-api:
+        condition: service_healthy
+    networks:
+      - chiloe-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # PgAdmin para administración de BD
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: chiloe-pgadmin-dev
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@chiloe.dev}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD_DEV:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_DISABLE_POSTFIX: 'true'
+    ports:
+      - "${PGADMIN_PORT_DEV:-8889}:80"
+    volumes:
+      - pgadmin_dev_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - chiloe-dev-network
+    profiles:
+      - tools
+
+  # Prometheus para métricas (opcional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: chiloe-prometheus-dev
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ../../monitoring/prometheus.dev.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_dev_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.route-prefix=/'
+      - '--web.listen-address=0.0.0.0:9090'
+    networks:
+      - chiloe-dev-network
+    profiles:
+      - monitoring
+    depends_on:
+      - gateway
+
+  # Grafana para visualización de métricas (opcional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: chiloe-grafana-dev
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana_dev_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - chiloe-dev-network
+    profiles:
+      - monitoring
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  pgadmin_dev_data:
+    driver: local
+  prometheus_dev_data:
+    driver: local
+  grafana_dev_data:
+    driver: local
+  gateway_logs:
+    driver: local
+  # Volumen dedicado para build de flora-api
+  flora_api_build:
+    driver: local
+  # Volumen para uploads de imágenes
+  flora_api_uploads:
+    driver: local
+
+networks:
+  chiloe-dev-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.10.0.0/16
