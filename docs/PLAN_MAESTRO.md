@@ -1,0 +1,521 @@
+# Plan Maestro — Biodiversidad de Chiloé (Backend microservicios + APK Android)
+
+> Documento vivo. Cualquier cambio estructural se discute aquí antes de tocar código.
+> Última actualización: 2026-05-20.
+
+---
+
+## 1. Visión y alcance
+
+Plataforma de divulgación científica sobre la biodiversidad de la **Isla de Chiloé**, cubriendo los **cinco reinos** (Animalia, Plantae, Fungi, Protista, Monera). Tiene dos productos:
+
+1. **Backend microservicios** (este repo): catálogo CRUD multi-reino, autenticación, gateway, storage de fotos, despliegue en k3s/minikube.
+2. **App móvil Android** (submódulo `mobile/`, React Native): biblioteca consultable de especies, login Google/local, captura de fotos con módulo nativo C/C++ usando NDK Camera2, soporte offline lectura+escritura.
+
+### Objetivos no negociables
+
+- **Pipeline disciplinado**: ningún cambio toca `master` sin pasar por rama → tests → PR → revisión → merge.
+- **Paridad dev/prod**: lo que funciona en minikube debe funcionar en la VPS con k3s. Mismos manifiestos K8s.
+- **Multi-reino desde el día 1**: el modelo de datos no se diseña pensando solo en plantas (aunque ese era el seed original).
+- **Offline-first en móvil**: Chiloé tiene conectividad irregular. La app sirve aunque no haya red.
+
+### Fuera de alcance (por ahora)
+
+- iOS.
+- Identificación automática por IA (puede ser fase futura).
+- Mapa colaborativo en tiempo real.
+- Sistema de comentarios o foros.
+
+---
+
+## 2. Arquitectura general
+
+```
+                                  ┌─────────────────────────────────┐
+                                  │   App Android (React Native)    │
+                                  │   ├─ Módulo nativo cámara (C++) │
+                                  │   ├─ Cache SQLite (offline)     │
+                                  │   └─ Google Sign-In SDK         │
+                                  └────────────────┬────────────────┘
+                                                   │ HTTPS
+                                                   ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          API Gateway (Nginx)                             │
+│   TLS, rate limit, routing /auth/* → auth-service, /api/* → especies-api │
+└──────────────┬─────────────────────────────────────┬─────────────────────┘
+               │                                     │
+               ▼                                     ▼
+   ┌────────────────────────┐         ┌──────────────────────────────┐
+   │   auth-service (Go)    │         │   especies-api (C++/Pistache)│
+   │   - Registro local     │         │   - CRUD multi-reino         │
+   │   - Login local        │         │   - Validación JWT (gateway) │
+   │   - Login Google       │◄────────│   - Subida fotos (presigned) │
+   │     (verifica idToken) │  JWT    │   - Búsqueda/filtros         │
+   │   - Emite JWT propio   │         │                              │
+   └────────────┬───────────┘         └──────────────┬───────────────┘
+                │                                    │
+                └─────────────┬──────────────────────┘
+                              ▼
+              ┌──────────────────────────────────┐
+              │   PostgreSQL  +  Redis (sesiones)│
+              └──────────────────────────────────┘
+                              │
+                              ▼
+              ┌──────────────────────────────────┐
+              │   MinIO (dev/k3s) / S3 (cloud)   │
+              │   Buckets: especies-fotos        │
+              └──────────────────────────────────┘
+```
+
+### Renombrado sugerido
+
+`flora-api` → `especies-api`. El nombre actual ata el servicio al reino vegetal; ya no aplica. Se hace en un PR aparte para mantener historial limpio.
+
+---
+
+## 3. Modelo de datos multi-reino
+
+**Decisión**: tabla base `especies` con columnas comunes + columna `JSONB atributos_especificos` validada por **JSON Schema** según el reino. Razones:
+
+- Permite consultas unificadas (listar, buscar) sin joins múltiples.
+- Cada reino puede evolucionar sus campos sin migraciones costosas.
+- La validación se hace a nivel app (C++) usando el schema del reino.
+
+### Esquema PostgreSQL
+
+```sql
+-- Reinos: enum estable
+CREATE TYPE reino_enum AS ENUM ('animalia', 'plantae', 'fungi', 'protista', 'monera');
+
+-- Taxonomía clásica reutilizada en todos los reinos
+CREATE TABLE familias (
+    id SERIAL PRIMARY KEY,
+    reino reino_enum NOT NULL,
+    nombre VARCHAR(150) NOT NULL,
+    descripcion TEXT,
+    UNIQUE(reino, nombre),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE generos (
+    id SERIAL PRIMARY KEY,
+    familia_id INTEGER NOT NULL REFERENCES familias(id) ON DELETE RESTRICT,
+    nombre VARCHAR(150) NOT NULL,
+    descripcion TEXT,
+    UNIQUE(familia_id, nombre),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Especies: la tabla central
+CREATE TABLE especies (
+    id SERIAL PRIMARY KEY,
+    reino reino_enum NOT NULL,
+    genero_id INTEGER NOT NULL REFERENCES generos(id) ON DELETE RESTRICT,
+
+    -- Identificación
+    nombre_comun VARCHAR(200) NOT NULL,
+    nombre_cientifico VARCHAR(200) NOT NULL,
+    autor_cientifico VARCHAR(200),           -- ej: "(L.) Mill."
+
+    -- Contenido divulgativo
+    descripcion TEXT,
+    habitat TEXT,
+    distribucion_chiloe TEXT,                -- "Norte de Chiloé", "Islas Desertores", etc.
+
+    -- Estado y trazabilidad
+    estado_conservacion VARCHAR(60),         -- IUCN: LC, NT, VU, EN, CR, EW, EX, DD
+    endemica BOOLEAN DEFAULT FALSE,
+    fuentes JSONB DEFAULT '[]',              -- [{titulo, url, autor, año}]
+
+    -- Geolocalización opcional (centroide de avistamientos representativo)
+    geo_lat NUMERIC(9,6),
+    geo_lng NUMERIC(9,6),
+
+    -- Campos específicos por reino (validados por JSON Schema)
+    atributos_especificos JSONB NOT NULL DEFAULT '{}',
+
+    -- Multimedia: solo referencias a object storage
+    foto_portada_key VARCHAR(500),           -- key MinIO/S3
+    fotos_keys JSONB DEFAULT '[]',           -- ["bucket/key1", ...]
+
+    -- Auditoría
+    creado_por INTEGER,                      -- user_id de auth-service
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(nombre_cientifico)
+);
+
+CREATE INDEX idx_especies_reino ON especies(reino);
+CREATE INDEX idx_especies_atributos ON especies USING GIN (atributos_especificos);
+CREATE INDEX idx_especies_nombre_trgm ON especies USING GIN (nombre_comun gin_trgm_ops);
+```
+
+### Campos sugeridos por reino (en `atributos_especificos`)
+
+Pensé en lo que un usuario de divulgación querría leer y lo que es taxonómicamente honesto:
+
+**Animalia**
+- `clase` (Mammalia, Aves, Reptilia, Amphibia, Actinopterygii, Insecta, ...)
+- `alimentacion` (`herbivoro` | `carnivoro` | `omnivoro` | `insectivoro` | `detritivoro` | `filtrador`)
+- `dieta_detalle` (texto libre)
+- `comportamiento` (diurno/nocturno/crepuscular, gregario/solitario, migratorio)
+- `tamaño_promedio_cm`, `peso_promedio_g`
+- `reproduccion` (`vivíparo` | `ovíparo` | `ovovivíparo`), `epoca_reproductiva`
+- `sonido_url` opcional (object storage) — útil para aves y anfibios
+
+**Plantae**
+- `tipo_planta` (`arbol` | `arbusto` | `hierba` | `liana` | `epifita` | `helecho` | `musgo`)
+- `altura_promedio_m`
+- `tipo_hoja` (perenne/caduca, simple/compuesta)
+- `floracion_meses` (array de enteros 1–12)
+- `fruto` (descripción + comestibilidad)
+- `usos_tradicionales` (medicinal, alimentario, maderable, ornamental) — relevante por la cultura huilliche
+- `tipo_raiz`, `polinizacion` (anemófila, entomófila, ornitófila)
+
+**Fungi**
+- `tipo` (`agaricomiceto` | `liquen` | `moho` | `levadura`)
+- `comestibilidad` (`comestible` | `no_comestible` | `tóxico` | `psicoactivo` | `desconocido`) — ¡crítico! marcar siempre
+- `simbiosis` (saprófito, micorrízico, parásito, liquenizado)
+- `sustrato` (madera, suelo, hojarasca, otro hongo)
+- `tipo_himenio` (laminas, poros, dientes, lisos)
+- `temporada` (otoño, primavera, todo el año)
+
+**Protista**
+- `grupo` (algas pardas/rojas/verdes, protozoos, mohos mucilaginosos)
+- `ambiente` (marino, dulceacuícola, terrestre húmedo)
+- `morfologia` (unicelular, colonial, talo)
+- `tamaño_promedio_mm`
+- `importancia_ecologica` (texto)
+
+**Monera (Bacteria/Archaea)**
+- `dominio` (`bacteria` | `archaea`)
+- `forma` (coco, bacilo, espirilo, vibrio)
+- `gram` (positivo, negativo, no aplica)
+- `metabolismo` (autótrofo/heterótrofo, aerobio/anaerobio)
+- `relevancia_chiloe` (texto: rol en suelos turbosos, manglares, etc.)
+
+### Sugerencias adicionales para todos los reinos
+
+- **`avistamientos`** (tabla separada): registros que sube la app móvil con geolocalización + foto + usuario. Permite mapear distribución real sin contaminar la ficha curada.
+- **`nombres_locales`** (tabla): nombres en mapudungun/huilliche y otros nombres comunes locales. Chiloé tiene riqueza cultural específica.
+- **Versión y revisión**: campo `revisado_por` y `fecha_revision` para distinguir fichas curadas de fichas crowdsourced.
+
+---
+
+## 4. Storage de fotos (MinIO/S3)
+
+**Decisión**: object storage S3-compatible. MinIO en minikube y k3s (dev/staging). S3 real (o S3-compatible de Hetzner/DO) en prod si se migra.
+
+### Flujo de subida
+
+1. App pide a `especies-api` una **URL presigned PUT** (`POST /api/v1/uploads/presign`).
+2. App sube directo a MinIO/S3 con esa URL (no pasa por la API → no satura Pistache).
+3. App notifica a la API la clave (`PATCH /api/v1/especies/:id { foto_portada_key, fotos_keys }`).
+4. La API valida que la clave existe y pertenece al bucket esperado antes de aceptarla.
+
+### Buckets
+
+- `especies-fotos` — fichas curadas, públicas vía CDN.
+- `avistamientos-fotos` — fotos de usuarios, requieren moderación antes de ser públicas.
+
+### Procesamiento
+
+- **Stripping de EXIF**: el módulo nativo de cámara escribe metadatos mínimos (sin GPS, sin device serial) salvo lo que el usuario explícitamente quiere compartir.
+- **Thumbnails**: generación lazy en un worker (fase 2). Por ahora la app puede pedir resoluciones via query string si el storage soporta transformación (S3 no lo hace nativo; MinIO + Imgproxy sí).
+
+---
+
+## 5. Autenticación
+
+**Decisión**: el cliente React Native usa Google Sign-In SDK → envía `idToken` al `auth-service` → el servicio verifica el token contra Google → crea/asocia usuario → emite JWT propio. El mismo flujo de JWT propio se usa para login email/contraseña.
+
+### Endpoints (en `auth-service`)
+
+```
+POST /api/v1/auth/register        { email, password, nombre }
+POST /api/v1/auth/login           { email, password }
+POST /api/v1/auth/google          { id_token }       ← nuevo
+POST /api/v1/auth/refresh         { refresh_token }
+GET  /api/v1/auth/profile         (Bearer JWT)
+PUT  /api/v1/auth/profile         (Bearer JWT)
+POST /api/v1/auth/logout          (Bearer JWT)
+```
+
+### Modelo de usuario
+
+```sql
+CREATE TABLE usuarios (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255),                  -- NULL si solo Google
+    google_sub VARCHAR(255) UNIQUE,              -- "subject" del idToken
+    nombre VARCHAR(150),
+    foto_url TEXT,
+    rol VARCHAR(30) NOT NULL DEFAULT 'usuario',  -- usuario | curador | admin
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+- `rol = curador` puede crear/editar fichas oficiales.
+- `rol = usuario` solo puede subir avistamientos pendientes de moderación.
+
+### JWT
+
+- Firmado con HS256 (clave en Secret de K8s).
+- `exp` 15 min, refresh token 30 días en Redis.
+- El gateway Nginx valida JWT en `/api/*` (módulo `auth_request` apuntando al endpoint `/auth/verify` del auth-service) antes de pasar a `especies-api`.
+
+---
+
+## 6. App móvil (submódulo `mobile/`)
+
+### Estructura del submódulo
+
+```
+mobile/                           # git submodule → chiloe-biodiversidad-mobile
+├── android/
+│   ├── app/
+│   │   └── src/main/cpp/         # Módulo nativo cámara C++
+│   │       ├── camera_ndk.cpp    # NDK Camera2 (AImageReader, ACameraDevice)
+│   │       ├── jpeg_writer.cpp   # Escritura JPEG/HEIF
+│   │       ├── exif_minimal.cpp  # EXIF mínimo controlado
+│   │       └── CMakeLists.txt
+│   └── ...
+├── src/
+│   ├── api/                      # Cliente HTTP a backend
+│   ├── auth/                     # Google Sign-In + JWT storage (Keychain)
+│   ├── db/                       # SQLite (cache offline)
+│   ├── screens/
+│   │   ├── BibliotecaScreen.tsx  # Lista filtrable por reino
+│   │   ├── EspecieDetailScreen.tsx
+│   │   ├── CameraScreen.tsx      # Llama al módulo nativo
+│   │   ├── AvistamientoFormScreen.tsx
+│   │   └── auth/
+│   ├── sync/                     # Cola de mutaciones offline
+│   └── native/CameraModule.ts    # Bridge JS ↔ C++
+├── package.json
+└── README.md
+```
+
+### Módulo nativo de cámara (C++ + NDK Camera2)
+
+**Alcance**: NDK Camera2 con controles manuales (ISO, exposición, foco, white balance), captura JPEG/HEIF, sin RAW por ahora.
+
+Características:
+
+- Abre la cámara trasera de mayor resolución usando `ACameraManager`.
+- Permite cambiar `CONTROL_AE_MODE`, `CONTROL_AF_MODE`, `SENSOR_SENSITIVITY`, `SENSOR_EXPOSURE_TIME` desde JS.
+- Captura con `AImageReader` en `AIMAGE_FORMAT_JPEG`.
+- Borra EXIF sensible antes de escribir el archivo.
+- Devuelve la ruta del archivo al JS para subirlo vía presigned URL.
+
+API JS expuesta:
+
+```ts
+NativeModules.ChiloeCamera.openCamera(opts: { lens: 'back' | 'front' }): Promise<CameraSession>
+session.setIso(iso: number): Promise<void>
+session.setExposure(ms: number): Promise<void>
+session.setFocus(distance: number | 'auto'): Promise<void>
+session.capture(): Promise<{ filePath: string; width: number; height: number }>
+session.close(): Promise<void>
+```
+
+### Offline (lectura + escritura)
+
+- **Cache**: SQLite con `react-native-quick-sqlite`. Replica subset de `especies` que el usuario descargó.
+- **Cola de mutaciones**: cualquier creación de avistamiento estando offline se persiste en tabla `pending_mutations` con un `client_id` UUID. Cuando hay red, un worker en background hace replay y mapea el `client_id` al `id` real devuelto por el backend.
+- **Conflictos**: para avistamientos (append-only) no hay conflictos. Para ediciones de perfil de usuario, last-write-wins con timestamp del cliente.
+
+### Login
+
+- Google Sign-In SDK oficial de Google (`@react-native-google-signin/google-signin`).
+- Login local con email/password.
+- JWT y refresh token guardados en `EncryptedSharedPreferences` (Android Keystore).
+
+---
+
+## 7. CI/CD
+
+Disciplina del pipeline (innegociable):
+
+```
+desarrollador → git checkout -b feat/xxx
+              → cambios
+              → git push → GitHub Actions corre tests
+              → abre PR contra master
+              → tests + lint + build de imágenes deben pasar
+              → revisión humana
+              → merge a master
+              → workflow de deploy se dispara
+              → build de imágenes finales → push a registry
+              → kubectl apply en k3s
+```
+
+### Workflows GitHub Actions
+
+**`.github/workflows/test.yml`** (en PRs y push a ramas):
+- Job `flora-api-test`: build C++ con cmake en contenedor, corre gtest.
+- Job `auth-service-test`: `go test ./...` con cobertura.
+- Job `mobile-test` (en el submódulo): `npm test` + lint, build del APK debug.
+- Job `lint`: clang-tidy para C++, golangci-lint para Go, eslint para RN.
+- Job `integration`: levanta `docker-compose.dev.yml`, corre el postman/newman.
+
+**`.github/workflows/deploy.yml`** (en merge a master):
+- Build imágenes Docker `especies-api` y `auth-service`.
+- Push a GHCR (`ghcr.io/hapcosa/...`).
+- `kubectl apply -k infrastructure/kubernetes/prod` contra k3s vía kubeconfig en Secret.
+- Smoke test contra `/health`.
+
+**Protecciones de rama**:
+- `master` requiere PR aprobado y status checks verdes.
+- No se permite push directo.
+
+### Tests por servicio
+
+- **`especies-api` (C++)**: gtest. Cobertura mínima: controllers + repositories. Tests de integración con PostgreSQL real en contenedor (testcontainers-cpp o `docker-compose.test.yml`).
+- **`auth-service` (Go)**: `go test` con mocks para Google. Tests de integración con Postgres + Redis reales.
+- **`mobile`**: Jest para lógica JS. Detox para flujos críticos (login, ver ficha, capturar foto, subir avistamiento offline). El módulo nativo C++ se testea con gtest en CI host (no Android) para la lógica pura, e2e con Detox para la integración Android.
+
+---
+
+## 8. Despliegue
+
+### Local (minikube)
+
+```bash
+make minikube-setup
+make minikube-deploy
+```
+
+Manifiestos en `infrastructure/kubernetes/base/` + overlay `dev/`.
+
+### Producción (VPS con k3s)
+
+**Stack**:
+- VPS Linux (Hetzner/DigitalOcean/Contabo, mínimo 4 vCPU / 8 GB RAM).
+- k3s single-node inicialmente, multi-node cuando crezca.
+- Traefik (incluido en k3s) como ingress, con cert-manager + Let's Encrypt.
+- Postgres y MinIO como StatefulSets con PVC en disco del host.
+- Backups diarios: `pg_dump` + `mc mirror` a un bucket externo (Backblaze B2 es barato).
+
+**Diferencia con minikube**: solo el overlay `prod/` (réplicas, recursos, dominio, secrets reales). El resto se hereda de `base/`.
+
+### Por qué k3s y no Docker Compose
+
+Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelante migras a EKS/GKE, solo cambias el overlay.
+
+---
+
+## 9. Hoja de ruta por fases
+
+### Fase 0 — Preparación (esta semana)
+
+- [ ] Crear `docs/PLAN_MAESTRO.md` (este archivo) ✅
+- [ ] Crear `CLAUDE.md` en raíz ✅
+- [ ] Activar branch protection en `master`.
+- [ ] Crear repo separado `chiloe-biodiversidad-mobile` y añadirlo como submódulo en `mobile/`.
+
+### Fase 1 — Migración multi-reino backend (2–3 semanas)
+
+- [ ] Renombrar `flora-api` → `especies-api` (PR aparte).
+- [ ] Migración SQL: introducir `reino_enum`, expandir `especies` con `atributos_especificos`.
+- [ ] Refactor de modelos C++ para soportar JSONB.
+- [ ] JSON Schemas por reino en `services/especies-api/config/schemas/`.
+- [ ] Endpoints `/api/v1/especies?reino=animalia&...` con filtros.
+- [ ] Tests gtest sobre cada reino.
+
+### Fase 2 — Storage de fotos (1–2 semanas)
+
+- [ ] Desplegar MinIO en compose dev y en manifiestos K8s.
+- [ ] Endpoint `POST /api/v1/uploads/presign` en `especies-api`.
+- [ ] Validación de claves al hacer PATCH de fotos.
+- [ ] Bucket policies (público para `especies-fotos`, restringido para `avistamientos-fotos`).
+
+### Fase 3 — Auth con Google (1 semana)
+
+- [ ] Endpoint `POST /api/v1/auth/google` en auth-service.
+- [ ] Tabla `usuarios` con `google_sub`.
+- [ ] Verificación de `idToken` contra `https://oauth2.googleapis.com/tokeninfo`.
+- [ ] Reutilizar emisión de JWT existente.
+
+### Fase 4 — App móvil base (3–4 semanas)
+
+- [ ] Repo `chiloe-biodiversidad-mobile`, inicializar React Native (CLI bare, no Expo, por el NDK).
+- [ ] Pantallas: Biblioteca, Detalle, Login, Perfil.
+- [ ] Cliente API + manejo de JWT.
+- [ ] Cache SQLite + sincronización inicial.
+
+### Fase 5 — Cámara nativa C++ (2–3 semanas)
+
+- [ ] Esqueleto NDK Camera2 (abrir cámara, capturar JPEG).
+- [ ] Controles manuales (ISO, exposición, foco).
+- [ ] Bridge JNI + módulo React Native.
+- [ ] Pantalla `CameraScreen` que use el módulo.
+
+### Fase 6 — Avistamientos y offline writes (2 semanas)
+
+- [ ] Tabla `avistamientos` en backend + endpoints.
+- [ ] Cola de mutaciones en SQLite móvil.
+- [ ] Worker de sincronización al recuperar red.
+- [ ] Moderación básica (un curador marca como público o lo rechaza).
+
+### Fase 7 — VPS y producción (1 semana)
+
+- [ ] Provisionar VPS, instalar k3s.
+- [ ] Configurar Traefik + cert-manager con dominio real.
+- [ ] Migrar secrets, primer deploy.
+- [ ] Configurar backups.
+
+### Fase 8 — Pulido y carga de contenido
+
+- [ ] Importación inicial de ~50 especies por reino (CSV → script).
+- [ ] Revisión por un curador.
+- [ ] Beta cerrada de la APK.
+
+---
+
+## 10. Decisiones técnicas registradas (ADRs cortos)
+
+| # | Decisión | Alternativas | Por qué |
+|---|----------|--------------|---------|
+| 1 | Tabla base + JSONB para multi-reino | Tablas hijas / 5 tablas | Flexibilidad, queries unificadas, validación con JSON Schema |
+| 2 | MinIO/S3-compatible para fotos | BYTEA / volumen | Escala, no hincha BD, mismo flujo dev/prod |
+| 3 | Submódulo git para `mobile/` | Carpeta monorepo | Versionado independiente, CI separado, releases de APK aparte |
+| 4 | Google Sign-In SDK → idToken → Go verifica → JWT propio | OAuth completo en backend / Firebase | Estándar OIDC, control de JWT, sin lock-in |
+| 5 | NDK Camera2 con controles manuales (JPEG/HEIF), sin RAW | CameraX puro / RAW+HDR | Aprovecha cámara sin la complejidad de DNG |
+| 6 | k3s en VPS | Docker Compose / EKS | Paridad con minikube, costo bajo, escalable |
+| 7 | Offline lectura+escritura | Solo lectura / Solo online | Realidad de conectividad en Chiloé |
+
+Cualquier cambio futuro a estas decisiones debe quedar como una entrada nueva con fecha y justificación, no editar la anterior.
+
+---
+
+## 11. Riesgos y mitigaciones
+
+- **Curva del NDK Camera2**: API verbosa en C. Mitigación: empezar con un MVP que abra/capture, sumar controles manuales iterativamente.
+- **Validación JSON Schema en C++**: librerías como `nlohmann/json-schema-validator`. Verificar licencia y rendimiento.
+- **Backup y pérdida de fotos en VPS**: si el disco muere, perdemos todo. Mitigación: `mc mirror` nocturno a B2 + alerta si falla.
+- **Costo Google Sign-In en producción**: gratis bajo cuota razonable, pero requiere consola de Google Cloud configurada (OAuth client IDs para Android y backend).
+- **Comestibilidad de hongos**: si publicamos información incorrecta sobre toxicidad, hay riesgo legal/sanitario. Mitigación: campo `revisado_por` obligatorio en Fungi para que sea visible al público, banner explícito en la app: "consulte un experto antes de consumir".
+
+---
+
+## 12. Preguntas abiertas
+
+Cosas que no necesito resolver hoy pero hay que pensar antes de la fase correspondiente:
+
+- ¿Sonidos para Animalia (aves/anfibios)? Si sí, hay que extender el bucket y el modelo.
+- ¿Mapa con avistamientos en la app? Si sí, qué proveedor (Mapbox cuesta, OpenStreetMap es gratis pero más limitado).
+- ¿Soporte i18n? Idea: español (default), inglés, mapudungun cuando haya colaboradores.
+- ¿Notificaciones push? FCM es lo natural si ya usamos Google.
+- ¿Política de moderación de avistamientos? ¿Un solo curador aprueba, o votación?
+- ¿Open-sourcear el dataset? Tiene valor académico; decidir licencia (CC-BY-SA podría encajar).
+
+---
+
+## 13. Cómo usar este documento
+
+- Cualquier PR que toque arquitectura debe referenciarlo y actualizarlo en el mismo PR.
+- Si una decisión cambia, **no se borra**, se añade una entrada nueva en §10 con la fecha.
+- Si aparece una nueva pregunta abierta, se añade en §12.
+- El plan es vivo, no inmutable.
