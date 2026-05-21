@@ -30,6 +30,20 @@ RUN mkdir -p /usr/include/nlohmann && \
     curl -L https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp \
     -o /usr/include/nlohmann/json.hpp
 
+# Compilar nlohmann/json-schema-validator (pboettch).
+# Valida atributos_especificos JSONB por reino antes de INSERT/UPDATE.
+# Versión fijada por reproducibilidad.
+RUN git clone --depth=1 --branch=2.3.0 https://github.com/pboettch/json-schema-validator.git /tmp/json-schema-validator && \
+    cd /tmp/json-schema-validator && \
+    mkdir build && cd build && \
+    cmake -G "Unix Makefiles" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DJSON_VALIDATOR_BUILD_TESTS=OFF \
+        -DJSON_VALIDATOR_BUILD_EXAMPLES=OFF \
+        -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+    make -j$(nproc) && make install && \
+    rm -rf /tmp/json-schema-validator
+
 # Compilar Pistache
 RUN git clone --depth=1 --branch=master https://github.com/pistacheio/pistache.git /tmp/pistache && \
     cd /tmp/pistache && \
@@ -74,6 +88,7 @@ WORKDIR /app
 COPY CMakeLists.txt ./
 COPY src ./src/
 COPY include ./include/
+COPY config ./config/
 
 # Compilar la aplicación
 RUN mkdir build && cd build && \
@@ -92,9 +107,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar bibliotecas compiladas
+# Copiar bibliotecas compiladas y schemas
 COPY --from=dependencies /usr/local/lib/ /usr/local/lib/
 COPY --from=builder /app/build/chiloe_especies_api /usr/local/bin/
+COPY --from=builder /app/config/schemas /etc/chiloe-especies-api/schemas
 
 # Actualizar cache de bibliotecas
 RUN ldconfig

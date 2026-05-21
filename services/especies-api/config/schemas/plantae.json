@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chiloe.example/schemas/atributos/plantae.json",
+  "title": "Atributos específicos del reino Plantae",
+  "description": "Campos divulgativos para plantas: forma de crecimiento, ciclo, usos tradicionales. Todos los campos son opcionales.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "tipo_planta": {
+      "type": "string",
+      "enum": [
+        "arbol",
+        "arbusto",
+        "hierba",
+        "liana",
+        "epifita",
+        "helecho",
+        "musgo",
+        "trepadora",
+        "palmera",
+        "cactacea"
+      ]
+    },
+    "altura_promedio_m": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 200
+    },
+    "tipo_hoja": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ciclo": {
+          "type": "string",
+          "enum": ["perenne", "caduca", "semicaduca"]
+        },
+        "morfologia": {
+          "type": "string",
+          "enum": ["simple", "compuesta"]
+        }
+      }
+    },
+    "floracion_meses": {
+      "type": "array",
+      "description": "Meses de floración (1=enero, 12=diciembre). Sin duplicados.",
+      "uniqueItems": true,
+      "items": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 12
+      }
+    },
+    "fruto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "descripcion": { "type": "string", "maxLength": 1000 },
+        "comestible": {
+          "type": "string",
+          "enum": ["comestible", "no_comestible", "toxico", "desconocido"]
+        }
+      }
+    },
+    "usos_tradicionales": {
+      "type": "array",
+      "description": "Usos en la cultura local (huilliche, criolla). Relevante en Chiloé.",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "medicinal",
+          "alimentario",
+          "maderable",
+          "ornamental",
+          "tintoreo",
+          "fibra",
+          "ceremonial",
+          "forraje"
+        ]
+      }
+    },
+    "tipo_raiz": {
+      "type": "string",
+      "enum": ["axonomorfa", "fibrosa", "tuberosa", "rizoma", "adventicia", "aerea"]
+    },
+    "polinizacion": {
+      "type": "string",
+      "enum": ["anemofila", "entomofila", "ornitofila", "quiropterofila", "autogama"]
+    }
+  }
+}

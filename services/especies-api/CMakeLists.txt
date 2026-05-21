@@ -80,6 +80,7 @@ set(REQUIRED_SOURCES
         src/services/genero_service.cpp
         src/services/especie_service.cpp
         src/utils/config.cpp
+        src/utils/atributos_schema_validator.cpp
         src/models/imagen.cpp
 )
 
@@ -111,6 +112,7 @@ set(REQUIRED_HEADERS
         include/services/genero_service.hpp
         include/services/especie_service.hpp
         include/utils/config.hpp
+        include/utils/atributos_schema_validator.hpp
         include/models/imagen.hpp
         include/utils/constants.hpp
 )
@@ -141,6 +143,7 @@ set(SOURCES
         src/services/genero_service.cpp
         src/services/especie_service.cpp
         src/utils/config.cpp
+        src/utils/atributos_schema_validator.cpp
         src/models/imagen.cpp
 )
 
@@ -179,11 +182,15 @@ set_target_properties(chiloe_especies_api PROPERTIES
         CXX_EXTENSIONS OFF
 )
 
-# Enlazar bibliotecas con orden específico
+# Enlazar bibliotecas con orden específico.
+# nlohmann_json_schema_validator viene de pboettch/json-schema-validator y
+# valida atributos_especificos JSONB por reino. Está instalada en /usr/local
+# por el Dockerfile (no hay paquete en apt para Ubuntu 22.04).
 target_link_libraries(chiloe_especies_api
         ${Pistache_LIBRARIES}
         ${PQXX_LIB}
         ${PQ_LIB}
+        nlohmann_json_schema_validator
         OpenSSL::SSL
         OpenSSL::Crypto
         Threads::Threads

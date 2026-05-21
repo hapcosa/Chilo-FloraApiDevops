@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chiloe.example/schemas/atributos/monera.json",
+  "title": "Atributos específicos del reino Monera",
+  "description": "Campos divulgativos para procariontes (Bacteria y Archaea). El `dominio` es obligatorio porque distingue dos clados bien diferenciados.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["dominio"],
+  "properties": {
+    "dominio": {
+      "type": "string",
+      "enum": ["bacteria", "archaea"]
+    },
+    "forma": {
+      "type": "string",
+      "enum": ["coco", "bacilo", "espirilo", "vibrio", "espiroqueta", "filamentoso", "pleomorfo"]
+    },
+    "gram": {
+      "type": "string",
+      "enum": ["positivo", "negativo", "variable", "no_aplica"]
+    },
+    "metabolismo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fuente_energia": {
+          "type": "string",
+          "enum": ["autotrofo", "heterotrofo", "mixotrofo"]
+        },
+        "oxigeno": {
+          "type": "string",
+          "enum": ["aerobio_estricto", "anaerobio_estricto", "anaerobio_facultativo", "microaerofilo"]
+        }
+      }
+    },
+    "relevancia_chiloe": {
+      "type": "string",
+      "description": "Rol en ecosistemas locales: suelos turbosos, manglares, intermareales, fermentaciones tradicionales.",
+      "maxLength": 3000
+    }
+  }
+}

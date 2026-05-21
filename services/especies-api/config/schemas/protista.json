@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chiloe.example/schemas/atributos/protista.json",
+  "title": "Atributos específicos del reino Protista",
+  "description": "Campos divulgativos para protistas (algas, protozoos, mohos mucilaginosos). Todos opcionales.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "grupo": {
+      "type": "string",
+      "enum": [
+        "algas_pardas",
+        "algas_rojas",
+        "algas_verdes",
+        "algas_doradas",
+        "diatomeas",
+        "dinoflagelados",
+        "protozoos",
+        "mohos_mucilaginosos",
+        "euglenoideos"
+      ]
+    },
+    "ambiente": {
+      "type": "string",
+      "enum": ["marino", "estuarino", "dulceacuicola", "terrestre_humedo", "simbionte"]
+    },
+    "morfologia": {
+      "type": "string",
+      "enum": ["unicelular", "colonial", "filamentoso", "talo", "ameboide", "flagelado", "ciliado"]
+    },
+    "tamano_promedio_mm": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100000
+    },
+    "importancia_ecologica": {
+      "type": "string",
+      "maxLength": 3000
+    }
+  }
+}

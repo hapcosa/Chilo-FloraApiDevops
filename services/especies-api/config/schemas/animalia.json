@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chiloe.example/schemas/atributos/animalia.json",
+  "title": "Atributos específicos del reino Animalia",
+  "description": "Campos divulgativos para especies del reino Animalia (vertebrados, invertebrados). Todos los campos son opcionales salvo indicación contraria; cuando se incluyan deben cumplir el formato esperado.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "clase": {
+      "type": "string",
+      "description": "Clase taxonómica (Mammalia, Aves, Reptilia, Amphibia, Actinopterygii, Insecta, Arachnida, Mollusca, etc.). Texto libre porque el inventario de clases es amplio.",
+      "minLength": 1,
+      "maxLength": 60
+    },
+    "alimentacion": {
+      "type": "string",
+      "enum": [
+        "herbivoro",
+        "carnivoro",
+        "omnivoro",
+        "insectivoro",
+        "piscivoro",
+        "frugivoro",
+        "granivoro",
+        "nectarivoro",
+        "filtrador",
+        "detritivoro",
+        "carronero",
+        "parasito"
+      ]
+    },
+    "dieta_detalle": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "comportamiento": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "actividad": {
+          "type": "string",
+          "enum": ["diurno", "nocturno", "crepuscular", "catemeral"]
+        },
+        "social": {
+          "type": "string",
+          "enum": ["solitario", "en_pareja", "gregario", "colonial"]
+        },
+        "migratorio": { "type": "boolean" }
+      }
+    },
+    "tamano_promedio_cm": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 5000
+    },
+    "peso_promedio_g": {
+      "type": "number",
+      "minimum": 0
+    },
+    "reproduccion": {
+      "type": "string",
+      "enum": ["viviparo", "oviparo", "ovoviviparo"]
+    },
+    "epoca_reproductiva": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "sonido_key": {
+      "type": "string",
+      "description": "Clave en object storage de un audio asociado (canto, llamada). El servidor sirve la URL pública.",
+      "maxLength": 500
+    }
+  }
+}

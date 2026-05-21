@@ -5,18 +5,22 @@
 #include <chrono>
 
 // Constructor
-EspecieService::EspecieService(std::shared_ptr<IEspecieRepository> repo)
-        : repository(repo) {}
+EspecieService::EspecieService(std::shared_ptr<IEspecieRepository> repo,
+                                std::shared_ptr<AtributosSchemaValidator> validator)
+        : repository(std::move(repo)), schemaValidator(std::move(validator)) {}
 
-// Validación
+// Validación: invariantes locales + atributos_especificos por reino.
 void EspecieService::validateEspecie(const Especie& especie) {
     if (especie.getNombreCientifico().empty()) {
         throw std::invalid_argument("El nombre científico no puede estar vacío");
     }
-    if (especie.getGeneroId()==-1) {
-        throw std::invalid_argument("El género no puede estar vacío o tiene que ser un valor valido");
+    if (especie.getGeneroId() <= 0) {
+        throw std::invalid_argument("'genero_id' debe ser > 0");
     }
-    // Puedes añadir más validaciones según tus requisitos
+    // Validación de atributos por reino contra JSON Schema. Lanza
+    // std::invalid_argument con un mensaje detallado si no cumple.
+    schemaValidator->validate(especie.getReino(),
+                              especie.getAtributosEspecificos());
 }
 
 // Métodos CRUD
