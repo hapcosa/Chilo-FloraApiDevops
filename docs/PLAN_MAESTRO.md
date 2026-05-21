@@ -424,7 +424,7 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 
 - [x] Renombrar `flora-api` → `especies-api` (PR aparte). ✅
 - [x] Sistema de migraciones SQL planas + `scripts/migrate.sh` con tracking en `schema_migrations`; eliminar `CREATE TABLE` embebidos en C++; integrar en CI y compose. (PR aparte) ✅
-- [ ] Migración SQL multi-reino (`0002_multi_reino.sql`): `reino_enum`, expandir `especies` con `atributos_especificos JSONB`, foto_portada_key, fotos_keys, autor_cientifico, distribucion_chiloe, fuentes, geo_lat/lng, creado_por, timestamps.
+- [x] Migración SQL multi-reino (`0002_multi_reino.sql`): `reino_enum`, expandir `especies` con `atributos_especificos JSONB`, foto_portada_key, fotos_keys, autor_cientifico, distribucion_chiloe → distribucion_chiloe, fuentes, geo_lat/lng, creado_por, revisado_por, fecha_revision, timestamps + trigger updated_at; familias `UNIQUE(reino, nombre)`; generos `UNIQUE(familia_id, nombre)`; índices GIN sobre atributos y pg_trgm sobre nombre_comun. ✅
 - [ ] Refactor de modelos C++ para soportar JSONB.
 - [ ] JSON Schemas por reino en `services/especies-api/config/schemas/`.
 - [ ] Endpoints `/api/v1/especies?reino=animalia&...` con filtros.
