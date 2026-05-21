@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chiloe.example/schemas/atributos/fungi.json",
+  "title": "Atributos específicos del reino Fungi",
+  "description": "Campos divulgativos para hongos. La `comestibilidad` es OBLIGATORIA por razones sanitarias: nunca se publica una ficha de hongo sin esa categoría, ni siquiera como 'desconocido' implícito — debe declararse explícitamente.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["comestibilidad"],
+  "properties": {
+    "tipo": {
+      "type": "string",
+      "enum": ["agaricomiceto", "ascomiceto", "basidiomiceto", "liquen", "moho", "levadura"]
+    },
+    "comestibilidad": {
+      "type": "string",
+      "description": "Categoría de comestibilidad. SIEMPRE obligatoria por riesgo sanitario.",
+      "enum": ["comestible", "no_comestible", "toxico", "mortal", "psicoactivo", "desconocido"]
+    },
+    "simbiosis": {
+      "type": "string",
+      "enum": ["saprofito", "micorrizico", "parasito", "liquenizado", "endofito"]
+    },
+    "sustrato": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["madera_viva", "madera_muerta", "suelo", "hojarasca", "otro_hongo", "musgo", "estiercol"]
+      }
+    },
+    "tipo_himenio": {
+      "type": "string",
+      "enum": ["laminas", "poros", "dientes", "pliegues", "liso", "gleba"]
+    },
+    "temporada": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["primavera", "verano", "otono", "invierno", "todo_el_ano"]
+      }
+    },
+    "advertencia": {
+      "type": "string",
+      "description": "Texto libre con advertencias adicionales (confusiones peligrosas, recolección responsable).",
+      "maxLength": 2000
+    }
+  }
+}

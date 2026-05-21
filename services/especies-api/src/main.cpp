@@ -14,6 +14,7 @@
 #include "../include/services/especie_service.hpp"
 #include "../include/services/familia_service.hpp"
 #include "../include/services/genero_service.hpp"
+#include "../include/utils/atributos_schema_validator.hpp"
 #include "../include/utils/database.hpp"
 #include "../include/utils/config.hpp"
 
@@ -56,10 +57,21 @@ int main(int argc, char** argv) {
   // El schema lo gestiona scripts/migrate.sh contra la BD antes de arrancar
   // el binario (ver services/especies-api/migrations/README.md).
 
+  // Cargar JSON Schemas de atributos por reino. Si falla, abortar arranque:
+  // un servicio sin validadores aceptaría JSONB arbitrario y rompería el
+  // contrato del schema multi-reino.
+  const std::string schemasDir =
+      std::getenv("SCHEMAS_DIR") ? std::getenv("SCHEMAS_DIR")
+                                  : "/etc/chiloe-especies-api/schemas";
+  auto schemaValidator =
+      std::make_shared<AtributosSchemaValidator>(schemasDir);
+  std::cout << "JSON Schemas cargados desde: " << schemasDir << std::endl;
+
   // Initialize services
   auto familiaService = std::make_shared<FamiliaService>(familiaRepository);
   auto generoService = std::make_shared<GeneroService>(generoRepository);
-  auto especieService = std::make_shared<EspecieService>(especieRepository);
+  auto especieService =
+      std::make_shared<EspecieService>(especieRepository, schemaValidator);
 
   // Initialize controllers
   auto familiaController = std::make_shared<FamiliaController>(familiaService);

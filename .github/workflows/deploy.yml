@@ -38,11 +38,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup C++ environment
+      # Cliente psql solo: la compilación va por docker build para
+      # garantizar paridad con producción y traer las dependencias
+      # compiladas (pistache, libpqxx 7.8, json-schema-validator).
+      - name: Install postgresql-client
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libpistache-dev \
-            libpqxx-dev nlohmann-json3-dev postgresql-client
+          sudo apt-get install -y postgresql-client
 
       - name: Run SQL migrations
         run: |
@@ -54,18 +56,21 @@ jobs:
             -U "${DB_USER}" -d "${DB_NAME}" \
             -tAc "SELECT version FROM schema_migrations ORDER BY version"
 
-      - name: Build Especies API
+      # Docker build = misma imagen que producción. Compila C++ con
+      # pistache + libpqxx 7.8 + nlohmann/json + json-schema-validator
+      # desde fuente. Si compila aquí, compila en prod.
+      - name: Build especies-api image
         run: |
-          cd services/especies-api
-          mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ..
-          make -j$(nproc)
+          docker build -t especies-api-ci services/especies-api
 
-      - name: Run tests
+      - name: Smoke test (load schemas, verify binary)
         run: |
-          cd services/especies-api/build
-          # Tests unitarios irán aquí cuando se introduzca gtest.
-          echo "Tests passed"
+          docker run --rm \
+            -v "${PWD}/services/especies-api/config/schemas:/schemas:ro" \
+            -e SCHEMAS_DIR=/schemas \
+            --entrypoint /bin/sh \
+            especies-api-ci \
+            -c 'test -x /usr/local/bin/chiloe_especies_api && ls /etc/chiloe-especies-api/schemas/'
 
   # Test Auth Service (Go)
   test-auth-service:

@@ -7,16 +7,19 @@
 #include <memory>
 #include "../models/especie.hpp"
 #include "../repository/especie_repository.hpp"
+#include "../utils/atributos_schema_validator.hpp"
 
 class EspecieService {
 private:
     std::shared_ptr<IEspecieRepository> repository;
+    std::shared_ptr<AtributosSchemaValidator> schemaValidator;
 
-    // Método privado para validación
+    // Validación básica (longitudes, requeridos) + atributos por reino.
     void validateEspecie(const Especie& especie);
 
 public:
-    explicit EspecieService(std::shared_ptr<IEspecieRepository> repo);
+    EspecieService(std::shared_ptr<IEspecieRepository> repo,
+                   std::shared_ptr<AtributosSchemaValidator> validator);
 
     // Métodos de consulta
     std::vector<Especie> getAllEspecies();
