@@ -18,11 +18,9 @@ public:
     explicit PostgreSQLEspecieRepository(std::shared_ptr<Database> database);
 
     // Implementación de los métodos de la interfaz
-    std::vector<Especie> getAll() override;
-    std::vector<Especie> getByReino(Reino reino) override;
+    EspecieSearchResult find(const EspecieFilters& filters) override;
     std::optional<Especie> findById(int id) override;
     std::optional<Especie> getByNombreCientifico(const std::string& nombre) override;
-    std::vector<Especie> getByGenero(const std::string& genero) override;
     Especie create(const Especie& especie) override;
     Especie update(const Especie& especie) override;
     bool remove(int id) override;

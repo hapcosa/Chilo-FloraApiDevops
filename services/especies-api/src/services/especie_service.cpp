@@ -23,13 +23,9 @@ void EspecieService::validateEspecie(const Especie& especie) {
                               especie.getAtributosEspecificos());
 }
 
-// Métodos CRUD
-std::vector<Especie> EspecieService::getAllEspecies() {
-    return repository->getAll();
-}
-
-std::vector<Especie> EspecieService::getEspeciesByReino(Reino reino) {
-    return repository->getByReino(reino);
+// Métodos de consulta
+EspecieSearchResult EspecieService::searchEspecies(const EspecieFilters& filters) {
+    return repository->find(filters);
 }
 
 std::optional<Especie> EspecieService::getEspecieById(int id) {
@@ -44,13 +40,6 @@ std::optional<Especie> EspecieService::searchByNombreCientifico(const std::strin
         throw std::invalid_argument("El nombre científico no puede estar vacío");
     }
     return repository->getByNombreCientifico(nombre);
-}
-
-std::vector<Especie> EspecieService::searchByGenero(const std::string& genero) {
-    if (genero.empty()) {
-        throw std::invalid_argument("El género no puede estar vacío");
-    }
-    return repository->getByGenero(genero);
 }
 
 Especie EspecieService::createEspecie(const Especie& especie) {
