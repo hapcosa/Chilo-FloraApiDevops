@@ -5,47 +5,7 @@
 
 PostgresGeneroRepository::PostgresGeneroRepository(
     std::shared_ptr<Database> database)
-    : database(database) {
-  initDatabase();
-}
-
-void PostgresGeneroRepository::initDatabase() {
-  try {
-    auto conn = database->createConnection();
-    pqxx::work txn(*conn);
-
-    // Ejecutar cada statement por separado para evitar errores de sintaxis
-    std::string createGeneros = R"(
-        CREATE TABLE IF NOT EXISTS generos (
-            id SERIAL PRIMARY KEY,
-            nombre VARCHAR(100) NOT NULL UNIQUE,
-            descripcion TEXT,
-            familia_id INTEGER REFERENCES familias(id)
-        )
-    )";
-
-    std::string createGeneroImagenes = R"(
-        CREATE TABLE IF NOT EXISTS genero_imagenes (
-            id SERIAL PRIMARY KEY,
-            genero_id INTEGER REFERENCES generos(id) ON DELETE CASCADE,
-            url VARCHAR(255) NOT NULL,
-            es_principal BOOLEAN DEFAULT FALSE,
-            UNIQUE(genero_id, url)
-        )
-    )";
-
-    txn.exec(createGeneros);
-    txn.exec(createGeneroImagenes);
-    txn.commit();
-
-    std::cout << "Base de datos inicializada correctamente para géneros"
-              << std::endl;
-  } catch (const std::exception& e) {
-    std::cerr << "Error al inicializar la base de datos: " << e.what()
-              << std::endl;
-    throw;
-  }
-}
+    : database(database) {}
 
 Genero PostgresGeneroRepository::mapRowToGenero(const pqxx::row& row) {
   // CORREGIDO: familia_id en lugar de Familia_id

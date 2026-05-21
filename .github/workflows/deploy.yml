@@ -12,18 +12,49 @@ env:
   EKS_CLUSTER_NAME: chiloe-flora-cluster
 
 jobs:
-  # Test Flora API (C++)
+  # Test Especies API (C++) + migraciones SQL
   test-especies-api:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: chiloe_flora_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_user"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: chiloe_flora_test
+      DB_USER: ci_user
+      DB_PASSWORD: ci_password
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup C++ environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libpistache-dev libpqxx-dev nlohmann-json3-dev
+          sudo apt-get install -y build-essential cmake libpistache-dev \
+            libpqxx-dev nlohmann-json3-dev postgresql-client
 
-      - name: Build Flora API
+      - name: Run SQL migrations
+        run: |
+          ./services/especies-api/scripts/migrate.sh
+
+      - name: Verify schema_migrations tracking
+        run: |
+          PGPASSWORD="${DB_PASSWORD}" psql -h "${DB_HOST}" -p "${DB_PORT}" \
+            -U "${DB_USER}" -d "${DB_NAME}" \
+            -tAc "SELECT version FROM schema_migrations ORDER BY version"
+
+      - name: Build Especies API
         run: |
           cd services/especies-api
           mkdir build && cd build
@@ -33,7 +64,7 @@ jobs:
       - name: Run tests
         run: |
           cd services/especies-api/build
-          # Aquí ejecutarías tus tests unitarios
+          # Tests unitarios irán aquí cuando se introduzca gtest.
           echo "Tests passed"
 
   # Test Auth Service (Go)

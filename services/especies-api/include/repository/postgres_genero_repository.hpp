@@ -19,9 +19,6 @@ private:
 public:
     explicit PostgresGeneroRepository(std::shared_ptr<Database> database);
 
-    // Database initialization
-    void initDatabase();
-
     // CRUD operations
     std::vector<Genero> getAll() override;
     std::optional<Genero> findById(int id) override;

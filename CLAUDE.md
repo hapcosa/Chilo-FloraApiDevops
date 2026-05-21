@@ -52,7 +52,7 @@ El plan completo y vivo está en [docs/PLAN_MAESTRO.md](docs/PLAN_MAESTRO.md). *
 
 - **C++**: estilo del proyecto existente (mira [services/especies-api/src/](services/especies-api/src/)). Indentación 4 espacios, headers en `include/`, implementación en `src/`. Tests con gtest.
 - **Go**: `gofmt` y `golangci-lint`. Estructura ya establecida (`cmd/`, `internal/api`, `internal/services`, etc.).
-- **SQL**: migraciones numeradas en `services/<servicio>/migrations/`. Una migración por PR cuando sea posible.
+- **SQL**: migraciones numeradas en `services/<servicio>/migrations/` (formato `00NN_descripcion.sql`). Aplicadas por `services/<servicio>/scripts/migrate.sh` con tracking en `schema_migrations`. Una migración por PR cuando sea posible. Las migraciones **nunca** se editan tras mergear; si hay que corregir, se crea una migración nueva. Las tablas **no** se crean desde código de aplicación. Ver [services/especies-api/migrations/README.md](services/especies-api/migrations/README.md).
 - **React Native** (cuando exista): TypeScript estricto, ESLint, Prettier. Componentes funcionales con hooks.
 - **Comentarios**: solo donde el *por qué* no es evidente. No documentes lo obvio.
 - **Sin features especulativas**: no añadas abstracciones para necesidades hipotéticas.

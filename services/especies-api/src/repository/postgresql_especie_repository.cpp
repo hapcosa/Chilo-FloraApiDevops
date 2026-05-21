@@ -3,47 +3,7 @@
 #include <iostream>
 
 PostgreSQLEspecieRepository::PostgreSQLEspecieRepository(std::shared_ptr<Database> database)
-    : database(database)
-{ // Cambiado de db a database para consistencia
-    initDatabase();
-}
-
-void PostgreSQLEspecieRepository::initDatabase()
-{
-    try
-    {
-        auto conn = database->createConnection();
-        pqxx::work txn(*conn);
-
-        // Crear la tabla si no existe
-        txn.exec(
-            "CREATE TABLE IF NOT EXISTS especies ("
-            "id SERIAL PRIMARY KEY, "
-            "nombre_cientifico VARCHAR(100) NOT NULL UNIQUE, "
-            "nombre_comun VARCHAR(100), "
-            "descripcion TEXT, "
-            "habitat TEXT, "
-            "distribucion TEXT, "
-            "endemica BOOLEAN DEFAULT FALSE, "
-            "genero_id INTEGER REFERENCES generos(id), " // Corregida la sintaxis de FOREIGN KEY
-            "estado_conservacion VARCHAR(50)"
-            ");"
-            "CREATE TABLE IF NOT EXISTS especies_imagenes ("
-            "id SERIAL PRIMARY KEY,"
-            "especie_id INTEGER REFERENCES especies(id) ON DELETE CASCADE,"
-            "url VARCHAR(255) NOT NULL,"
-            "es_principal BOOLEAN DEFAULT FALSE,"
-            "UNIQUE(especie_id, url)"
-            ");");
-
-        txn.commit();
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Error al inicializar la base de datos: " << e.what() << std::endl;
-        throw;
-    }
-}
+    : database(database) {}
 
 Especie PostgreSQLEspecieRepository::mapRowToEspecie(const pqxx::row &row)
 {

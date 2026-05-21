@@ -53,10 +53,8 @@ int main(int argc, char** argv) {
   auto especieRepository =
       std::make_shared<PostgreSQLEspecieRepository>(dataBase);
 
-  // Initialize database schemas
-  familiaRepository->initDatabase();
-  generoRepository->initDatabase();
-  especieRepository->initDatabase();
+  // El schema lo gestiona scripts/migrate.sh contra la BD antes de arrancar
+  // el binario (ver services/especies-api/migrations/README.md).
 
   // Initialize services
   auto familiaService = std::make_shared<FamiliaService>(familiaRepository);
