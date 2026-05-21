@@ -163,8 +163,8 @@ resource "aws_db_instance" "postgres" {
 }
 
 # ECR Repository
-resource "aws_ecr_repository" "flora_api" {
-  name                 = "${var.project_name}/flora-api"
+resource "aws_ecr_repository" "especies_api" {
+  name                 = "${var.project_name}/especies-api"
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
@@ -194,8 +194,8 @@ output "rds_endpoint" {
   value = aws_db_instance.postgres.endpoint
 }
 
-output "ecr_flora_api_url" {
-  value = aws_ecr_repository.flora_api.repository_url
+output "ecr_especies_api_url" {
+  value = aws_ecr_repository.especies_api.repository_url
 }
 
 output "ecr_auth_service_url" {

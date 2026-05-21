@@ -32,7 +32,7 @@ docker-compose --env-file .env -f docker-compose.dev.yml exec postgres pg_isread
 
 # Iniciar Flora API con logs en tiempo real
 echo "🌿 Iniciando Flora API con hot reload..."
-docker-compose --env-file .env -f docker-compose.dev.yml up --build flora-api
+docker-compose --env-file .env -f docker-compose.dev.yml up --build especies-api
 
 echo "✅ Entorno de desarrollo iniciado!"
 echo "📡 Flora API: http://localhost:9081"

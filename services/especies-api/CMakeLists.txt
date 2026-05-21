@@ -164,20 +164,20 @@ if(NOT EXISTING_SOURCES)
 endif()
 
 # Ejecutable
-add_executable(chiloe_flora_api ${EXISTING_SOURCES})
+add_executable(chiloe_especies_api ${EXISTING_SOURCES})
 
 # Aplicar flags de compilación de Pistache
-target_compile_options(chiloe_flora_api PRIVATE ${Pistache_CFLAGS_OTHER})
+target_compile_options(chiloe_especies_api PRIVATE ${Pistache_CFLAGS_OTHER})
 
 # Propiedades del target
-set_target_properties(chiloe_flora_api PROPERTIES
+set_target_properties(chiloe_especies_api PROPERTIES
         CXX_STANDARD 17
         CXX_STANDARD_REQUIRED ON
         CXX_EXTENSIONS OFF
 )
 
 # Enlazar bibliotecas con orden específico
-target_link_libraries(chiloe_flora_api
+target_link_libraries(chiloe_especies_api
         ${Pistache_LIBRARIES}
         ${PQXX_LIB}
         ${PQ_LIB}
@@ -187,7 +187,7 @@ target_link_libraries(chiloe_flora_api
 )
 
 # Instalar
-install(TARGETS chiloe_flora_api DESTINATION bin)
+install(TARGETS chiloe_especies_api DESTINATION bin)
 
 # Target para verificar estructura de proyecto
 add_custom_target(check-structure

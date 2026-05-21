@@ -37,11 +37,11 @@ services:
       retries: 3
 
   # Flora API (C++) - Tu servicio principal - CONFIGURACIÓN CORREGIDA
-  flora-api:
+  especies-api:
     build:
-      context: ../../services/flora-api
+      context: ../../services/especies-api
       dockerfile: Dockerfile.dev.dock
-    container_name: chiloe-flora-api-dev
+    container_name: chiloe-especies-api-dev
     ports:
       - "${API_PORT_DEV:-9081}:9081"
     environment:
@@ -61,13 +61,13 @@ services:
       - CMAKE_BUILD_TYPE=Debug
     volumes:
       # Montar código fuente para hot reload
-      - ../../services/flora-api/src:/app/src:cached
-      - ../../services/flora-api/include:/app/include:cached
-      - ../../services/flora-api/CMakeLists.txt:/app/CMakeLists.txt:cached
+      - ../../services/especies-api/src:/app/src:cached
+      - ../../services/especies-api/include:/app/include:cached
+      - ../../services/especies-api/CMakeLists.txt:/app/CMakeLists.txt:cached
       # Volumen separado para build
-      - flora_api_build:/app/build
+      - especies_api_build:/app/build
       # Directorio para imágenes subidas
-      - flora_api_uploads:/app/uploads
+      - especies_api_uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -147,7 +147,7 @@ services:
       # Crear directorio de logs3
       - gateway_logs:/var/log/nginx
     depends_on:
-      flora-api:
+      especies-api:
         condition: service_healthy
     networks:
       - chiloe-dev-network
@@ -237,11 +237,11 @@ volumes:
     driver: local
   gateway_logs:
     driver: local
-  # Volumen dedicado para build de flora-api
-  flora_api_build:
+  # Volumen dedicado para build de especies-api
+  especies_api_build:
     driver: local
   # Volumen para uploads de imágenes
-  flora_api_uploads:
+  especies_api_uploads:
     driver: local
 
 networks:

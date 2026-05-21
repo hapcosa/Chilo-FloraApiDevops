@@ -19,7 +19,7 @@ El plan completo y vivo está en [docs/PLAN_MAESTRO.md](docs/PLAN_MAESTRO.md). *
 
 | Componente | Tecnología | Carpeta |
 |------------|------------|---------|
-| API de especies | C++17 + Pistache + libpqxx | [services/flora-api/](services/flora-api/) (se renombrará a `especies-api`) |
+| API de especies | C++17 + Pistache + libpqxx | [services/especies-api/](services/especies-api/) |
 | Auth | Go + Gin + JWT | [services/auth-service/](services/auth-service/) |
 | Gateway | Nginx | [services/gateway/](services/gateway/) |
 | BD | PostgreSQL | gestionado por compose / K8s |
@@ -50,7 +50,7 @@ El plan completo y vivo está en [docs/PLAN_MAESTRO.md](docs/PLAN_MAESTRO.md). *
 
 ## Convenciones de código
 
-- **C++**: estilo del proyecto existente (mira [services/flora-api/src/](services/flora-api/src/)). Indentación 4 espacios, headers en `include/`, implementación en `src/`. Tests con gtest.
+- **C++**: estilo del proyecto existente (mira [services/especies-api/src/](services/especies-api/src/)). Indentación 4 espacios, headers en `include/`, implementación en `src/`. Tests con gtest.
 - **Go**: `gofmt` y `golangci-lint`. Estructura ya establecida (`cmd/`, `internal/api`, `internal/services`, etc.).
 - **SQL**: migraciones numeradas en `services/<servicio>/migrations/`. Una migración por PR cuando sea posible.
 - **React Native** (cuando exista): TypeScript estricto, ESLint, Prettier. Componentes funcionales con hooks.
@@ -102,7 +102,7 @@ make db-shell         # Shell a Postgres
 
 URLs locales:
 - Gateway: http://localhost:8080
-- Flora/especies API: http://localhost:9080
+- Especies API: http://localhost:9080
 - Auth: http://localhost:8081
 
 ---

@@ -136,4 +136,4 @@ build-*/
 *.a
 
 # Archivos específicos del proyecto
-chiloe_flora_api
+chiloe_especies_api

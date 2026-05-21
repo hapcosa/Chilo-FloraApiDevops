@@ -3,7 +3,7 @@
 ```
 chiloe-flora-microservices/
 ├── services/
-│   ├── flora-api/                 # Tu API actual en C++
+│   ├── especies-api/                 # Tu API actual en C++
 │   │   ├── src/
 │   │   ├── include/
 │   │   ├── CMakeLists.txt
@@ -40,7 +40,7 @@ chiloe-flora-microservices/
 │       └── docker-compose.dev.yml
 │
 ├── .github/workflows/             # CI/CD Pipeline
-│   ├── flora-api.yml
+│   ├── especies-api.yml
 │   ├── auth-service.yml
 │   └── deploy.yml
 │
