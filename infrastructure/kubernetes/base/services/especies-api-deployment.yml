@@ -1,29 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: flora-api
+  name: especies-api
   namespace: chiloe-flora
   labels:
-    app: flora-api
+    app: especies-api
     component: backend
     tier: api
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: flora-api
+      app: especies-api
   template:
     metadata:
       labels:
-        app: flora-api
+        app: especies-api
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/path: "/metrics"
         prometheus.io/port: "9080"
     spec:
       containers:
-        - name: flora-api
-          image: chiloe/flora-api:latest  # Cambiar por tu imagen
+        - name: especies-api
+          image: chiloe/especies-api:latest  # Cambiar por tu imagen
           ports:
             - containerPort: 9080
               name: http

@@ -1,7 +1,7 @@
 # Estructura del Proyecto - Chiloé Flora API
 
 ```
-flora-api/
+especies-api/
 ├── 📁 config/                      # Configuraciones del proyecto
 ├── 📁 include/                     # Archivos de cabecera (.hpp)
 │   ├── 📁 controllers/             # Controladores HTTP

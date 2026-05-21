@@ -1,6 +1,8 @@
-# 🌿 Chiloé Flora API
+# Chiloé Especies API
 
-**Microservicio REST para la gestión de flora endémica de Chiloé**
+**Microservicio REST para la gestión de especies multi-reino (Animalia, Plantae, Fungi, Protista, Monera) de Chiloé**
+
+> Renombrado desde `flora-api` en la Fase 1 del plan maestro. Ver [docs/PLAN_MAESTRO.md](../../docs/PLAN_MAESTRO.md) en el repo raíz.
 
 [![C++17](https://img.shields.io/badge/C++-17-blue.svg?style=flat&logo=c%2B%2B)](https://en.cppreference.com/w/cpp/17)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg?style=flat&logo=postgresql)](https://www.postgresql.org/)
@@ -9,7 +11,7 @@
 
 ## 📋 Descripción
 
-Chiloé Flora API es un microservicio especializado en la gestión de información taxonómica de la flora endémica del Archipiélago de Chiloé. Forma parte de una arquitectura de microservicios más amplia y proporciona endpoints RESTful para la gestión completa de familias, géneros y especies botánicas, incluyendo la gestión de imágenes asociadas.
+Chiloé Especies API es un microservicio especializado en la gestión de información taxonómica de la biodiversidad del Archipiélago de Chiloé en los cinco reinos (Animalia, Plantae, Fungi, Protista, Monera). Forma parte de una arquitectura de microservicios más amplia y proporciona endpoints RESTful para la gestión completa de familias, géneros y especies, incluyendo la gestión de imágenes asociadas.
 
 ### 🎯 Características Principales
 
@@ -60,7 +62,7 @@ Familia
 1. **Clonar el repositorio**
 ```bash
 git clone <repository-url>
-cd flora-api
+cd especies-api
 ```
 
 2. **Configurar variables de entorno**
@@ -86,7 +88,7 @@ curl http://localhost:9081/health
 ```yaml
 # docker-compose.dev.yml
 services:
-  flora-api:
+  especies-api:
     build:
       dockerfile: Dockerfile.dev.dock
     ports:
@@ -104,10 +106,10 @@ services:
 docker-compose -f docker-compose.dev.yml up --build
 
 # Ver logs en tiempo real
-docker-compose -f docker-compose.dev.yml logs -f flora-api
+docker-compose -f docker-compose.dev.yml logs -f especies-api
 
 # Reiniciar solo la API
-docker-compose -f docker-compose.dev.yml restart flora-api
+docker-compose -f docker-compose.dev.yml restart especies-api
 
 # Limpiar contenedores y volúmenes
 ./dev.sh clean
@@ -140,7 +142,7 @@ sudo pacman -S base-devel cmake postgresql-libs openssl pistache nlohmann-json l
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j$(nproc)
-./chiloe_flora_api
+./chiloe_especies_api
 ```
 
 ## 📡 API Endpoints
@@ -290,7 +292,7 @@ CREATE TABLE especies (
 
 ```bash
 # Construir imagen de producción
-docker build -t flora-api:latest .
+docker build -t especies-api:latest .
 
 # Ejecutar con Docker Compose
 docker-compose up -d
@@ -303,20 +305,20 @@ docker-compose up -d
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: flora-api
+  name: especies-api
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: flora-api
+      app: especies-api
   template:
     metadata:
       labels:
-        app: flora-api
+        app: especies-api
     spec:
       containers:
-      - name: flora-api
-        image: flora-api:latest
+      - name: especies-api
+        image: especies-api:latest
         ports:
         - containerPort: 9080
         env:
@@ -334,7 +336,7 @@ minikube start
 kubectl apply -f kubernetes/
 
 # Exponer servicio
-minikube service flora-api --url
+minikube service especies-api --url
 ```
 
 ## 🧪 Testing
@@ -362,10 +364,10 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j$(nproc)
 
 # Análisis con Valgrind (memoria)
-valgrind --leak-check=full ./chiloe_flora_api
+valgrind --leak-check=full ./chiloe_especies_api
 
 # Profiling con gprof
-gprof chiloe_flora_api gmon.out > analysis.txt
+gprof chiloe_especies_api gmon.out > analysis.txt
 ```
 
 ## 🏗️ Arquitectura de Microservicios
@@ -445,7 +447,7 @@ Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](L
 - **Issues**: [GitHub Issues](../../issues)
 - **Discusiones**: [GitHub Discussions](../../discussions)
 - **Email**: support@chiloe-flora.com
-- **Slack**: #flora-api-support
+- **Slack**: #especies-api-support
 
 ---
 

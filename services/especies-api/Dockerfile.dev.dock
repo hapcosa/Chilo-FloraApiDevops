@@ -120,10 +120,10 @@ build_app() {
 
 # Función para ejecutar la aplicación
 run_app() {
-    if [ -f "/app/build/chiloe_flora_api" ]; then
+    if [ -f "/app/build/chiloe_especies_api" ]; then
         echo "🌿 Starting Flora API..."
         cd /app
-        ./build/chiloe_flora_api &
+        ./build/chiloe_especies_api &
         APP_PID=$!
         echo "📝 Application PID: $APP_PID"
         return 0

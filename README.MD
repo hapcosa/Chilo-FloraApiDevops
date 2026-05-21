@@ -106,7 +106,7 @@ make dev
 make dev-build
 
 # Ver logs específicos
-docker-compose -f infrastructure/docker/docker-compose.dev.yml logs flora-api
+docker-compose -f infrastructure/docker/docker-compose.dev.yml logs especies-api
 ```
 
 ### Producción
@@ -253,7 +253,7 @@ make restore-db BACKUP_FILE=backups/backup_20240101_120000.sql
 make test
 
 # Solo Flora API
-make test-flora-api
+make test-especies-api
 
 # Solo Auth Service  
 make test-auth-service
@@ -278,7 +278,7 @@ make logs
 make dev-logs
 
 # En Kubernetes
-kubectl logs -f deployment/flora-api -n chiloe-flora
+kubectl logs -f deployment/especies-api -n chiloe-flora
 ```
 
 ### Health Checks
@@ -357,10 +357,10 @@ DELETE /api/v1/especies/:id      - Eliminar especie (protegido)
 
 ```bash
 # Contenedor específico
-docker-compose -f infrastructure/docker/docker-compose.dev.yml logs -f flora-api
+docker-compose -f infrastructure/docker/docker-compose.dev.yml logs -f especies-api
 
 # Shell en contenedor
-make shell-flora-api
+make shell-especies-api
 make shell-auth-service
 make shell-postgres
 ```
@@ -369,13 +369,13 @@ make shell-postgres
 
 ```bash
 # Compilar en modo debug
-cd services/flora-api
+cd services/especies-api
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Debug ..
 make -j$(nproc)
 
 # Con GDB en contenedor
-docker-compose -f infrastructure/docker/docker-compose.dev.yml exec flora-api gdb ./build/chiloe_flora_api
+docker-compose -f infrastructure/docker/docker-compose.dev.yml exec especies-api gdb ./build/chiloe_especies_api
 ```
 
 ## 📝 Contribuir

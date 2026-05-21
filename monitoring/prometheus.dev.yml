@@ -23,7 +23,7 @@ scrape_configs:
     scrape_timeout: 10s
 
   # Flora API monitoring
-  - job_name: 'flora-api'
+  - job_name: 'especies-api'
     static_configs:
       - targets: ['gateway:80']
     metrics_path: /api/metrics

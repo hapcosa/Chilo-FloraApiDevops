@@ -67,9 +67,14 @@ Plataforma de divulgación científica sobre la biodiversidad de la **Isla de Ch
               └──────────────────────────────────┘
 ```
 
-### Renombrado sugerido
+### Renombrado completado (Fase 1)
 
-`flora-api` → `especies-api`. El nombre actual ata el servicio al reino vegetal; ya no aplica. Se hace en un PR aparte para mantener historial limpio.
+`flora-api` → `especies-api` aplicado en la Fase 1. El binario C++ pasó de `chiloe_flora_api` a `chiloe_especies_api`. El repo GitHub pasó de `Chilo-FloraApiDevops` a `chiloe-biodiversidad-api`.
+
+**Lo que NO se renombró** (decisión consciente, ver §10 ADR #8):
+
+- La base de datos `chiloe_flora` y el usuario `flora_user` quedan como nombres históricos. Renombrarlos rompería volúmenes existentes y requiere migración SQL coordinada con datos. No es bloqueante; el código nuevo lee el nombre desde config.
+- El namespace de Kubernetes `chiloe-flora`, el cluster EKS `chiloe-flora-cluster` y el path ECR `chiloe-flora/...` quedan históricos por la misma razón (afectan deploys existentes).
 
 ---
 
@@ -354,7 +359,7 @@ desarrollador → git checkout -b feat/xxx
 ### Workflows GitHub Actions
 
 **`.github/workflows/test.yml`** (en PRs y push a ramas):
-- Job `flora-api-test`: build C++ con cmake en contenedor, corre gtest.
+- Job `especies-api-test`: build C++ con cmake en contenedor, corre gtest.
 - Job `auth-service-test`: `go test ./...` con cobertura.
 - Job `mobile-test` (en el submódulo): `npm test` + lint, build del APK debug.
 - Job `lint`: clang-tidy para C++, golangci-lint para Go, eslint para RN.
@@ -417,7 +422,7 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 
 ### Fase 1 — Migración multi-reino backend (2–3 semanas)
 
-- [ ] Renombrar `flora-api` → `especies-api` (PR aparte).
+- [x] Renombrar `flora-api` → `especies-api` (PR aparte). ✅
 - [ ] Migración SQL: introducir `reino_enum`, expandir `especies` con `atributos_especificos`.
 - [ ] Refactor de modelos C++ para soportar JSONB.
 - [ ] JSON Schemas por reino en `services/especies-api/config/schemas/`.
@@ -485,6 +490,7 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 | 5 | NDK Camera2 con controles manuales (JPEG/HEIF), sin RAW | CameraX puro / RAW+HDR | Aprovecha cámara sin la complejidad de DNG |
 | 6 | k3s en VPS | Docker Compose / EKS | Paridad con minikube, costo bajo, escalable |
 | 7 | Offline lectura+escritura | Solo lectura / Solo online | Realidad de conectividad en Chiloé |
+| 8 (2026-05-20) | Renombrar servicio `flora-api` → `especies-api` y binario `chiloe_flora_api` → `chiloe_especies_api`, pero **NO** la DB `chiloe_flora`, el usuario `flora_user`, el namespace K8s `chiloe-flora`, el cluster EKS `chiloe-flora-cluster` ni el path ECR `chiloe-flora/...` | Renombrar todo / no renombrar nada | El servicio necesita un nombre que refleje el alcance multi-reino, pero renombrar la DB y el namespace rompería volúmenes y deploys existentes y obliga a migración SQL coordinada. Aceptamos la inconsistencia "servicio = especies-api, DB = chiloe_flora" como deuda histórica documentada. |
 
 Cualquier cambio futuro a estas decisiones debe quedar como una entrada nueva con fecha y justificación, no editar la anterior.
 

@@ -37,8 +37,8 @@ build-no-cache: ## Construir sin caché
 logs: ## Ver logs de todos los servicios
 	@cd infrastructure/docker && $(COMPOSE) logs -f
 
-logs-flora: ## Ver logs del servicio Flora API
-	@cd infrastructure/docker && $(COMPOSE) logs -f flora-api
+logs-especies: ## Ver logs del servicio Especies API
+	@cd infrastructure/docker && $(COMPOSE) logs -f especies-api
 
 logs-auth: ## Ver logs del servicio Auth
 	@cd infrastructure/docker && $(COMPOSE) logs -f auth-service
@@ -50,9 +50,9 @@ restart: ## Reiniciar todos los servicios
 	@echo "🔄 Reiniciando servicios..."
 	@cd infrastructure/docker && $(COMPOSE) restart
 
-restart-flora: ## Reiniciar solo Flora API
-	@echo "🔄 Reiniciando Flora API..."
-	@cd infrastructure/docker && $(COMPOSE) restart flora-api
+restart-especies: ## Reiniciar solo Especies API
+	@echo "🔄 Reiniciando Especies API..."
+	@cd infrastructure/docker && $(COMPOSE) restart especies-api
 
 restart-auth: ## Reiniciar solo Auth Service
 	@echo "🔄 Reiniciando Auth Service..."
@@ -61,8 +61,8 @@ restart-auth: ## Reiniciar solo Auth Service
 ps: ## Ver estado de los servicios
 	@cd infrastructure/docker && $(COMPOSE) ps
 
-exec-flora: ## Entrar al contenedor Flora API
-	@cd infrastructure/docker && $(COMPOSE) exec flora-api sh
+exec-especies: ## Entrar al contenedor Especies API
+	@cd infrastructure/docker && $(COMPOSE) exec especies-api sh
 
 exec-auth: ## Entrar al contenedor Auth Service
 	@cd infrastructure/docker && $(COMPOSE) exec auth-service sh
@@ -98,13 +98,13 @@ go-lint: ## Lint del código Go
 	@cd services/auth-service && golangci-lint run
 
 # Comandos de C++
-cpp-build: ## Compilar Flora API localmente
-	@echo "Compilando Flora API..."
-	@cd services/flora-api && mkdir -p build && cd build && cmake .. && make -j4
+cpp-build: ## Compilar Especies API localmente
+	@echo "Compilando Especies API..."
+	@cd services/especies-api && mkdir -p build && cd build && cmake .. && make -j4
 
 cpp-clean: ## Limpiar build de C++
 	@echo "Limpiando build de C++..."
-	@cd services/flora-api && rm -rf build
+	@cd services/especies-api && rm -rf build
 
 # Comandos útiles
 api-test: ## Probar endpoints básicos
@@ -112,7 +112,7 @@ api-test: ## Probar endpoints básicos
 	@echo "Health checks:"
 	@curl -s http://localhost:8080/health | jq . || echo "Gateway no disponible"
 	@curl -s http://localhost:8081/health | jq . || echo "Auth service no disponible"
-	@curl -s http://localhost:9081/health | jq . || echo "Flora API no disponible"
+	@curl -s http://localhost:9081/health | jq . || echo "Especies API no disponible"
 
 setup: ## Configuración inicial del proyecto
 	@echo "🏗️ Configuración inicial..."
@@ -128,7 +128,7 @@ info: ## Mostrar información del proyecto
 	@echo "🌐 URLs de desarrollo:"
 	@echo "   Gateway:      http://localhost:8080"
 	@echo "   Auth Service: http://localhost:8081"
-	@echo "   Flora API:    http://localhost:9081"
+	@echo "   Especies API:    http://localhost:9081"
 	@echo "   PgAdmin:      http://localhost:8889"
 	@echo ""
 	@echo "🔧 Herramientas (con profile tools):"

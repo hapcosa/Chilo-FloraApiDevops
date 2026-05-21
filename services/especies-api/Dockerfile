@@ -94,7 +94,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copiar bibliotecas compiladas
 COPY --from=dependencies /usr/local/lib/ /usr/local/lib/
-COPY --from=builder /app/build/chiloe_flora_api /usr/local/bin/
+COPY --from=builder /app/build/chiloe_especies_api /usr/local/bin/
 
 # Actualizar cache de bibliotecas
 RUN ldconfig
@@ -112,4 +112,4 @@ EXPOSE ${API_PORT}
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:${API_PORT}/health || exit 1
 
-CMD ["/usr/local/bin/chiloe_flora_api"]
+CMD ["/usr/local/bin/chiloe_especies_api"]

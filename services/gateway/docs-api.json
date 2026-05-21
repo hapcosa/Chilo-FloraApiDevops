@@ -4,7 +4,7 @@
   "status": "running",
   "port": 8080,
   "endpoints": {
-    "flora_api": [
+    "especies_api": [
       "/api/expected",
       "/api/familiar",
       "/api/demotor",

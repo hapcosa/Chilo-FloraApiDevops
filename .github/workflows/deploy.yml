@@ -13,7 +13,7 @@ env:
 
 jobs:
   # Test Flora API (C++)
-  test-flora-api:
+  test-especies-api:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,14 +25,14 @@ jobs:
 
       - name: Build Flora API
         run: |
-          cd services/flora-api
+          cd services/especies-api
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=Release ..
           make -j$(nproc)
 
       - name: Run tests
         run: |
-          cd services/flora-api/build
+          cd services/especies-api/build
           # Aquí ejecutarías tus tests unitarios
           echo "Tests passed"
 
@@ -55,8 +55,8 @@ jobs:
           go build -o auth-service ./cmd/main.go
 
   # Build and Push Flora API
-  build-flora-api:
-    needs: test-flora-api
+  build-especies-api:
+    needs: test-especies-api
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
@@ -76,10 +76,10 @@ jobs:
       - name: Build and push Flora API image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: chiloe-flora/flora-api
+          ECR_REPOSITORY: chiloe-flora/especies-api
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          cd services/flora-api
+          cd services/especies-api
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
@@ -118,7 +118,7 @@ jobs:
 
     # Deploy to EKS
   deploy:
-    needs: [build-flora-api, build-auth-service]
+    needs: [build-especies-api, build-auth-service]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
