@@ -72,6 +72,7 @@ set(REQUIRED_SOURCES
         src/models/familia.cpp
         src/models/genero.cpp
         src/models/especie.cpp
+        src/models/reino.cpp
         src/repository/postgres_familia_repository.cpp
         src/repository/postgres_genero_repository.cpp
         src/repository/postgresql_especie_repository.cpp
@@ -99,6 +100,7 @@ set(REQUIRED_HEADERS
         include/models/especie.hpp
         include/models/familia.hpp
         include/models/genero.hpp
+        include/models/reino.hpp
         include/repository/postgres_familia_repository.hpp
         include/repository/postgres_genero_repository.hpp
         include/repository/postgresql_especie_repository.hpp
@@ -131,6 +133,7 @@ set(SOURCES
         src/models/familia.cpp
         src/models/genero.cpp
         src/models/especie.cpp
+        src/models/reino.cpp
         src/repository/postgres_familia_repository.cpp
         src/repository/postgres_genero_repository.cpp
         src/repository/postgresql_especie_repository.cpp

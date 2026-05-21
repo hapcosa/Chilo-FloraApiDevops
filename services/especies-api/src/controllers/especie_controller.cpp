@@ -21,7 +21,15 @@ void EspecieController::validarEspecie(const Especie& especie) {
 void EspecieController::getAll(const Pistache::Rest::Request& request,
                                Pistache::Http::ResponseWriter response) {
   try {
-    auto especies = service->getAllEspecies();
+    auto query = request.query();
+    std::vector<Especie> especies;
+    if (query.has("reino")) {
+      especies = service->getEspeciesByReino(
+          reinoFromString(query.get("reino").value()));
+    } else {
+      especies = service->getAllEspecies();
+    }
+
     json especiesArray = json::array();
     for (const auto& especie : especies) {
       especiesArray.push_back(especie.toJson());
@@ -35,6 +43,11 @@ void EspecieController::getAll(const Pistache::Rest::Request& request,
         MIME(Application, Json));
     response.send(Pistache::Http::Code::Ok, jsonResponse.dump());
 
+  } catch (const std::invalid_argument& e) {
+    json error = {{"error", e.what()}};
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Bad_Request, error.dump());
   } catch (const std::exception& e) {
     json errorResponse = {
         {"success", false}, {"data", json::array()}, {"message", e.what()}};

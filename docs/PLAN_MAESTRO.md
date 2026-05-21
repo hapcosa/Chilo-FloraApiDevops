@@ -425,9 +425,9 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 - [x] Renombrar `flora-api` → `especies-api` (PR aparte). ✅
 - [x] Sistema de migraciones SQL planas + `scripts/migrate.sh` con tracking en `schema_migrations`; eliminar `CREATE TABLE` embebidos en C++; integrar en CI y compose. (PR aparte) ✅
 - [x] Migración SQL multi-reino (`0002_multi_reino.sql`): `reino_enum`, expandir `especies` con `atributos_especificos JSONB`, foto_portada_key, fotos_keys, autor_cientifico, distribucion_chiloe → distribucion_chiloe, fuentes, geo_lat/lng, creado_por, revisado_por, fecha_revision, timestamps + trigger updated_at; familias `UNIQUE(reino, nombre)`; generos `UNIQUE(familia_id, nombre)`; índices GIN sobre atributos y pg_trgm sobre nombre_comun. ✅
-- [ ] Refactor de modelos C++ para soportar JSONB.
+- [x] Refactor C++ multi-reino: type `Reino` con helpers, modelos `Especie`/`Familia`/`Genero` con los nuevos campos, repositorios usando las nuevas columnas, services con `getByReino` y `findByNombre(reino, …)`/`findByNombre(familia_id, …)`, controllers que aceptan filtro `?reino=X`. La validación de `atributos_especificos` por reino aún es opaca (siguiente PR). ✅
 - [ ] JSON Schemas por reino en `services/especies-api/config/schemas/`.
-- [ ] Endpoints `/api/v1/especies?reino=animalia&...` con filtros.
+- [ ] Endpoints `/api/v1/especies?reino=animalia&...` con filtros más finos (q, genero_id, conservacion, etc.).
 - [ ] Tests gtest sobre cada reino.
 - [ ] Cleanup: eliminar `postgres_user_repository.cpp` muerto (PR aparte).
 

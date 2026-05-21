@@ -1,58 +1,60 @@
-// familia.hpp
 #ifndef FAMILIA_HPP
 #define FAMILIA_HPP
 
+#include <optional>
 #include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
 
-class Familia
-{
+#include "reino.hpp"
+
+// Modelo de familia post Fase 1. Espejo de la tabla `familias` tras
+// la migración 0002_multi_reino.sql: añade el reino al que pertenece
+// y un timestamp de creación.
+class Familia {
 private:
     int id;
+    Reino reino;
     std::string nombre;
     std::string descripcion;
+    std::optional<std::string> created_at;  // ISO 8601, llenado por la BD
+
+    // Legacy: tabla familia_imagenes. Intacto en este PR; se rediseña
+    // cuando exista object storage (Fase 2).
     std::string imagen_principal;
     std::vector<std::string> imagenes_urls;
 
 public:
-    // Constructores
-    Familia() = default;
-    Familia(std::string nombre, std::string descripcion)
-            : nombre(std::move(nombre)), descripcion(std::move(descripcion)) {}
-    Familia(int id, std::string nombre, std::string descripcion)
-            : id(id), nombre(nombre), descripcion(descripcion) {}
-    Familia(int id, const std::string& nombre, const std::string& descripcion, const std::vector<std::string>& imagenes)
-            : id(id), nombre(nombre), descripcion(descripcion),imagenes_urls(imagenes) {}
+    Familia();
 
     // Getters
-    int getId() const { return id; }
-    const std::string &getNombre() const { return nombre; }
-    const std::string &getDescripcion() const { return descripcion; }
+    int                                getId()              const { return id; }
+    Reino                              getReino()           const { return reino; }
+    const std::string&                 getNombre()          const { return nombre; }
+    const std::string&                 getDescripcion()     const { return descripcion; }
+    const std::optional<std::string>&  getCreatedAt()       const { return created_at; }
 
-    // Métodos para manejar imágenes
+    // Setters
+    void setId(int v)                              { id = v; }
+    void setReino(Reino v)                         { reino = v; }
+    void setNombre(const std::string& v)           { nombre = v; }
+    void setDescripcion(const std::string& v)      { descripcion = v; }
+    void setCreatedAt(std::optional<std::string> v){ created_at = std::move(v); }
+
+    // Legacy: imágenes por URL.
     std::vector<std::string> getImagenesUrls() const;
     void setImagenesUrls(const std::vector<std::string>& imagenes_urls);
     void addImagenUrl(const std::string& imagen_url);
     void removeImagenUrl(const std::string& imagen_url);
     std::string getImagenPrincipal() const;
     void setImagenPrincipal(const std::string& imagen_url);
+    std::string getImagenUrl() const;
+    void setImagenUrl(const std::string& imagen_url);
 
-    // Métodos de compatibilidad con imagen única
-    std::string getImagenUrl() const;  // Para compatibilidad
-    void setImagenUrl(const std::string& imagen_url);  // Para compatibilidad
-
-    // Setters
-    void setId(int newId) { id = newId; }
-    void setNombre(const std::string &newNombre) { nombre = newNombre; }
-    void setDescripcion(const std::string &newDescripcion) { descripcion = newDescripcion; }
-
-    // Validación
     bool esValida() const;
 
-    // Serialización a JSON
     nlohmann::json toJson() const;
-    static Familia fromJson(const nlohmann::json &j);
-
+    static Familia fromJson(const nlohmann::json& j);
 };
-#endif // FAMILIA_HPPILIA_HPP
+
+#endif // FAMILIA_HPP

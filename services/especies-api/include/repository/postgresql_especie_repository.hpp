@@ -19,6 +19,7 @@ public:
 
     // Implementación de los métodos de la interfaz
     std::vector<Especie> getAll() override;
+    std::vector<Especie> getByReino(Reino reino) override;
     std::optional<Especie> findById(int id) override;
     std::optional<Especie> getByNombreCientifico(const std::string& nombre) override;
     std::vector<Especie> getByGenero(const std::string& genero) override;

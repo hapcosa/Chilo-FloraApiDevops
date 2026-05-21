@@ -22,7 +22,7 @@ public:
     // CRUD operations
     std::vector<Genero> getAll() override;
     std::optional<Genero> findById(int id) override;
-    std::optional<Genero> findByNombre(const std::string& nombre) override;  // Added missing method
+    std::optional<Genero> findByNombre(int familia_id, const std::string& nombre) override;
     std::vector<Genero> getByFamilia(const std::string& familia) override;
     Genero create(const Genero &genero) override;
     Genero update(const Genero &genero) override;  // Changed return type to Genero

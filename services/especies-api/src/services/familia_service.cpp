@@ -12,15 +12,17 @@ FamiliaService::FamiliaService(std::shared_ptr<IFamiliaRepository> repo)
 void FamiliaService::validateFamilia(const Familia& familia) {
     if (familia.getNombre().empty()) {
         throw std::invalid_argument("El nombre de la familia no puede estar vacío");
-    }if(familia.getDescripcion().empty()){
-        throw  std::invalid_argument("La descripcion no puede estar vacía");
     }
-    // Puedes añadir más validaciones según tus requisitos
+    // descripción es opcional desde Fase 1.
 }
 
 // Métodos de consulta
 std::vector<Familia> FamiliaService::getAllFamilias() {
     return repository->getAll();
+}
+
+std::vector<Familia> FamiliaService::getFamiliasByReino(Reino reino) {
+    return repository->getByReino(reino);
 }
 
 std::optional<Familia> FamiliaService::findFamiliaById(int id) {
@@ -30,22 +32,23 @@ std::optional<Familia> FamiliaService::findFamiliaById(int id) {
     return repository->findById(id);
 }
 
-std::optional<Familia> FamiliaService::findByNombre(const std::string& nombre) {
+std::optional<Familia> FamiliaService::findByNombre(Reino reino,
+                                                    const std::string& nombre) {
     if (nombre.empty()) {
         throw std::invalid_argument("El nombre no puede estar vacío");
     }
-    return repository->findByNombre(nombre);
+    return repository->findByNombre(reino, nombre);
 }
 
 // Métodos CRUD
 Familia FamiliaService::createFamilia(const Familia& familia) {
     validateFamilia(familia);
 
-    // Verificar que no exista una familia con el mismo nombre
-    if (repository->findByNombre(familia.getNombre())) {
-        throw std::runtime_error("Ya existe una familia con ese nombre");
+    // Unicidad por (reino, nombre).
+    if (repository->findByNombre(familia.getReino(), familia.getNombre())) {
+        throw std::runtime_error(
+            "Ya existe una familia con ese nombre en el reino indicado");
     }
-
     return repository->create(familia);
 }
 
@@ -60,12 +63,11 @@ Familia FamiliaService::updateFamilia(const Familia& familia) {
 
     validateFamilia(familia);
 
-    // Verificar que no exista otra familia con el mismo nombre
-    auto existing = repository->findByNombre(familia.getNombre());
+    auto existing = repository->findByNombre(familia.getReino(), familia.getNombre());
     if (existing && existing->getId() != familia.getId()) {
-        throw std::runtime_error("Ya existe otra familia con ese nombre");
+        throw std::runtime_error(
+            "Ya existe otra familia con ese (reino, nombre)");
     }
-
     return repository->update(familia);
 }
 

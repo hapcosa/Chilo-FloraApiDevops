@@ -22,7 +22,15 @@ void FamiliaController::validarFamilia(const Familia& familia) {
 void FamiliaController::getAll(const Pistache::Rest::Request& request,
                                Pistache::Http::ResponseWriter response) {
   try {
-    auto familias = service->getAllFamilias();
+    auto query = request.query();
+    std::vector<Familia> familias;
+    if (query.has("reino")) {
+      const std::string reinoStr = query.get("reino").value();
+      familias = service->getFamiliasByReino(reinoFromString(reinoStr));
+    } else {
+      familias = service->getAllFamilias();
+    }
+
     json familiasArray = json::array();
     for (const auto& familia : familias) {
       familiasArray.push_back(familia.toJson());
@@ -36,6 +44,11 @@ void FamiliaController::getAll(const Pistache::Rest::Request& request,
         MIME(Application, Json));
     response.send(Pistache::Http::Code::Ok, jsonResponse.dump());
 
+  } catch (const std::invalid_argument& e) {
+    json error = {{"error", e.what()}};
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Bad_Request, error.dump());
   } catch (const std::exception& e) {
     json errorResponse = {
         {"success", false}, {"data", json::array()}, {"message", e.what()}};
@@ -261,8 +274,11 @@ void FamiliaController::searchByNombre(
     Pistache::Http::ResponseWriter response) {
   try {
     auto query = request.query();
-    if (!query.has("nombre")) {
-      json error = {{"error", "El parámetro 'nombre' es obligatorio"}};
+    if (!query.has("nombre") || !query.has("reino")) {
+      json error = {
+          {"error",
+           "Los parámetros 'reino' y 'nombre' son obligatorios (clave única "
+           "tras la migración multi-reino)"}};
       response.headers().add<Pistache::Http::Header::ContentType>(
           MIME(Application, Json));
       response.send(Pistache::Http::Code::Bad_Request, error.dump());
@@ -270,15 +286,17 @@ void FamiliaController::searchByNombre(
     }
 
     std::string nombre = query.get("nombre").value();
-    if (nombre.empty()) {
-      json error = {{"error", "El parámetro 'nombre' no puede estar vacío"}};
+    std::string reinoStr = query.get("reino").value();
+    if (nombre.empty() || reinoStr.empty()) {
+      json error = {
+          {"error", "'reino' y 'nombre' no pueden estar vacíos"}};
       response.headers().add<Pistache::Http::Header::ContentType>(
           MIME(Application, Json));
       response.send(Pistache::Http::Code::Bad_Request, error.dump());
       return;
     }
 
-    auto familia = service->findByNombre(nombre);
+    auto familia = service->findByNombre(reinoFromString(reinoStr), nombre);
 
     if (!familia) {
       json error = {{"error", "Familia no encontrada"}};

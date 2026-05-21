@@ -1,22 +1,20 @@
 #include "../../include/services/genero_service.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+
 GeneroService::GeneroService(std::shared_ptr<IGeneroRepository> repo)
     : repository(repo) {}
 
 void GeneroService::validateGenero(const Genero& genero) {
   if (genero.getNombre().empty()) {
-    throw std::invalid_argument("El nombre del genero no puede estar vacío");
+    throw std::invalid_argument("El nombre del género no puede estar vacío");
   }
-  if (genero.getDescripcion().empty()) {
-    throw std::invalid_argument("La descripcion no puede estar vacía");
-  }
-  if (genero.getId() < 0) {
-    throw std::invalid_argument(
-        "La id de familia debe ser un entero mayor a 0");
+  if (genero.getFamiliaId() <= 0) {
+    throw std::invalid_argument("'familia_id' debe ser un entero > 0");
   }
 }
 
@@ -30,23 +28,30 @@ std::optional<Genero> GeneroService::getGeneroById(int id) {
   }
   return repository->findById(id);
 }
-std::optional<Genero> GeneroService::findByNombre(const std::string& nombre) {
-  if (nombre.empty()) {
-    throw std::invalid_argument("nombre no puede estar vacio");
+
+std::optional<Genero> GeneroService::findByNombre(int familia_id,
+                                                   const std::string& nombre) {
+  if (familia_id <= 0) {
+    throw std::invalid_argument("'familia_id' debe ser > 0");
   }
-  return repository->findByNombre(nombre);
+  if (nombre.empty()) {
+    throw std::invalid_argument("nombre no puede estar vacío");
+  }
+  return repository->findByNombre(familia_id, nombre);
 }
+
 std::vector<Genero> GeneroService::searchByFamilia(const std::string& familia) {
   if (familia.empty()) {
-    throw std::invalid_argument("nombre de familia no puede estar vacio");
+    throw std::invalid_argument("nombre de familia no puede estar vacío");
   }
   return repository->getByFamilia(familia);
 }
 
 Genero GeneroService::createGenero(const Genero& genero) {
   validateGenero(genero);
-  if (repository->findByNombre(genero.getNombre())) {
-    throw std::invalid_argument("ya existe un genero con este nombre");
+  if (repository->findByNombre(genero.getFamiliaId(), genero.getNombre())) {
+    throw std::invalid_argument(
+        "Ya existe un género con ese nombre en la misma familia");
   }
   return repository->create(genero);
 }
@@ -57,12 +62,14 @@ Genero GeneroService::updateGenero(const Genero& genero) {
   }
 
   if (!repository->findById(genero.getId())) {
-    throw std::runtime_error("Genero no encontrado");
+    throw std::runtime_error("Género no encontrado");
   }
   validateGenero(genero);
-  auto existing = repository->findByNombre(genero.getNombre());
+  auto existing = repository->findByNombre(genero.getFamiliaId(),
+                                            genero.getNombre());
   if (existing && existing->getId() != genero.getId()) {
-    throw std::invalid_argument("ya existe un genero con este nombre");
+    throw std::invalid_argument(
+        "Ya existe otro género con ese nombre en la misma familia");
   }
   return repository->update(genero);
 }

@@ -24,6 +24,10 @@ std::vector<Especie> EspecieService::getAllEspecies() {
     return repository->getAll();
 }
 
+std::vector<Especie> EspecieService::getEspeciesByReino(Reino reino) {
+    return repository->getByReino(reino);
+}
+
 std::optional<Especie> EspecieService::getEspecieById(int id) {
     if (id <= 0) {
         throw std::invalid_argument("ID debe ser mayor que 0");
