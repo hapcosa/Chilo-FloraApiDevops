@@ -13,7 +13,9 @@ public:
     // Métodos CRUD
     virtual std::vector<Genero> getAll() = 0;
     virtual std::optional<Genero> findById(int id) = 0;
-    virtual std::optional<Genero> findByNombre(const std::string& nombre) = 0;
+    // findByNombre toma familia_id porque (familia_id, nombre) es la clave única
+    // tras la migración 0002_multi_reino.
+    virtual std::optional<Genero> findByNombre(int familia_id, const std::string& nombre) = 0;
     virtual std::vector<Genero> getByFamilia(const std::string& familia) = 0;
     virtual Genero create(const Genero& genero) = 0;
     virtual Genero update(const Genero& genero) = 0;

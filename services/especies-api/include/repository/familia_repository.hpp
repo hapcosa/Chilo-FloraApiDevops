@@ -12,8 +12,10 @@ public:
     
     // Métodos CRUD
     virtual std::vector<Familia> getAll() = 0;
+    virtual std::vector<Familia> getByReino(Reino reino) = 0;
     virtual std::optional<Familia> findById(int id) = 0;
-    virtual std::optional<Familia> findByNombre(const std::string& nombre) = 0;
+    // findByNombre incluye reino porque (reino, nombre) es la clave única.
+    virtual std::optional<Familia> findByNombre(Reino reino, const std::string& nombre) = 0;
     virtual Familia create(const Familia& Familia) = 0;
     virtual Familia update(const Familia& Familia) = 0;
     virtual bool remove(int id) = 0;

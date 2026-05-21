@@ -12,6 +12,7 @@ public:
     
     // Métodos CRUD
     virtual std::vector<Especie> getAll() = 0;
+    virtual std::vector<Especie> getByReino(Reino reino) = 0;
     virtual std::optional<Especie> findById(int id) = 0;
     virtual std::optional<Especie> getByNombreCientifico(const std::string& nombre) = 0;
     virtual std::vector<Especie> getByGenero(const std::string& Genero) = 0;

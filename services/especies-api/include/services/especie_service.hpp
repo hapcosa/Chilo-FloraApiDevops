@@ -20,6 +20,7 @@ public:
 
     // Métodos de consulta
     std::vector<Especie> getAllEspecies();
+    std::vector<Especie> getEspeciesByReino(Reino reino);
     std::optional<Especie> getEspecieById(int id);
     std::optional<Especie> searchByNombreCientifico(const std::string& nombre);
     std::vector<Especie> searchByGenero(const std::string& genero);

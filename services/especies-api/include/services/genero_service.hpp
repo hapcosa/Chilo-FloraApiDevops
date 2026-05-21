@@ -18,8 +18,9 @@ public:
     // Métodos de negocio
     std::vector<Genero> getAllGeneros();
     std::optional<Genero> getGeneroById(int id);
-    std::optional<Genero> findByNombre(const std::string &nombre);
-    std::vector<Genero> searchByFamilia(const std::string &familia);
+    // findByNombre toma familia_id porque (familia_id, nombre) es la clave única.
+    std::optional<Genero> findByNombre(int familia_id, const std::string& nombre);
+    std::vector<Genero> searchByFamilia(const std::string& familia);
     Genero createGenero(const Genero &Genero);
     Genero updateGenero(const Genero &Genero);
     bool deleteGenero(int id);

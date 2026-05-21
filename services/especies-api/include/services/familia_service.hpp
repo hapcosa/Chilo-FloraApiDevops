@@ -19,8 +19,10 @@ public:
 
     // Métodos de consulta
     std::vector<Familia> getAllFamilias();
+    std::vector<Familia> getFamiliasByReino(Reino reino);
     std::optional<Familia> findFamiliaById(int id);
-    std::optional<Familia> findByNombre(const std::string& nombre);
+    // findByNombre toma reino porque (reino, nombre) es la clave única.
+    std::optional<Familia> findByNombre(Reino reino, const std::string& nombre);
 
     // Métodos CRUD
     Familia createFamilia(const Familia& familia);
