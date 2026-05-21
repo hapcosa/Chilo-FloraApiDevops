@@ -423,11 +423,13 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 ### Fase 1 — Migración multi-reino backend (2–3 semanas)
 
 - [x] Renombrar `flora-api` → `especies-api` (PR aparte). ✅
-- [ ] Migración SQL: introducir `reino_enum`, expandir `especies` con `atributos_especificos`.
+- [x] Sistema de migraciones SQL planas + `scripts/migrate.sh` con tracking en `schema_migrations`; eliminar `CREATE TABLE` embebidos en C++; integrar en CI y compose. (PR aparte) ✅
+- [ ] Migración SQL multi-reino (`0002_multi_reino.sql`): `reino_enum`, expandir `especies` con `atributos_especificos JSONB`, foto_portada_key, fotos_keys, autor_cientifico, distribucion_chiloe, fuentes, geo_lat/lng, creado_por, timestamps.
 - [ ] Refactor de modelos C++ para soportar JSONB.
 - [ ] JSON Schemas por reino en `services/especies-api/config/schemas/`.
 - [ ] Endpoints `/api/v1/especies?reino=animalia&...` con filtros.
 - [ ] Tests gtest sobre cada reino.
+- [ ] Cleanup: eliminar `postgres_user_repository.cpp` muerto (PR aparte).
 
 ### Fase 2 — Storage de fotos (1–2 semanas)
 

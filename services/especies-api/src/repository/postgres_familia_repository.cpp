@@ -5,46 +5,7 @@
 
 PostgresFamiliaRepository::PostgresFamiliaRepository(
     std::shared_ptr<Database> database)
-    : database(database) {
-  initDatabase();
-}
-
-void PostgresFamiliaRepository::initDatabase() {
-  try {
-    auto conn = database->createConnection();
-    pqxx::work txn(*conn);
-
-    // Ejecutar cada statement por separado para evitar errores de sintaxis
-    std::string createFamilias = R"(
-        CREATE TABLE IF NOT EXISTS familias (
-            id SERIAL PRIMARY KEY,
-            nombre VARCHAR(100) NOT NULL UNIQUE,
-            descripcion TEXT
-        )
-    )";
-
-    std::string createFamiliaImagenes = R"(
-        CREATE TABLE IF NOT EXISTS familia_imagenes (
-            id SERIAL PRIMARY KEY,
-            familia_id INTEGER REFERENCES familias(id) ON DELETE CASCADE,
-            url VARCHAR(255) NOT NULL,
-            es_principal BOOLEAN DEFAULT FALSE,
-            UNIQUE(familia_id, url)
-        )
-    )";
-
-    txn.exec(createFamilias);
-    txn.exec(createFamiliaImagenes);
-    txn.commit();
-
-    std::cout << "Base de datos inicializada correctamente para familias"
-              << std::endl;
-  } catch (const std::exception& e) {
-    std::cerr << "Error al inicializar la base de datos: " << e.what()
-              << std::endl;
-    throw;
-  }
-}
+    : database(database) {}
 
 Familia PostgresFamiliaRepository::mapRowToFamilia(const pqxx::row& row) {
   Familia familia(row["id"].as<int>(), row["nombre"].as<std::string>(),

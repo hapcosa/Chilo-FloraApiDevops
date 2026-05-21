@@ -37,6 +37,31 @@ services:
       retries: 3
 
   # Flora API (C++) - Tu servicio principal - CONFIGURACIÓN CORREGIDA
+  # Runner de migraciones SQL: aplica services/especies-api/migrations/*.sql
+  # contra Postgres antes de que arranque especies-api. Termina con exit 0
+  # cuando termina; especies-api lo espera con service_completed_successfully.
+  especies-api-migrate:
+    # Imagen Debian (no alpine) para tener bash disponible para migrate.sh.
+    image: postgres:15
+    container_name: chiloe-especies-api-migrate-dev
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME_DEV:-chiloe_flora_dev}
+      - DB_USER=${DB_USER_DEV:-dev_user}
+      - DB_PASSWORD=${DB_PASSWORD_DEV:-dev_password}
+    volumes:
+      # Mismo layout que en el repo: scripts/ junto a migrations/.
+      - ../../services/especies-api/scripts:/app/scripts:ro
+      - ../../services/especies-api/migrations:/app/migrations:ro
+    entrypoint: ["/bin/bash", "/app/scripts/migrate.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - chiloe-dev-network
+    restart: "no"
+
   especies-api:
     build:
       context: ../../services/especies-api
@@ -73,6 +98,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      especies-api-migrate:
+        condition: service_completed_successfully
     networks:
       - chiloe-dev-network
     stdin_open: true

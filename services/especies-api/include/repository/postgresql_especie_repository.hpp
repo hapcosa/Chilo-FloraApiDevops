@@ -16,10 +16,7 @@ private:
 
 public:
     explicit PostgreSQLEspecieRepository(std::shared_ptr<Database> database);
-    
-    // Inicializa la base de datos (crea la tabla si no existe)
-    void initDatabase();
-    
+
     // Implementación de los métodos de la interfaz
     std::vector<Especie> getAll() override;
     std::optional<Especie> findById(int id) override;

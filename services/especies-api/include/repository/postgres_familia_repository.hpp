@@ -16,7 +16,6 @@ private:
 
 public:
     explicit PostgresFamiliaRepository(std::shared_ptr<Database> database);
-    void initDatabase();
     std::vector<Familia> getAll() override;
     std::optional<Familia> findById(int id) override;
     std::optional<Familia> findByNombre(const std::string& nombre) override;
