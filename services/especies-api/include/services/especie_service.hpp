@@ -6,6 +6,7 @@
 #include <optional>
 #include <memory>
 #include "../models/especie.hpp"
+#include "../repository/especie_filters.hpp"
 #include "../repository/especie_repository.hpp"
 #include "../utils/atributos_schema_validator.hpp"
 
@@ -21,12 +22,11 @@ public:
     EspecieService(std::shared_ptr<IEspecieRepository> repo,
                    std::shared_ptr<AtributosSchemaValidator> validator);
 
-    // Métodos de consulta
-    std::vector<Especie> getAllEspecies();
-    std::vector<Especie> getEspeciesByReino(Reino reino);
+    // Búsqueda unificada con filtros + paginación.
+    EspecieSearchResult searchEspecies(const EspecieFilters& filters);
+
     std::optional<Especie> getEspecieById(int id);
     std::optional<Especie> searchByNombreCientifico(const std::string& nombre);
-    std::vector<Especie> searchByGenero(const std::string& genero);
 
     // Métodos CRUD
     Especie createEspecie(const Especie& especie);

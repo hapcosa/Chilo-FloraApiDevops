@@ -9,6 +9,39 @@
 #include <stdexcept>
 using json = nlohmann::json;
 
+namespace {
+
+// Parsea un query param entero opcional. Lanza std::invalid_argument si
+// el valor no es numérico. Devuelve std::nullopt si el param no viene.
+std::optional<int> queryInt(const Pistache::Http::Uri::Query& q,
+                             const std::string& key) {
+    if (!q.has(key)) return std::nullopt;
+    const auto raw = q.get(key).value();
+    try {
+        return std::stoi(raw);
+    } catch (...) {
+        throw std::invalid_argument("Parámetro '" + key + "' debe ser un entero");
+    }
+}
+
+std::optional<bool> queryBool(const Pistache::Http::Uri::Query& q,
+                               const std::string& key) {
+    if (!q.has(key)) return std::nullopt;
+    const auto raw = q.get(key).value();
+    if (raw == "true" || raw == "1")  return true;
+    if (raw == "false" || raw == "0") return false;
+    throw std::invalid_argument(
+        "Parámetro '" + key + "' debe ser 'true' o 'false'");
+}
+
+std::optional<std::string> queryStr(const Pistache::Http::Uri::Query& q,
+                                     const std::string& key) {
+    if (!q.has(key)) return std::nullopt;
+    return q.get(key).value();
+}
+
+}  // namespace
+
 EspecieController::EspecieController(std::shared_ptr<EspecieService> svc)
     : service(svc) {}
 
@@ -21,23 +54,34 @@ void EspecieController::validarEspecie(const Especie& especie) {
 void EspecieController::getAll(const Pistache::Rest::Request& request,
                                Pistache::Http::ResponseWriter response) {
   try {
-    auto query = request.query();
-    std::vector<Especie> especies;
-    if (query.has("reino")) {
-      especies = service->getEspeciesByReino(
-          reinoFromString(query.get("reino").value()));
-    } else {
-      especies = service->getAllEspecies();
-    }
+    const auto query = request.query();
+
+    EspecieFilters filters;
+    if (auto v = queryStr(query, "reino"))         filters.reino = reinoFromString(*v);
+    if (auto v = queryInt(query, "genero_id"))     filters.genero_id = *v;
+    if (auto v = queryInt(query, "familia_id"))    filters.familia_id = *v;
+    if (auto v = queryStr(query, "conservacion"))  filters.conservacion = *v;
+    if (auto v = queryBool(query, "endemica"))     filters.endemica = *v;
+    if (auto v = queryStr(query, "q"))             filters.q = *v;
+    if (auto v = queryInt(query, "limit"))         filters.limit = *v;
+    if (auto v = queryInt(query, "offset"))        filters.offset = *v;
+    if (auto v = queryStr(query, "orderby"))       filters.orderby = *v;
+    if (auto v = queryStr(query, "orderdir"))      filters.orderdir = *v;
+
+    auto result = service->searchEspecies(filters);
 
     json especiesArray = json::array();
-    for (const auto& especie : especies) {
+    for (const auto& especie : result.data) {
       especiesArray.push_back(especie.toJson());
     }
 
-    json jsonResponse = {{"success", true},
-                         {"data", especiesArray},
-                         {"message", "Especies obtenidas exitosamente"}};
+    json jsonResponse = {
+        {"success", true},
+        {"data", especiesArray},
+        {"pagination", {{"limit", filters.limit},
+                        {"offset", filters.offset},
+                        {"total", result.total}}},
+        {"message", "Especies obtenidas exitosamente"}};
 
     response.headers().add<Pistache::Http::Header::ContentType>(
         MIME(Application, Json));
@@ -99,37 +143,7 @@ void EspecieController::getById(const Pistache::Rest::Request& request,
     response.send(Pistache::Http::Code::Internal_Server_Error, error.dump());
   }
 }
-void EspecieController::searchByGenero(
-    const Pistache::Rest::Request& request,
-    Pistache::Http::ResponseWriter response) {
-  try {
-    auto id_str = request.param(":nombre").as<std::string>();
-    std::string nombre;
-    nombre = id_str;
-    auto especies = service->searchByGenero(nombre);
-    json especiesArray = json::array();
-    for (const auto& especie : especies) {
-      especiesArray.push_back(especie.toJson());
-    }
-
-    json jsonResponse = {{"success", true},
-                         {"data", especiesArray},
-                         {"message", "Especies obtenidas exitosamente"}};
-
-    response.headers().add<Pistache::Http::Header::ContentType>(
-        MIME(Application, Json));
-    response.send(Pistache::Http::Code::Ok, jsonResponse.dump());
-
-  } catch (const std::exception& e) {
-    json errorResponse = {
-        {"success", false}, {"data", json::array()}, {"message", e.what()}};
-
-    response.headers().add<Pistache::Http::Header::ContentType>(
-        MIME(Application, Json));
-    response.send(Pistache::Http::Code::Internal_Server_Error,
-                  errorResponse.dump());
-  }
-}
+// searchByGenero eliminado: usar GET /api/especies?genero_id=N (Fase 1 paso 6).
 
 void EspecieController::create(const Pistache::Rest::Request& request,
                                Pistache::Http::ResponseWriter response) {

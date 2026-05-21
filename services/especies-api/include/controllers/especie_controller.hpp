@@ -21,7 +21,7 @@ public:
     void getAll(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void getById(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void searchByNombreCientifico(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
-    void searchByGenero(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
+    // searchByGenero eliminado: usar GET /api/especies?genero_id=N
     void create(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void update(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void remove(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
@@ -41,7 +41,6 @@ public:
         Routes::Delete(router, "/api/especies/:id", Routes::bind(&EspecieController::remove, controller));
         Routes::Post(router, "/api/especies/:id/images", Routes::bind(&EspecieController::uploadImagen, controller));
         Routes::Get(router, "/api/especies/search/nombre", Routes::bind(&EspecieController::searchByNombreCientifico, controller));
-        Routes::Get(router, "/api/especies/search/genero", Routes::bind(&EspecieController::searchByGenero, controller));
         Routes::Post(router, "/api/especies/:id/images/:principal", Routes::bind(&EspecieController::uploadImagen, controller));
         Routes::Put(router, "/api/especies/:id/images/:url", Routes::bind(&EspecieController::setImagenPrincipal, controller));
         Routes::Get(router, "/api/especies/:id/images", Routes::bind(&EspecieController::getImagenesByEspecie, controller));

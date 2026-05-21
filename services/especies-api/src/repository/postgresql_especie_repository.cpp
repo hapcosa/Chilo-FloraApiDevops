@@ -83,46 +83,117 @@ Especie PostgreSQLEspecieRepository::mapRowToEspecie(const pqxx::row& row) {
     return e;
 }
 
-std::vector<Especie> PostgreSQLEspecieRepository::getAll() {
-    try {
-        auto conn = database->createConnection();
-        pqxx::work txn(*conn);
+namespace {
 
-        pqxx::result result = txn.exec(
-            std::string("SELECT ") + kSelectCols
-            + " FROM especies ORDER BY nombre_cientifico");
-
-        std::vector<Especie> especies;
-        especies.reserve(result.size());
-        for (const auto& row : result) {
-            especies.push_back(mapRowToEspecie(row));
-        }
-        return especies;
-    } catch (const std::exception& e) {
-        std::cerr << "Error al obtener todas las especies: " << e.what() << std::endl;
-        throw;
-    }
+// Whitelist de columnas permitidas en ORDER BY. Cualquier otro valor
+// hace fallar la búsqueda con std::invalid_argument antes de ejecutar
+// SQL (evita inyección por concatenación).
+bool isValidOrderBy(const std::string& col) {
+    return col == "nombre_cientifico" || col == "nombre_comun"
+        || col == "created_at" || col == "updated_at";
 }
 
-std::vector<Especie> PostgreSQLEspecieRepository::getByReino(Reino reino) {
+bool isValidOrderDir(const std::string& dir) {
+    return dir == "asc" || dir == "desc";
+}
+
+}  // namespace
+
+EspecieSearchResult PostgreSQLEspecieRepository::find(
+    const EspecieFilters& filters) {
+    if (!isValidOrderBy(filters.orderby)) {
+        throw std::invalid_argument(
+            "orderby inválido: " + filters.orderby
+            + " (permitidos: nombre_cientifico, nombre_comun, created_at, updated_at)");
+    }
+    if (!isValidOrderDir(filters.orderdir)) {
+        throw std::invalid_argument(
+            "orderdir inválido: " + filters.orderdir + " (asc | desc)");
+    }
+    if (filters.limit < 1 || filters.limit > 200) {
+        throw std::invalid_argument("limit debe estar en [1, 200]");
+    }
+    if (filters.offset < 0) {
+        throw std::invalid_argument("offset debe ser >= 0");
+    }
+
     try {
         auto conn = database->createConnection();
         pqxx::work txn(*conn);
 
-        pqxx::result result = txn.exec_params(
-            std::string("SELECT ") + kSelectCols
-            + " FROM especies WHERE reino = $1::reino_enum"
-            + " ORDER BY nombre_cientifico",
-            reinoToString(reino));
+        // Construimos el WHERE inline usando txn.quote() para escapar cada
+        // valor. pqxx::params + placeholders dinámicos no tiene soporte
+        // directo en libpqxx 7.8 para queries no preparadas; quote() es
+        // el camino seguro y compatible.
+        std::string where = " WHERE 1=1";
+        std::string joins;
 
-        std::vector<Especie> especies;
-        especies.reserve(result.size());
-        for (const auto& row : result) {
-            especies.push_back(mapRowToEspecie(row));
+        if (filters.reino) {
+            where += " AND e.reino = " + txn.quote(reinoToString(*filters.reino))
+                   + "::reino_enum";
         }
-        return especies;
+        if (filters.genero_id) {
+            where += " AND e.genero_id = " + txn.quote(*filters.genero_id);
+        }
+        if (filters.familia_id) {
+            joins += " JOIN generos g ON e.genero_id = g.id";
+            where += " AND g.familia_id = " + txn.quote(*filters.familia_id);
+        }
+        if (filters.conservacion) {
+            where += " AND e.estado_conservacion = "
+                   + txn.quote(*filters.conservacion);
+        }
+        if (filters.endemica) {
+            where += std::string(" AND e.endemica = ")
+                   + (*filters.endemica ? "true" : "false");
+        }
+        if (filters.q) {
+            // ILIKE en nombre_comun y nombre_cientifico. El índice GIN
+            // pg_trgm acelera este patrón.
+            const auto needle = txn.quote("%" + *filters.q + "%");
+            where += " AND (e.nombre_comun ILIKE " + needle
+                  + " OR e.nombre_cientifico ILIKE " + needle + ")";
+        }
+
+        // 1) Total (sin LIMIT/OFFSET).
+        const std::string countSql =
+            "SELECT COUNT(*) FROM especies e" + joins + where;
+        pqxx::result countRes = txn.exec(countSql);
+        const int total = countRes[0][0].as<int>();
+
+        // 2) Página actual.
+        const std::string orderClause =
+            " ORDER BY e." + filters.orderby + " " + filters.orderdir;
+        const std::string limitClause =
+            " LIMIT " + std::to_string(filters.limit)
+            + " OFFSET " + std::to_string(filters.offset);
+
+        std::string dataSql = "SELECT ";
+        // Reescribir kSelectCols con alias e.* (la JOIN puede haber añadido g.*).
+        dataSql +=
+            "e.id, e.reino, e.genero_id, e.nombre_cientifico, e.nombre_comun, "
+            "e.autor_cientifico, e.descripcion, e.habitat, e.distribucion_chiloe, "
+            "e.endemica, e.estado_conservacion, e.fuentes::text AS fuentes_text, "
+            "e.geo_lat, e.geo_lng, "
+            "e.atributos_especificos::text AS atributos_text, "
+            "e.foto_portada_key, e.fotos_keys::text AS fotos_keys_text, "
+            "e.creado_por, e.revisado_por, e.fecha_revision, "
+            "e.created_at, e.updated_at";
+        dataSql += " FROM especies e" + joins + where + orderClause + limitClause;
+
+        pqxx::result rows = txn.exec(dataSql);
+
+        EspecieSearchResult out;
+        out.total = total;
+        out.data.reserve(rows.size());
+        for (const auto& row : rows) {
+            out.data.push_back(mapRowToEspecie(row));
+        }
+        return out;
+    } catch (const std::invalid_argument&) {
+        throw;
     } catch (const std::exception& e) {
-        std::cerr << "Error al obtener especies por reino: " << e.what() << std::endl;
+        std::cerr << "Error en find(filters): " << e.what() << std::endl;
         throw;
     }
 }
@@ -160,30 +231,6 @@ std::optional<Especie> PostgreSQLEspecieRepository::getByNombreCientifico(
     } catch (const std::exception& e) {
         std::cerr << "Error al buscar especies por nombre científico: " << e.what()
                   << std::endl;
-        throw;
-    }
-}
-
-std::vector<Especie> PostgreSQLEspecieRepository::getByGenero(
-    const std::string& nombre) {
-    try {
-        auto conn = database->createConnection();
-        pqxx::work txn(*conn);
-
-        pqxx::result result = txn.exec_params(
-            std::string("SELECT ") + kSelectCols
-            + " FROM especies e JOIN generos g ON e.genero_id = g.id"
-            + " WHERE g.nombre = $1 ORDER BY nombre_cientifico",
-            nombre);
-
-        std::vector<Especie> especies;
-        especies.reserve(result.size());
-        for (const auto& row : result) {
-            especies.push_back(mapRowToEspecie(row));
-        }
-        return especies;
-    } catch (const std::exception& e) {
-        std::cerr << "Error al buscar especies por género: " << e.what() << std::endl;
         throw;
     }
 }
