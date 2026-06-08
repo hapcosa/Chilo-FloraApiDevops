@@ -1,7 +1,7 @@
 # Plan Maestro — Biodiversidad de Chiloé (Backend microservicios + APK Android)
 
 > Documento vivo. Cualquier cambio estructural se discute aquí antes de tocar código.
-> Última actualización: 2026-05-20.
+> Última actualización: 2026-06-08.
 
 ---
 
@@ -428,8 +428,8 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 - [x] Refactor C++ multi-reino: type `Reino` con helpers, modelos `Especie`/`Familia`/`Genero` con los nuevos campos, repositorios usando las nuevas columnas, services con `getByReino` y `findByNombre(reino, …)`/`findByNombre(familia_id, …)`, controllers que aceptan filtro `?reino=X`. La validación de `atributos_especificos` por reino aún es opaca (siguiente PR). ✅
 - [x] JSON Schemas por reino en `services/especies-api/config/schemas/` + `AtributosSchemaValidator` (nlohmann/json-schema-validator). Fungi exige `comestibilidad` por riesgo sanitario; Monera exige `dominio`. `additionalProperties: false` en todos. Validación funcional probada con 5 casos (válidos + 3 tipos de fallo). El job CI ahora hace `docker build` para garantizar paridad. ✅
 - [x] Endpoints `/api/v1/especies` con filtros + paginación: `?reino`, `?genero_id`, `?familia_id`, `?conservacion`, `?endemica`, `?q` (ILIKE en nombre_comun + nombre_cientifico, acelerado por índice GIN pg_trgm), `?limit` (max 200), `?offset`, `?orderby` (whitelist), `?orderdir`. Response incluye `pagination.total`. Endpoint legacy `/api/especies/search/genero` eliminado (lo cubre `?genero_id=`). ✅
-- [ ] Tests gtest sobre cada reino.
-- [ ] Cleanup: eliminar `postgres_user_repository.cpp` muerto (PR aparte).
+- [x] Tests gtest sobre cada reino: `services/especies-api/tests/` con target CMake opcional (`-DBUILD_TESTS=ON`), stage `tester` en el Dockerfile y paso en CI. Cubre `reino.cpp` (serialización/parseo) y `AtributosSchemaValidator` validando atributos_especificos por reino contra los JSON Schemas reales (casos válidos por reino, Fungi exige `comestibilidad`, Monera exige `dominio`, `additionalProperties:false`, enum/tipo/rango inválidos). ✅
+- [x] Cleanup: eliminado el cluster `user`/`auth` muerto de especies-api (13 archivos: `postgres_user_repository`, `user_repository`, `user_service`, `models/user`, `auth_middleware`, `tokenutils`, `password_utils`). Ninguno compilaba ni se incluía; auth vive en auth-service y el gateway valida el JWT (§5). ✅
 
 ### Fase 2 — Storage de fotos (1–2 semanas)
 

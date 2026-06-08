@@ -63,6 +63,13 @@ jobs:
         run: |
           docker build -t especies-api-ci services/especies-api
 
+      # Tests unitarios (gtest): reino + validación de atributos_especificos
+      # por reino contra los JSON Schemas reales. Reutiliza el stage
+      # `dependencies` cacheado del build anterior. Falla el job si falla ctest.
+      - name: Run unit tests (gtest)
+        run: |
+          docker build --target tester -t especies-api-test services/especies-api
+
       - name: Smoke test (load schemas, verify binary)
         run: |
           docker run --rm \
