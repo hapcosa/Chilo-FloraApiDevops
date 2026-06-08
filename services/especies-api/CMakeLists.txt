@@ -199,6 +199,14 @@ target_link_libraries(chiloe_especies_api
 # Instalar
 install(TARGETS chiloe_especies_api DESTINATION bin)
 
+# Tests unitarios (gtest). Off por defecto para no arrastrar GoogleTest en la
+# imagen de producción; el stage `test` del Dockerfile y el CI lo activan.
+option(BUILD_TESTS "Compilar tests unitarios con GoogleTest" OFF)
+if(BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 # Target para verificar estructura de proyecto
 add_custom_target(check-structure
         COMMAND echo "🔍 Verificando estructura del proyecto..."

@@ -95,6 +95,28 @@ RUN mkdir build && cd build && \
     cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release .. && \
     make -j$(nproc)
 
+# Etapa de tests (gtest). Reutiliza `dependencies` para compartir Pistache,
+# libpqxx y json-schema-validator. Se ejecuta en CI con:
+#   docker build --target tester -t especies-api-test services/especies-api
+# El build falla si algún test falla (ctest --output-on-failure).
+FROM dependencies AS tester
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgtest-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY CMakeLists.txt ./
+COPY src ./src/
+COPY include ./include/
+COPY config ./config/
+COPY tests ./tests/
+
+RUN mkdir build && cd build && \
+    cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON .. && \
+    make -j$(nproc) unit_tests && \
+    ctest --output-on-failure
+
 # Etapa final de runtime
 FROM ubuntu:${UBUNTU_VERSION} AS runtime
 
