@@ -8,15 +8,18 @@
 #include "../include/controllers/especie_controller.hpp"
 #include "../include/controllers/familia_controller.hpp"
 #include "../include/controllers/genero_controller.hpp"
+#include "../include/controllers/upload_controller.hpp"
 #include "../include/repository/postgres_familia_repository.hpp"
 #include "../include/repository/postgres_genero_repository.hpp"
 #include "../include/repository/postgresql_especie_repository.hpp"
 #include "../include/services/especie_service.hpp"
 #include "../include/services/familia_service.hpp"
 #include "../include/services/genero_service.hpp"
+#include "../include/services/upload_service.hpp"
 #include "../include/utils/atributos_schema_validator.hpp"
 #include "../include/utils/database.hpp"
 #include "../include/utils/config.hpp"
+#include "../include/utils/object_storage.hpp"
 
 int main(int argc, char** argv) {
   // Get port from environment or use default
@@ -67,16 +70,22 @@ int main(int argc, char** argv) {
       std::make_shared<AtributosSchemaValidator>(schemasDir);
   std::cout << "JSON Schemas cargados desde: " << schemasDir << std::endl;
 
+  auto objectStorage =
+      std::make_shared<ObjectStorageClient>(ObjectStorageConfig::fromEnvironment());
+
   // Initialize services
   auto familiaService = std::make_shared<FamiliaService>(familiaRepository);
   auto generoService = std::make_shared<GeneroService>(generoRepository);
   auto especieService =
-      std::make_shared<EspecieService>(especieRepository, schemaValidator);
+      std::make_shared<EspecieService>(especieRepository, schemaValidator,
+                                       objectStorage);
+  auto uploadService = std::make_shared<UploadService>(objectStorage);
 
   // Initialize controllers
   auto familiaController = std::make_shared<FamiliaController>(familiaService);
   auto generoController = std::make_shared<GeneroController>(generoService);
   auto especieController = std::make_shared<EspecieController>(especieService);
+  auto uploadController = std::make_shared<UploadController>(uploadService);
 
   // Setup router
   auto router = std::make_shared<Pistache::Rest::Router>();
@@ -94,6 +103,7 @@ int main(int argc, char** argv) {
   FamiliaController::setupRoutes(*router, familiaController);
   GeneroController::setupRoutes(*router, generoController);
   EspecieController::setupRoutes(*router, especieController);
+  UploadController::setupRoutes(*router, uploadController);
 
   // Configure server - MEJORADO para red local
   Pistache::Http::Endpoint server(addr);

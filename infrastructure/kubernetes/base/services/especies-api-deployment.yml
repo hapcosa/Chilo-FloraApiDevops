@@ -68,6 +68,46 @@ spec:
                 configMapKeyRef:
                   name: flora-config
                   key: AUTH_SERVICE_URL
+            - name: OBJECT_STORAGE_ENDPOINT_INTERNAL
+              valueFrom:
+                configMapKeyRef:
+                  name: flora-config
+                  key: OBJECT_STORAGE_ENDPOINT_INTERNAL
+            - name: OBJECT_STORAGE_ENDPOINT_PUBLIC
+              valueFrom:
+                configMapKeyRef:
+                  name: flora-config
+                  key: OBJECT_STORAGE_ENDPOINT_PUBLIC
+            - name: OBJECT_STORAGE_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: flora-config
+                  key: OBJECT_STORAGE_REGION
+            - name: OBJECT_STORAGE_ESPECIES_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: flora-config
+                  key: OBJECT_STORAGE_ESPECIES_BUCKET
+            - name: OBJECT_STORAGE_AVISTAMIENTOS_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: flora-config
+                  key: OBJECT_STORAGE_AVISTAMIENTOS_BUCKET
+            - name: OBJECT_STORAGE_PRESIGN_EXPIRES_SECONDS
+              valueFrom:
+                configMapKeyRef:
+                  name: flora-config
+                  key: OBJECT_STORAGE_PRESIGN_EXPIRES_SECONDS
+            - name: OBJECT_STORAGE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: flora-secrets
+                  key: OBJECT_STORAGE_ACCESS_KEY
+            - name: OBJECT_STORAGE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: flora-secrets
+                  key: OBJECT_STORAGE_SECRET_KEY
             - name: LOG_LEVEL
               valueFrom:
                 configMapKeyRef:

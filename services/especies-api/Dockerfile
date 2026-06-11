@@ -127,6 +127,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-system1.74.0 \
     libboost-thread1.74.0 \
     libcurl4 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar bibliotecas compiladas y schemas

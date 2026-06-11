@@ -22,6 +22,7 @@ endif()
 find_package(PkgConfig REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
+find_package(CURL REQUIRED)
 
 # Configuración mejorada para Pistache
 pkg_check_modules(Pistache REQUIRED libpistache)
@@ -69,6 +70,7 @@ set(REQUIRED_SOURCES
         src/controllers/familia_controller.cpp
         src/controllers/genero_controller.cpp
         src/controllers/especie_controller.cpp
+        src/controllers/upload_controller.cpp
         src/models/familia.cpp
         src/models/genero.cpp
         src/models/especie.cpp
@@ -79,8 +81,10 @@ set(REQUIRED_SOURCES
         src/services/familia_service.cpp
         src/services/genero_service.cpp
         src/services/especie_service.cpp
+        src/services/upload_service.cpp
         src/utils/config.cpp
         src/utils/atributos_schema_validator.cpp
+        src/utils/object_storage.cpp
         src/models/imagen.cpp
 )
 
@@ -98,6 +102,7 @@ set(REQUIRED_HEADERS
         include/controllers/familia_controller.hpp
         include/controllers/genero_controller.hpp
         include/controllers/especie_controller.hpp
+        include/controllers/upload_controller.hpp
         include/models/especie.hpp
         include/models/familia.hpp
         include/models/genero.hpp
@@ -111,8 +116,10 @@ set(REQUIRED_HEADERS
         include/services/familia_service.hpp
         include/services/genero_service.hpp
         include/services/especie_service.hpp
+        include/services/upload_service.hpp
         include/utils/config.hpp
         include/utils/atributos_schema_validator.hpp
+        include/utils/object_storage.hpp
         include/models/imagen.hpp
         include/utils/constants.hpp
 )
@@ -132,6 +139,7 @@ set(SOURCES
         src/controllers/familia_controller.cpp
         src/controllers/genero_controller.cpp
         src/controllers/especie_controller.cpp
+        src/controllers/upload_controller.cpp
         src/models/familia.cpp
         src/models/genero.cpp
         src/models/especie.cpp
@@ -142,8 +150,10 @@ set(SOURCES
         src/services/familia_service.cpp
         src/services/genero_service.cpp
         src/services/especie_service.cpp
+        src/services/upload_service.cpp
         src/utils/config.cpp
         src/utils/atributos_schema_validator.cpp
+        src/utils/object_storage.cpp
         src/models/imagen.cpp
 )
 
@@ -191,6 +201,7 @@ target_link_libraries(chiloe_especies_api
         ${PQXX_LIB}
         ${PQ_LIB}
         nlohmann_json_schema_validator
+        CURL::libcurl
         OpenSSL::SSL
         OpenSSL::Crypto
         Threads::Threads

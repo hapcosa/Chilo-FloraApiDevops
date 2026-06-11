@@ -5,14 +5,18 @@
 #   - reino.cpp: serialización/parseo del enum Reino.
 #   - atributos_schema_validator.cpp: validación de atributos_especificos por
 #     reino contra los JSON Schemas reales de config/schemas/.
+#   - object_storage/upload_service: presign S3 y validaciones locales.
 
 find_package(GTest REQUIRED)
 
 add_executable(unit_tests
         test_reino.cpp
         test_atributos_schema_validator.cpp
+        test_object_storage.cpp
         ${CMAKE_SOURCE_DIR}/src/models/reino.cpp
         ${CMAKE_SOURCE_DIR}/src/utils/atributos_schema_validator.cpp
+        ${CMAKE_SOURCE_DIR}/src/utils/object_storage.cpp
+        ${CMAKE_SOURCE_DIR}/src/services/upload_service.cpp
 )
 
 target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
@@ -25,6 +29,8 @@ target_compile_definitions(unit_tests PRIVATE
 target_link_libraries(unit_tests
         GTest::gtest_main
         nlohmann_json_schema_validator
+        CURL::libcurl
+        OpenSSL::Crypto
 )
 
 add_test(NAME unit_tests COMMAND unit_tests)

@@ -5,9 +5,13 @@
 #include <chrono>
 
 // Constructor
-EspecieService::EspecieService(std::shared_ptr<IEspecieRepository> repo,
-                                std::shared_ptr<AtributosSchemaValidator> validator)
-        : repository(std::move(repo)), schemaValidator(std::move(validator)) {}
+EspecieService::EspecieService(
+    std::shared_ptr<IEspecieRepository> repo,
+    std::shared_ptr<AtributosSchemaValidator> validator,
+    std::shared_ptr<ObjectStorageClient> storage)
+        : repository(std::move(repo)),
+          schemaValidator(std::move(validator)),
+          objectStorage(std::move(storage)) {}
 
 // Validación: invariantes locales + atributos_especificos por reino.
 void EspecieService::validateEspecie(const Especie& especie) {
@@ -21,6 +25,39 @@ void EspecieService::validateEspecie(const Especie& especie) {
     // std::invalid_argument con un mensaje detallado si no cumple.
     schemaValidator->validate(especie.getReino(),
                               especie.getAtributosEspecificos());
+    validatePhotoReferences(especie);
+}
+
+void EspecieService::validatePhotoReferences(const Especie& especie) {
+    const auto validateKey = [this](const std::string& key,
+                                    const std::string& fieldName) {
+        if (!ObjectStorageClient::isValidObjectKey(key)
+            || !ObjectStorageClient::hasPrefix(key, "especies/")) {
+            throw std::invalid_argument(fieldName
+                + " debe ser una key válida bajo el prefijo 'especies/'");
+        }
+
+        if (objectStorage && !objectStorage->objectExists(
+                objectStorage->getConfig().especiesBucket, key)) {
+            throw std::invalid_argument(fieldName
+                + " no existe en el bucket de fotos de especies");
+        }
+    };
+
+    if (especie.getFotoPortadaKey()) {
+        validateKey(*especie.getFotoPortadaKey(), "foto_portada_key");
+    }
+
+    const auto& fotos = especie.getFotosKeys();
+    if (!fotos.is_array()) {
+        throw std::invalid_argument("'fotos_keys' debe ser un array JSON");
+    }
+    for (const auto& item : fotos) {
+        if (!item.is_string()) {
+            throw std::invalid_argument("'fotos_keys' debe contener solo strings");
+        }
+        validateKey(item.get<std::string>(), "fotos_keys");
+    }
 }
 
 // Métodos de consulta
@@ -71,6 +108,33 @@ Especie EspecieService::updateEspecie(const Especie& especie) {
     }
 
     return repository->update(especie);
+}
+
+Especie EspecieService::updateFotos(
+    int id,
+    const std::optional<std::string>& fotoPortadaKey,
+    const std::optional<nlohmann::json>& fotosKeys) {
+    if (id <= 0) {
+        throw std::invalid_argument("ID debe ser mayor que 0");
+    }
+
+    auto existing = repository->findById(id);
+    if (!existing) {
+        throw std::runtime_error("Especie no encontrada");
+    }
+
+    if (fotoPortadaKey) {
+        existing->setFotoPortadaKey(*fotoPortadaKey);
+    }
+    if (fotosKeys) {
+        if (!fotosKeys->is_array()) {
+            throw std::invalid_argument("'fotos_keys' debe ser un array JSON");
+        }
+        existing->setFotosKeys(*fotosKeys);
+    }
+
+    validateEspecie(*existing);
+    return repository->update(*existing);
 }
 
 bool EspecieService::deleteEspecie(int id) {

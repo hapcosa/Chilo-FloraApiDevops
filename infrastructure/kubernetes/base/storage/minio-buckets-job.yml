@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-buckets
+  namespace: chiloe-flora
+  labels:
+    app: minio
+    component: bucket-init
+spec:
+  template:
+    metadata:
+      labels:
+        app: minio
+        component: bucket-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: minio/mc:latest
+          env:
+            - name: HOME
+              value: /tmp
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: flora-secrets
+                  key: OBJECT_STORAGE_ACCESS_KEY
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: flora-secrets
+                  key: OBJECT_STORAGE_SECRET_KEY
+            - name: ESPECIES_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: flora-config
+                  key: OBJECT_STORAGE_ESPECIES_BUCKET
+            - name: AVISTAMIENTOS_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: flora-config
+                  key: OBJECT_STORAGE_AVISTAMIENTOS_BUCKET
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              until mc alias set local http://minio-service:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+                sleep 2
+              done
+              mc mb -p "local/$ESPECIES_BUCKET"
+              mc mb -p "local/$AVISTAMIENTOS_BUCKET"
+              mc anonymous set download "local/$ESPECIES_BUCKET"
+              mc anonymous set none "local/$AVISTAMIENTOS_BUCKET"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL

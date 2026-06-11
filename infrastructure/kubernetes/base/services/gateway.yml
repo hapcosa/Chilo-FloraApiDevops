@@ -13,7 +13,7 @@ data:
             server auth-service:8081;
         }
         upstream especies_api {
-            server especies-api:9080;
+            server especies-api-service:80;
         }
         server {
             listen 80;

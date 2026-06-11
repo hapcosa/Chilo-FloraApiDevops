@@ -433,10 +433,12 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 
 ### Fase 2 — Storage de fotos (1–2 semanas)
 
-- [ ] Desplegar MinIO en compose dev y en manifiestos K8s.
-- [ ] Endpoint `POST /api/v1/uploads/presign` en `especies-api`.
-- [ ] Validación de claves al hacer PATCH de fotos.
-- [ ] Bucket policies (público para `especies-fotos`, restringido para `avistamientos-fotos`).
+- [x] Desplegar MinIO en compose dev y en manifiestos K8s: servicio MinIO + job/init de buckets `especies-fotos` y `avistamientos-fotos`. ✅
+- [x] Endpoint `POST /api/v1/uploads/presign` en `especies-api` (también alias legacy `/api/uploads/presign` mientras se normalizan rutas). Genera presigned PUT SigV4 compatible con MinIO/S3. ✅
+- [x] Validación de claves al hacer PATCH de fotos: `PATCH /api/v1/especies/:id/fotos` valida formato, prefijo `especies/` y existencia del objeto vía HEAD firmado antes de aceptar `foto_portada_key`/`fotos_keys`. ✅
+- [x] Bucket policies: `especies-fotos` público para descarga; `avistamientos-fotos` restringido. ✅
+
+Nota: el endpoint legacy que sube bytes a filesystem local sigue existiendo por compatibilidad, pero el flujo nuevo oficial es presigned URL. La eliminación/deprecación pública del flujo legacy debe hacerse en un PR aparte para no mezclarlo con la entrada de MinIO.
 
 ### Fase 3 — Auth con Google (1 semana)
 
