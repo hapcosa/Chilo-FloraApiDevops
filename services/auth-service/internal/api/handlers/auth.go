@@ -132,7 +132,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Internal Server Error",
-			"message": "Failed to process Google user",
+			"message": "Failed to authenticate user",
 			"code":    500,
 		})
 		return
