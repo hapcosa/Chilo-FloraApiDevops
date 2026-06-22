@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,10 +9,15 @@ import (
 	"net/url"
 
 	"auth-service/internal/config"
+
+	"google.golang.org/api/idtoken"
 )
 
+type GoogleTokenValidator func(ctx context.Context, idToken, audience string) (*idtoken.Payload, error)
+
 type OAuthService struct {
-	config config.OAuthConfig
+	config           config.OAuthConfig
+	idTokenValidator GoogleTokenValidator
 }
 
 type GoogleUserInfo struct {
@@ -34,7 +40,8 @@ type GitHubUserInfo struct {
 
 func NewOAuthService(config config.OAuthConfig) *OAuthService {
 	return &OAuthService{
-		config: config,
+		config:           config,
+		idTokenValidator: idtoken.Validate,
 	}
 }
 
@@ -73,6 +80,48 @@ func (s *OAuthService) GetGitHubAuthURL(state string) string {
 	}
 
 	return baseURL + "?" + params.Encode()
+}
+
+// VerifyGoogleIDToken valida un idToken de Google Sign-In localmente y devuelve la información del usuario.
+func (s *OAuthService) VerifyGoogleIDToken(ctx context.Context, idToken string) (*GoogleUserInfo, error) {
+	if s.config.GoogleClientID == "" {
+		return nil, fmt.Errorf("google login not configured")
+	}
+
+	payload, err := s.idTokenValidator(ctx, idToken, s.config.GoogleClientID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid google id token: %w", err)
+	}
+
+	if payload.Audience != s.config.GoogleClientID {
+		return nil, fmt.Errorf("invalid google id token: audience mismatch")
+	}
+
+	if payload.Issuer != "accounts.google.com" && payload.Issuer != "https://accounts.google.com" {
+		return nil, fmt.Errorf("invalid google id token: invalid issuer")
+	}
+
+	emailVerified, _ := payload.Claims["email_verified"].(bool)
+	if !emailVerified {
+		return nil, fmt.Errorf("invalid google id token: email not verified")
+	}
+
+	sub := payload.Subject
+	if sub == "" {
+		return nil, fmt.Errorf("invalid google id token: subject missing")
+	}
+
+	email, _ := payload.Claims["email"].(string)
+	name, _ := payload.Claims["name"].(string)
+	picture, _ := payload.Claims["picture"].(string)
+
+	return &GoogleUserInfo{
+		ID:            sub,
+		Email:         email,
+		VerifiedEmail: emailVerified,
+		Name:          name,
+		Picture:       picture,
+	}, nil
 }
 
 // ExchangeGoogleCode intercambia el código de autorización por información del usuario

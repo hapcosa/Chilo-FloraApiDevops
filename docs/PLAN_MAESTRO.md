@@ -1,7 +1,7 @@
 # Plan Maestro — Biodiversidad de Chiloé (Backend microservicios + APK Android)
 
 > Documento vivo. Cualquier cambio estructural se discute aquí antes de tocar código.
-> Última actualización: 2026-06-08.
+> Última actualización: 2026-06-21.
 
 ---
 
@@ -440,10 +440,10 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 
 ### Fase 3 — Auth con Google (1 semana)
 
-- [ ] Endpoint `POST /api/v1/auth/google` en auth-service.
-- [ ] Tabla `usuarios` con `google_sub`.
-- [ ] Verificación de `idToken` contra `https://oauth2.googleapis.com/tokeninfo`.
-- [ ] Reutilizar emisión de JWT existente.
+- [x] Endpoint `POST /api/v1/auth/google` en auth-service (verificación local del idToken con JWKS de Google).
+- [x] Reutilizar modelo `users` con `provider`/`provider_id` (el `google_sub` del token se guarda en `provider_id` con `provider="google"`).
+- [x] Reutilizar emisión de JWT existente.
+- [ ] Integración end-to-end con app móvil.
 
 ### Fase 4 — App móvil base (3–4 semanas)
 
@@ -493,6 +493,7 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 | 6 | k3s en VPS | Docker Compose / EKS | Paridad con minikube, costo bajo, escalable |
 | 7 | Offline lectura+escritura | Solo lectura / Solo online | Realidad de conectividad en Chiloé |
 | 8 (2026-05-20) | Renombrar servicio `flora-api` → `especies-api` y binario `chiloe_flora_api` → `chiloe_especies_api`, pero **NO** la DB `chiloe_flora`, el usuario `flora_user`, el namespace K8s `chiloe-flora`, el cluster EKS `chiloe-flora-cluster` ni el path ECR `chiloe-flora/...` | Renombrar todo / no renombrar nada | El servicio necesita un nombre que refleje el alcance multi-reino, pero renombrar la DB y el namespace rompería volúmenes y deploys existentes y obliga a migración SQL coordinada. Aceptamos la inconsistencia "servicio = especies-api, DB = chiloe_flora" como deuda histórica documentada. |
+| 9 (2026-06-21) | Login Google móvil: verificación local del `idToken` con `google.golang.org/api/idtoken` (JWKS de Google) y reutilizar columnas `provider`/`provider_id` de la tabla `users` | Verificar contra `https://oauth2.googleapis.com/tokeninfo` / crear tabla `usuarios` con `google_sub` | `idtoken.Validate` es más rápido, no expone el token a un endpoint remoto y permite validar `aud`, `iss`, `email_verified` y `sub` localmente. El modelo `users` ya tenía `provider`/`provider_id` con índice único, por lo que no se necesita una tabla ni columna adicional; esto evita duplicar datos y mantiene la coherencia con los logins existentes de Google/GitHub. |
 
 Cualquier cambio futuro a estas decisiones debe quedar como una entrada nueva con fecha y justificación, no editar la anterior.
 

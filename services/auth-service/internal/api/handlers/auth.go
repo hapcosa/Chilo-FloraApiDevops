@@ -4,12 +4,15 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
+
 	"auth-service/internal/middleware"
 	"auth-service/internal/models"
 	"auth-service/internal/services"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,6 +20,7 @@ type AuthHandler struct {
 	authService  *services.AuthService
 	oauthService *services.OAuthService
 }
+
 // WhoAmI devuelve información básica del usuario actual basado en el token
 func (h *AuthHandler) WhoAmI(c *gin.Context) {
 	// Obtener token del header Authorization
@@ -54,9 +58,9 @@ func (h *AuthHandler) WhoAmI(c *gin.Context) {
 
 	// Devolver información pública del usuario
 	c.JSON(http.StatusOK, gin.H{
-		"user":         user.ToPublic(),
+		"user":          user.ToPublic(),
 		"authenticated": true,
-		"token_valid":  true,
+		"token_valid":   true,
 	})
 }
 
@@ -128,7 +132,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Internal Server Error",
-			"message": "Failed to authenticate user",
+			"message": "Failed to process Google user",
 			"code":    500,
 		})
 		return
@@ -354,6 +358,44 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		"message": "Password changed successfully",
 		"status":  "success",
 	})
+}
+
+// GoogleIDTokenLogin maneja el login móvil con idToken de Google Sign-In.
+func (h *AuthHandler) GoogleIDTokenLogin(c *gin.Context) {
+	var req models.GoogleLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": "Invalid request data",
+			"details": err.Error(),
+			"code":    400,
+		})
+		return
+	}
+
+	info, err := h.oauthService.VerifyGoogleIDToken(c.Request.Context(), req.IDToken)
+	if err != nil {
+		log.Printf("google id token verification failed: %v", err)
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Unauthorized",
+			"message": "Invalid Google credentials",
+			"code":    401,
+		})
+		return
+	}
+
+	response, err := h.authService.ProcessOAuthUser("google", info.ID, info.Email, info.Name, info.Picture)
+	if err != nil {
+		log.Printf("failed to process google OAuth user: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Internal Server Error",
+			"message": "Failed to authenticate user",
+			"code":    500,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // GoogleAuth inicia el flujo de autenticación con Google

@@ -1,22 +1,22 @@
 package main
 
 import (
+	"auth-service/internal/api"
+	"auth-service/internal/config"
+	"auth-service/internal/database"
+	"auth-service/internal/middleware"
+	"auth-service/internal/services"
 	"context"
 	"fmt"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
-	"auth-service/internal/api"
-	"auth-service/internal/config"
-	"auth-service/internal/database"
-	"auth-service/internal/middleware"
-	"auth-service/internal/services"
 )
 
 func main() {
@@ -84,13 +84,13 @@ func main() {
 
 		// Check database
 		sqlDB, err := db.DB()
-        if err != nil {
-            log.Fatal("Failed to get SQL DB instance:", err)
-        }
+		if err != nil {
+			log.Fatal("Failed to get SQL DB instance:", err)
+		}
 
-        if err := sqlDB.Ping(); err != nil {
-            log.Fatal("Failed to ping database:", err)
-        }
+		if err := sqlDB.Ping(); err != nil {
+			log.Fatal("Failed to ping database:", err)
+		}
 
 		// Check Redis
 		if redisClient != nil {

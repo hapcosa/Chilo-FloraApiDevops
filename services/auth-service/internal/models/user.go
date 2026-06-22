@@ -58,6 +58,11 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required,min=6"`
 }
 
+// GoogleLoginRequest para login con idToken de Google Sign-In
+type GoogleLoginRequest struct {
+	IDToken string `json:"id_token" binding:"required"`
+}
+
 // RegisterRequest para registro
 type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
