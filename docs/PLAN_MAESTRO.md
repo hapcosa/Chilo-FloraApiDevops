@@ -1,7 +1,7 @@
 # Plan Maestro — Biodiversidad de Chiloé (Backend microservicios + APK Android)
 
 > Documento vivo. Cualquier cambio estructural se discute aquí antes de tocar código.
-> Última actualización: 2026-06-08.
+> Última actualización: 2026-07-15.
 
 ---
 
@@ -433,41 +433,43 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 
 ### Fase 2 — Storage de fotos (1–2 semanas)
 
-- [ ] Desplegar MinIO en compose dev y en manifiestos K8s.
-- [ ] Endpoint `POST /api/v1/uploads/presign` en `especies-api`.
-- [ ] Validación de claves al hacer PATCH de fotos.
-- [ ] Bucket policies (público para `especies-fotos`, restringido para `avistamientos-fotos`).
+- [x] Desplegar MinIO en compose dev y en manifiestos K8s base. Incluye buckets `especies-fotos` y `avistamientos-fotos` inicializados por servicio/job de bootstrap. ✅
+- [x] Endpoint `POST /api/v1/uploads/presign` en `especies-api`: genera presigned URLs `PUT` S3 SigV4 para `especies-fotos` y `avistamientos-fotos`, firmando `Content-Type` y devolviendo la key que debe persistirse luego. ✅
+- [x] Validación de claves al hacer PATCH de fotos: `PATCH /api/v1/especies/:id/fotos` consulta object storage con `HEAD` firmado y solo persiste keys existentes en `especies-fotos`. ✅
+- [x] Bucket policies: `especies-fotos` con anonymous `download`; `avistamientos-fotos` con anonymous `none` para mantenerlo restringido hasta moderación. ✅
 
 ### Fase 3 — Auth con Google (1 semana)
 
-- [ ] Endpoint `POST /api/v1/auth/google` en auth-service.
-- [ ] Tabla `usuarios` con `google_sub`.
-- [ ] Verificación de `idToken` contra `https://oauth2.googleapis.com/tokeninfo`.
-- [ ] Reutilizar emisión de JWT existente.
+- [x] Endpoint `POST /api/v1/auth/google` en auth-service. ✅
+- [x] Tabla `usuarios` con `google_sub` nullable para asociar login Google sin romper login local por email/password. ✅
+- [x] Verificación de `idToken` contra `https://oauth2.googleapis.com/tokeninfo`, validando `aud`, `iss`, `exp`, `sub` y `email_verified`. ✅
+- [x] Reutilizar emisión de JWT existente. ✅
 
 ### Fase 4 — App móvil base (3–4 semanas)
 
-- [ ] Repo `chiloe-biodiversidad-mobile`, inicializar React Native (CLI bare, no Expo, por el NDK).
-- [ ] Pantallas: Biblioteca, Detalle, Login, Perfil.
-- [ ] Cliente API + manejo de JWT.
-- [ ] Cache SQLite + sincronización inicial.
+- [ ] Repo `chiloe-biodiversidad-mobile`: submódulo registrado en `.gitmodules`, falta clonar/publicar el repo remoto y dejar un commit de submódulo. En este entorno quedó scaffold local en `mobile/`.
+- [x] Scaffold React Native 0.86 bare Android (no Expo) con TypeScript estricto y base nativa Android preparada para NDK; falta generar/verificar Gradle wrapper en el repo móvil definitivo. ✅
+- [x] Pantallas: Biblioteca, Detalle, Login, Perfil. ✅
+- [x] Cliente API + manejo de JWT con almacenamiento seguro vía Keychain. ✅
+- [x] Cache SQLite + sincronización inicial de especies. ✅
 
 ### Fase 5 — Cámara nativa C++ (2–3 semanas)
 
-- [ ] Esqueleto NDK Camera2 (abrir cámara, capturar JPEG).
-- [ ] Controles manuales (ISO, exposición, foco).
-- [ ] Bridge JNI + módulo React Native.
-- [ ] Pantalla `CameraScreen` que use el módulo.
+- [x] Esqueleto NDK Camera2 (abrir cámara, capturar JPEG) implementado en `mobile/android/app/src/main/cpp/`; pendiente validar en dispositivo real cuando exista Gradle wrapper/dependencias. ✅
+- [x] Controles manuales (ISO, exposición, foco) cableados desde JS hasta `ACaptureRequest`; pendiente calibración por modelo de cámara. ✅
+- [x] Bridge JNI + módulo React Native (`ChiloeCameraModule`). ✅
+- [x] Pantalla `CameraScreen` que usa el módulo sin preview para MVP de captura. ✅
 
 ### Fase 6 — Avistamientos y offline writes (2 semanas)
 
-- [ ] Tabla `avistamientos` en backend + endpoints.
-- [ ] Cola de mutaciones en SQLite móvil.
-- [ ] Worker de sincronización al recuperar red.
-- [ ] Moderación básica (un curador marca como público o lo rechaza).
+- [x] Tabla `avistamientos` en backend + endpoints `POST/GET/PATCH /api/v1/avistamientos`; crea registros pendientes y valida `foto_key` contra `avistamientos-fotos`. ✅
+- [x] Cola de mutaciones en SQLite móvil para crear avistamientos offline. ✅
+- [x] Worker de sincronización al recuperar red. ✅
+- [x] Moderación básica: `PATCH /api/v1/avistamientos/:id/moderacion` aprueba o rechaza con motivo obligatorio para rechazo. ✅
 
 ### Fase 7 — VPS y producción (1 semana)
 
+- [x] Preparación local: overlay Kustomize k3s producción con Traefik/cert-manager y guía `docs/deployment/K3S_PRODUCCION.md`. ✅
 - [ ] Provisionar VPS, instalar k3s.
 - [ ] Configurar Traefik + cert-manager con dominio real.
 - [ ] Migrar secrets, primer deploy.
@@ -493,6 +495,7 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 | 6 | k3s en VPS | Docker Compose / EKS | Paridad con minikube, costo bajo, escalable |
 | 7 | Offline lectura+escritura | Solo lectura / Solo online | Realidad de conectividad en Chiloé |
 | 8 (2026-05-20) | Renombrar servicio `flora-api` → `especies-api` y binario `chiloe_flora_api` → `chiloe_especies_api`, pero **NO** la DB `chiloe_flora`, el usuario `flora_user`, el namespace K8s `chiloe-flora`, el cluster EKS `chiloe-flora-cluster` ni el path ECR `chiloe-flora/...` | Renombrar todo / no renombrar nada | El servicio necesita un nombre que refleje el alcance multi-reino, pero renombrar la DB y el namespace rompería volúmenes y deploys existentes y obliga a migración SQL coordinada. Aceptamos la inconsistencia "servicio = especies-api, DB = chiloe_flora" como deuda histórica documentada. |
+| 9 (2026-07-15) | App móvil inicia como React Native CLI bare, no Expo, con Android primero | Expo / monorepo web-mobile | El módulo NDK Camera2 de Fase 5 necesita control de proyecto nativo y releases APK independientes en el submódulo `mobile/`. |
 
 Cualquier cambio futuro a estas decisiones debe quedar como una entrada nueva con fecha y justificación, no editar la anterior.
 

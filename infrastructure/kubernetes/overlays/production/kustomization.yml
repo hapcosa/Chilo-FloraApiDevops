@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: chiloe-flora
+
+resources:
+  - ../../base/namespace.yml
+  - ../../base/configmap.yml
+  - ../../base/secrets.yml
+  - ../../base/datebase/postgres-pvc.yml
+  - ../../base/datebase/postgres-deployment.yml
+  - ../../base/datebase/postgres-service.yml
+  - ../../base/datebase/redis-pvc.yaml
+  - ../../base/datebase/redis-deployment.yml
+  - ../../base/datebase/redis-service.yaml
+  - ../../base/storage/minio-pvc.yml
+  - ../../base/storage/minio-deployment.yml
+  - ../../base/storage/minio-service.yml
+  - ../../base/storage/minio-buckets-job.yml
+  - ../../base/services/auth-service-deployment.yml
+  - ../../base/services/auth-service-service.yaml
+  - ../../base/services/especies-api-deployment.yml
+  - ../../base/services/especies-api-service.yaml
+  - ../../base/services/gateway.yml
+  - cluster-issuer-letsencrypt-prod.yml
+  - ingress-production.yml
+
+patches:
+  - target:
+      kind: Service
+      name: gateway
+    patch: |-
+      - op: replace
+        path: /spec/type
+        value: ClusterIP
+
