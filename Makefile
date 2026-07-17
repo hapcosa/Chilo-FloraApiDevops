@@ -1,10 +1,10 @@
-# Makefile para el proyecto Flora Chiloé
+# Makefile para el proyecto Biodiversidad de Chiloé
 
-.PHONY: help dev dev-down build clean logs test
+.PHONY: help dev dev-full dev-down dev-down-volumes build build-no-cache logs logs-especies logs-auth logs-gateway logs-minio restart restart-especies restart-auth ps exec-especies exec-auth exec-db clean db-reset go-mod-tidy go-test go-lint cpp-build cpp-test cpp-clean api-test setup info
 
 # Variables
 COMPOSE_FILE := infrastructure/docker/docker-compose.dev.yml
-COMPOSE := docker-compose -f $(COMPOSE_FILE)
+COMPOSE := docker compose -f $(COMPOSE_FILE)
 
 help: ## Mostrar esta ayuda
 	@echo "Comandos disponibles:"
@@ -12,63 +12,66 @@ help: ## Mostrar esta ayuda
 
 dev: ## Iniciar entorno de desarrollo
 	@echo "🚀 Iniciando entorno de desarrollo..."
-	@cd infrastructure/docker && $(COMPOSE) up -d
+	@$(COMPOSE) up -d
 
 dev-full: ## Iniciar entorno completo con herramientas
 	@echo "🚀 Iniciando entorno completo de desarrollo..."
-	@cd infrastructure/docker && $(COMPOSE) --profile tools --profile monitoring up -d
+	@$(COMPOSE) --profile tools --profile monitoring up -d
 
 dev-down: ## Detener entorno de desarrollo
 	@echo "🛑 Deteniendo entorno de desarrollo..."
-	@cd infrastructure/docker && $(COMPOSE) down
+	@$(COMPOSE) down
 
 dev-down-volumes: ## Detener y eliminar volúmenes
 	@echo "🗑️ Deteniendo y eliminando volúmenes..."
-	@cd infrastructure/docker && $(COMPOSE) down -v
+	@$(COMPOSE) down -v
 
 build: ## Construir todas las imágenes
 	@echo "🔨 Construyendo imágenes..."
-	@cd infrastructure/docker && $(COMPOSE) build
+	@$(COMPOSE) build
 
 build-no-cache: ## Construir sin caché
 	@echo "🔨 Construyendo imágenes sin caché..."
-	@cd infrastructure/docker && $(COMPOSE) build --no-cache
+	@$(COMPOSE) build --no-cache
 
 logs: ## Ver logs de todos los servicios
-	@cd infrastructure/docker && $(COMPOSE) logs -f
+	@$(COMPOSE) logs -f
 
 logs-especies: ## Ver logs del servicio Especies API
-	@cd infrastructure/docker && $(COMPOSE) logs -f especies-api
+	@$(COMPOSE) logs -f especies-api
 
 logs-auth: ## Ver logs del servicio Auth
-	@cd infrastructure/docker && $(COMPOSE) logs -f auth-service
+	@$(COMPOSE) logs -f auth-service
 
 logs-gateway: ## Ver logs del gateway
-	@cd infrastructure/docker && $(COMPOSE) logs -f gateway
+	@$(COMPOSE) logs -f gateway
+
+logs-minio: ## Ver logs de MinIO
+	@$(COMPOSE) logs -f minio minio-create-buckets
 
 restart: ## Reiniciar todos los servicios
 	@echo "🔄 Reiniciando servicios..."
-	@cd infrastructure/docker && $(COMPOSE) restart
+	@$(COMPOSE) restart
 
 restart-especies: ## Reiniciar solo Especies API
 	@echo "🔄 Reiniciando Especies API..."
-	@cd infrastructure/docker && $(COMPOSE) restart especies-api
+	@$(COMPOSE) restart especies-api
 
 restart-auth: ## Reiniciar solo Auth Service
 	@echo "🔄 Reiniciando Auth Service..."
-	@cd infrastructure/docker && $(COMPOSE) restart auth-service
+	@$(COMPOSE) restart auth-service
 
 ps: ## Ver estado de los servicios
-	@cd infrastructure/docker && $(COMPOSE) ps
+	@$(COMPOSE) ps
 
 exec-especies: ## Entrar al contenedor Especies API
-	@cd infrastructure/docker && $(COMPOSE) exec especies-api sh
+	@$(COMPOSE) exec especies-api sh
 
 exec-auth: ## Entrar al contenedor Auth Service
-	@cd infrastructure/docker && $(COMPOSE) exec auth-service sh
+	@$(COMPOSE) exec auth-service sh
 
 exec-db: ## Entrar a PostgreSQL
-	@cd infrastructure/docker && $(COMPOSE) exec postgres psql -U dev_user -d chiloe_flora_dev
+	@$(COMPOSE) exec postgres psql -U dev_user -d chiloe_flora_dev
 
 clean: ## Limpiar contenedores, imágenes y volúmenes no utilizados
 	@echo "🧹 Limpiando Docker..."
@@ -77,12 +80,12 @@ clean: ## Limpiar contenedores, imágenes y volúmenes no utilizados
 
 db-reset: ## Resetear base de datos (eliminar volumen y recrear)
 	@echo "Reseteando base de datos..."
-	@cd infrastructure/docker && $(COMPOSE) down
+	@$(COMPOSE) down
 	docker volume rm docker_postgres_dev_data 2>/dev/null || true
-	@cd infrastructure/docker && $(COMPOSE) up -d postgres
+	@$(COMPOSE) up -d postgres
 	@echo "⏳ Esperando que la base de datos esté lista..."
 	@sleep 10
-	@cd infrastructure/docker && $(COMPOSE) up -d
+	@$(COMPOSE) up -d
 
 # Comandos de desarrollo Go
 go-mod-tidy: ## Limpiar módulos Go del auth-service
@@ -102,6 +105,10 @@ cpp-build: ## Compilar Especies API localmente
 	@echo "Compilando Especies API..."
 	@cd services/especies-api && mkdir -p build && cd build && cmake .. && make -j4
 
+cpp-test: ## Ejecutar tests C++ de Especies API localmente
+	@echo "Ejecutando tests C++..."
+	@cd services/especies-api && mkdir -p build && cd build && cmake -DBUILD_TESTS=ON .. && make -j4 unit_tests && ctest --output-on-failure
+
 cpp-clean: ## Limpiar build de C++
 	@echo "Limpiando build de C++..."
 	@cd services/especies-api && rm -rf build
@@ -110,9 +117,10 @@ cpp-clean: ## Limpiar build de C++
 api-test: ## Probar endpoints básicos
 	@echo "Probando endpoints básicos..."
 	@echo "Health checks:"
-	@curl -s http://localhost:8080/health | jq . || echo "Gateway no disponible"
-	@curl -s http://localhost:8081/health | jq . || echo "Auth service no disponible"
-	@curl -s http://localhost:9081/health | jq . || echo "Especies API no disponible"
+	@curl -fsS http://localhost:8080/health || echo "Gateway no disponible"
+	@curl -fsS http://localhost:8081/health || echo "Auth service no disponible"
+	@curl -fsS http://localhost:9081/health || echo "Especies API no disponible"
+	@curl -fsS http://localhost:9000/minio/health/live || echo "MinIO no disponible"
 
 setup: ## Configuración inicial del proyecto
 	@echo "🏗️ Configuración inicial..."
@@ -123,12 +131,14 @@ setup: ## Configuración inicial del proyecto
 	@echo "✅ Configuración completa. Edita los archivos .env según necesites."
 
 info: ## Mostrar información del proyecto
-	@echo "📋 Información del proyecto Flora Chiloé"
+	@echo "📋 Información del proyecto Biodiversidad de Chiloé"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🌐 URLs de desarrollo:"
 	@echo "   Gateway:      http://localhost:8080"
 	@echo "   Auth Service: http://localhost:8081"
-	@echo "   Especies API:    http://localhost:9081"
+	@echo "   Especies API: http://localhost:9081"
+	@echo "   MinIO API:    http://localhost:9000"
+	@echo "   MinIO Console: http://localhost:9001"
 	@echo "   PgAdmin:      http://localhost:8889"
 	@echo ""
 	@echo "🔧 Herramientas (con profile tools):"
