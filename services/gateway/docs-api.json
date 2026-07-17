@@ -1,36 +1,56 @@
 {
-  "service": "Chloe Flora API Gateway",
+  "service": "Chiloe Biodiversidad API Gateway",
   "environment": "development",
   "status": "running",
   "port": 8080,
   "endpoints": {
     "especies_api": [
-      "/api/expected",
-      "/api/familiar",
-      "/api/demotor",
-      "/api/images",
-      "/api/bession"
+      "GET /api/especies",
+      "GET /api/especies/{id}",
+      "GET /api/v1/especies",
+      "GET /api/v1/especies/{id}",
+      "POST /api/especies",
+      "POST /api/v1/especies",
+      "PUT /api/especies/{id}",
+      "PUT /api/v1/especies/{id}",
+      "DELETE /api/especies/{id}",
+      "DELETE /api/v1/especies/{id}",
+      "PATCH /api/v1/especies/{id}/fotos",
+      "GET /api/v1/avistamientos",
+      "GET /api/v1/avistamientos/{id}",
+      "POST /api/v1/avistamientos",
+      "PATCH /api/v1/avistamientos/{id}/moderacion",
+      "GET /api/familias",
+      "GET /api/generos",
+      "POST /api/v1/uploads/presign"
     ],
     "auth_service": [
-      "/api/v1/auth/"
+      "POST /api/v1/auth/register",
+      "POST /api/v1/auth/login",
+      "POST /api/v1/auth/google",
+      "POST /api/v1/auth/refresh",
+      "GET /api/v1/auth/google",
+      "GET /api/v1/auth/whoami"
     ],
     "health_checks": [
-      "/health",
-      "/ready",
-      "/false"
+      "GET /health",
+      "GET /api/health",
+      "GET /ready",
+      "GET /alive"
     ],
     "monitoring": [
-      "/nguns_status",
-      "/metrics",
-      "/api/metrics",
-      "/api/v1/auth/metrics"
+      "GET /nginx_status",
+      "GET /metrics",
+      "GET /api/metrics"
     ],
     "documentation": [
-      "/docs"
+      "GET /docs",
+      "GET /docs-api.json"
     ]
   },
   "quick_tests": [
+    "curl http://localhost:8080/health",
     "curl http://localhost:8080/api/health",
-    "curl http://localhost:8080/api/cspecies"
+    "curl http://localhost:8080/docs-api.json"
   ]
 }

@@ -6,14 +6,19 @@
 #include <memory>
 
 #include "../include/controllers/especie_controller.hpp"
+#include "../include/controllers/avistamiento_controller.hpp"
 #include "../include/controllers/familia_controller.hpp"
 #include "../include/controllers/genero_controller.hpp"
+#include "../include/controllers/upload_controller.hpp"
 #include "../include/repository/postgres_familia_repository.hpp"
 #include "../include/repository/postgres_genero_repository.hpp"
 #include "../include/repository/postgresql_especie_repository.hpp"
+#include "../include/repository/postgres_avistamiento_repository.hpp"
+#include "../include/services/avistamiento_service.hpp"
 #include "../include/services/especie_service.hpp"
 #include "../include/services/familia_service.hpp"
 #include "../include/services/genero_service.hpp"
+#include "../include/services/upload_presign_service.hpp"
 #include "../include/utils/atributos_schema_validator.hpp"
 #include "../include/utils/database.hpp"
 #include "../include/utils/config.hpp"
@@ -53,6 +58,8 @@ int main(int argc, char** argv) {
   auto generoRepository = std::make_shared<PostgresGeneroRepository>(dataBase);
   auto especieRepository =
       std::make_shared<PostgreSQLEspecieRepository>(dataBase);
+  auto avistamientoRepository =
+      std::make_shared<PostgresAvistamientoRepository>(dataBase);
 
   // El schema lo gestiona scripts/migrate.sh contra la BD antes de arrancar
   // el binario (ver services/especies-api/migrations/README.md).
@@ -70,13 +77,22 @@ int main(int argc, char** argv) {
   // Initialize services
   auto familiaService = std::make_shared<FamiliaService>(familiaRepository);
   auto generoService = std::make_shared<GeneroService>(generoRepository);
+  auto uploadPresignService = std::make_shared<UploadPresignService>();
   auto especieService =
-      std::make_shared<EspecieService>(especieRepository, schemaValidator);
+      std::make_shared<EspecieService>(especieRepository, schemaValidator,
+                                       uploadPresignService);
+  auto avistamientoService =
+      std::make_shared<AvistamientoService>(avistamientoRepository,
+                                            uploadPresignService);
 
   // Initialize controllers
   auto familiaController = std::make_shared<FamiliaController>(familiaService);
   auto generoController = std::make_shared<GeneroController>(generoService);
   auto especieController = std::make_shared<EspecieController>(especieService);
+  auto avistamientoController =
+      std::make_shared<AvistamientoController>(avistamientoService);
+  auto uploadController =
+      std::make_shared<UploadController>(uploadPresignService);
 
   // Setup router
   auto router = std::make_shared<Pistache::Rest::Router>();
@@ -94,6 +110,8 @@ int main(int argc, char** argv) {
   FamiliaController::setupRoutes(*router, familiaController);
   GeneroController::setupRoutes(*router, generoController);
   EspecieController::setupRoutes(*router, especieController);
+  AvistamientoController::setupRoutes(*router, avistamientoController);
+  UploadController::setupRoutes(*router, uploadController);
 
   // Configure server - MEJORADO para red local
   Pistache::Http::Endpoint server(addr);

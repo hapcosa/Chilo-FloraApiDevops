@@ -8,7 +8,8 @@ Sistema de migraciones del esquema PostgreSQL del servicio `especies-api`. Las m
 services/especies-api/
 ├── migrations/
 │   ├── 0001_initial.sql       # baseline (extraído del antiguo initDatabase())
-│   ├── 0002_multi_reino.sql   # próxima migración (Fase 1 paso siguiente)
+│   ├── 0002_multi_reino.sql   # modelo multi-reino
+│   ├── 0003_avistamientos.sql # registros subidos por la app móvil
 │   └── README.md              # este archivo
 └── scripts/
     └── migrate.sh             # runner

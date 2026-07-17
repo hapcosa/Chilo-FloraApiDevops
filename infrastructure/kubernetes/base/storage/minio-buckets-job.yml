@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-create-buckets
+  namespace: chiloe-flora
+  labels:
+    app: minio
+    component: storage-bootstrap
+spec:
+  template:
+    metadata:
+      labels:
+        app: minio-create-buckets
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: minio-create-buckets
+          image: minio/mc:latest
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: flora-secrets
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: flora-secrets
+                  key: MINIO_ROOT_PASSWORD
+            - name: ESPECIES_FOTOS_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: flora-config
+                  key: S3_BUCKET_ESPECIES
+            - name: AVISTAMIENTOS_FOTOS_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: flora-config
+                  key: S3_BUCKET_AVISTAMIENTOS
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until mc alias set local http://minio-service:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+                sleep 2
+              done
+              mc mb --ignore-existing "local/$ESPECIES_FOTOS_BUCKET"
+              mc mb --ignore-existing "local/$AVISTAMIENTOS_FOTOS_BUCKET"
+              mc anonymous set download "local/$ESPECIES_FOTOS_BUCKET"
+              mc anonymous set none "local/$AVISTAMIENTOS_FOTOS_BUCKET"

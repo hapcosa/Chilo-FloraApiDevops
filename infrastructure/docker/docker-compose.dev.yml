@@ -36,7 +36,51 @@ services:
       timeout: 3s
       retries: 3
 
-  # Flora API (C++) - Tu servicio principal - CONFIGURACIÓN CORREGIDA
+  # Object storage S3-compatible para fotos en desarrollo.
+  minio:
+    image: minio/minio:latest
+    container_name: chiloe-minio-dev
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_dev_data:/data
+    networks:
+      - chiloe-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-create-buckets:
+    image: minio/mc:latest
+    container_name: chiloe-minio-buckets-dev
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      ESPECIES_FOTOS_BUCKET: ${ESPECIES_FOTOS_BUCKET:-especies-fotos}
+      AVISTAMIENTOS_FOTOS_BUCKET: ${AVISTAMIENTOS_FOTOS_BUCKET:-avistamientos-fotos}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing "local/$${ESPECIES_FOTOS_BUCKET}"
+        mc mb --ignore-existing "local/$${AVISTAMIENTOS_FOTOS_BUCKET}"
+        mc anonymous set download "local/$${ESPECIES_FOTOS_BUCKET}"
+        mc anonymous set none "local/$${AVISTAMIENTOS_FOTOS_BUCKET}"
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - chiloe-dev-network
+    restart: "no"
+
+  # Especies API (C++) - servicio principal multi-reino
   # Runner de migraciones SQL: aplica services/especies-api/migrations/*.sql
   # contra Postgres antes de que arranque especies-api. Termina con exit 0
   # cuando termina; especies-api lo espera con service_completed_successfully.
@@ -81,6 +125,16 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - AUTH_SERVICE_URL=http://auth-service:8081
+      - S3_ENDPOINT=http://minio:9000
+      - S3_PUBLIC_ENDPOINT=http://localhost:${MINIO_API_PORT:-9000}
+      - S3_REGION=${S3_REGION:-us-east-1}
+      - S3_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minioadmin}
+      - S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
+      - S3_BUCKET_ESPECIES=${ESPECIES_FOTOS_BUCKET:-especies-fotos}
+      - S3_BUCKET_AVISTAMIENTOS=${AVISTAMIENTOS_FOTOS_BUCKET:-avistamientos-fotos}
+      - S3_FORCE_PATH_STYLE=true
+      - S3_PRESIGN_EXPIRES_SECONDS=${S3_PRESIGN_EXPIRES_SECONDS:-900}
+      - SCHEMAS_DIR=/app/config/schemas
       - LOG_LEVEL=debug
       - ENVIRONMENT=development
       - CMAKE_BUILD_TYPE=Debug
@@ -89,15 +143,18 @@ services:
       - ../../services/especies-api/src:/app/src:cached
       - ../../services/especies-api/include:/app/include:cached
       - ../../services/especies-api/CMakeLists.txt:/app/CMakeLists.txt:cached
+      - ../../services/especies-api/config:/app/config:ro
+      - ../../services/especies-api/scripts:/app/scripts:ro
       # Volumen separado para build
       - especies_api_build:/app/build
-      # Directorio para imágenes subidas
-      - especies_api_uploads:/app/uploads
+    command: ["/bin/bash", "/app/scripts/dev-server.sh"]
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio-create-buckets:
+        condition: service_completed_successfully
       especies-api-migrate:
         condition: service_completed_successfully
     networks:
@@ -143,8 +200,8 @@ services:
     volumes:
       # Solo montar archivos específicos para hot reload, no todo el directorio
       - ../../services/auth-service:/app:cached
-      # Excluir directorios problemáticos
-      - /app/tmp
+      # Build output de Air, separado del código montado para evitar permisos del host.
+      - auth_service_tmp:/app/tmp
       - /app/.git
     depends_on:
       postgres:
@@ -175,6 +232,8 @@ services:
       - gateway_logs:/var/log/nginx
     depends_on:
       especies-api:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
     networks:
       - chiloe-dev-network
@@ -256,6 +315,10 @@ volumes:
     driver: local
   redis_dev_data:
     driver: local
+  minio_dev_data:
+    driver: local
+  auth_service_tmp:
+    driver: local
   pgadmin_dev_data:
     driver: local
   prometheus_dev_data:
@@ -266,9 +329,6 @@ volumes:
     driver: local
   # Volumen dedicado para build de especies-api
   especies_api_build:
-    driver: local
-  # Volumen para uploads de imágenes
-  especies_api_uploads:
     driver: local
 
 networks:

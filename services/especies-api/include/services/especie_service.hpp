@@ -9,18 +9,29 @@
 #include "../repository/especie_filters.hpp"
 #include "../repository/especie_repository.hpp"
 #include "../utils/atributos_schema_validator.hpp"
+#include "upload_presign_service.hpp"
+
+struct FotoKeysUpdate {
+    bool updateFotoPortadaKey = false;
+    std::optional<std::string> fotoPortadaKey;
+    bool updateFotosKeys = false;
+    std::vector<std::string> fotosKeys;
+};
 
 class EspecieService {
 private:
     std::shared_ptr<IEspecieRepository> repository;
     std::shared_ptr<AtributosSchemaValidator> schemaValidator;
+    std::shared_ptr<UploadPresignService> storageService;
 
     // Validación básica (longitudes, requeridos) + atributos por reino.
     void validateEspecie(const Especie& especie);
+    void validateFotoKeyExists(const std::string& key) const;
 
 public:
     EspecieService(std::shared_ptr<IEspecieRepository> repo,
-                   std::shared_ptr<AtributosSchemaValidator> validator);
+                   std::shared_ptr<AtributosSchemaValidator> validator,
+                   std::shared_ptr<UploadPresignService> storageService);
 
     // Búsqueda unificada con filtros + paginación.
     EspecieSearchResult searchEspecies(const EspecieFilters& filters);
@@ -31,6 +42,7 @@ public:
     // Métodos CRUD
     Especie createEspecie(const Especie& especie);
     Especie updateEspecie(const Especie& especie);
+    Especie updateFotoKeys(int id, const FotoKeysUpdate& update);
     bool deleteEspecie(int id);
 
     // Métodos para manejo de imágenes
