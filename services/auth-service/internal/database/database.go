@@ -104,6 +104,7 @@ func createIndexes(db *gorm.DB) error {
 	indexes := []string{
 		"CREATE INDEX IF NOT EXISTS idx_users_provider_id ON users(provider, provider_id)",
 		"CREATE INDEX IF NOT EXISTS idx_users_status_role ON users(status, role)",
+		"CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL",
 		"CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at)",
 	}
 

@@ -9,14 +9,16 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
+
 	"auth-service/internal/api"
 	"auth-service/internal/config"
 	"auth-service/internal/database"
 	"auth-service/internal/middleware"
 	"auth-service/internal/services"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -72,46 +74,6 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}
 	router.Use(cors.New(corsConfig))
-
-	// Health check
-	router.GET("/health", func(c *gin.Context) {
-		status := map[string]interface{}{
-			"status":    "healthy",
-			"service":   "auth-service",
-			"timestamp": time.Now().Format(time.RFC3339),
-			"version":   "1.0.0",
-		}
-
-		// Check database
-		sqlDB, err := db.DB()
-        if err != nil {
-            log.Fatal("Failed to get SQL DB instance:", err)
-        }
-
-        if err := sqlDB.Ping(); err != nil {
-            log.Fatal("Failed to ping database:", err)
-        }
-
-		// Check Redis
-		if redisClient != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			if err := redisClient.Ping(ctx).Err(); err != nil {
-				status["redis"] = "unhealthy"
-			} else {
-				status["redis"] = "healthy"
-			}
-		} else {
-			status["redis"] = "not_configured"
-		}
-
-		httpStatus := http.StatusOK
-		if status["status"] == "degraded" {
-			httpStatus = http.StatusServiceUnavailable
-		}
-
-		c.JSON(httpStatus, status)
-	})
 
 	// API routes
 	api.SetupRoutes(router, authService, oauthService)

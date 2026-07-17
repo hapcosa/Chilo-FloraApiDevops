@@ -16,6 +16,7 @@ type User struct {
 	Status        UserStatus     `json:"status" gorm:"default:active"`
 	Provider      string         `json:"provider" gorm:"default:local"` // local, google, github
 	ProviderID    string         `json:"provider_id"`
+	GoogleSub     *string        `json:"-" gorm:"uniqueIndex"`
 	EmailVerified bool           `json:"email_verified" gorm:"default:false"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`

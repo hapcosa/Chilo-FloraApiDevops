@@ -37,6 +37,7 @@ func SetupRoutes(router *gin.Engine, authService *services.AuthService, oauthSer
 		auth.POST("/register", authHandler.Register)
 		auth.POST("/login", authHandler.Login)
 		auth.POST("/refresh", authHandler.RefreshToken)
+		auth.POST("/google", authHandler.GoogleIDTokenLogin)
 
 		// OAuth endpoints
 		auth.GET("/google", authHandler.GoogleAuth)

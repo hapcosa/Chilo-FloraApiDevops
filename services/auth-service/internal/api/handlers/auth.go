@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
 	"auth-service/internal/middleware"
 	"auth-service/internal/models"
 	"auth-service/internal/services"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,6 +19,7 @@ type AuthHandler struct {
 	authService  *services.AuthService
 	oauthService *services.OAuthService
 }
+
 // WhoAmI devuelve información básica del usuario actual basado en el token
 func (h *AuthHandler) WhoAmI(c *gin.Context) {
 	// Obtener token del header Authorization
@@ -54,9 +57,9 @@ func (h *AuthHandler) WhoAmI(c *gin.Context) {
 
 	// Devolver información pública del usuario
 	c.JSON(http.StatusOK, gin.H{
-		"user":         user.ToPublic(),
+		"user":          user.ToPublic(),
 		"authenticated": true,
-		"token_valid":  true,
+		"token_valid":   true,
 	})
 }
 
@@ -376,6 +379,66 @@ func (h *AuthHandler) GoogleAuth(c *gin.Context) {
 		"auth_url": authURL,
 		"state":    state,
 	})
+}
+
+func (h *AuthHandler) GoogleIDTokenLogin(c *gin.Context) {
+	var req struct {
+		IDToken    string `json:"id_token"`
+		Credential string `json:"credential"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": "Invalid request data",
+			"details": err.Error(),
+			"code":    400,
+		})
+		return
+	}
+
+	idToken := strings.TrimSpace(req.IDToken)
+	if idToken == "" {
+		idToken = strings.TrimSpace(req.Credential)
+	}
+	if idToken == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": "id_token is required",
+			"code":    400,
+		})
+		return
+	}
+
+	tokenInfo, err := h.oauthService.VerifyGoogleIDToken(c.Request.Context(), idToken)
+	if err != nil {
+		status := http.StatusUnauthorized
+		message := "Invalid Google ID token"
+		if errors.Is(err, services.ErrOAuthNotConfigured) {
+			status = http.StatusServiceUnavailable
+			message = "Google OAuth is not configured"
+		} else if errors.Is(err, services.ErrUnverifiedEmail) {
+			message = "Google email is not verified"
+		}
+		c.JSON(status, gin.H{
+			"error":   http.StatusText(status),
+			"message": message,
+			"code":    status,
+		})
+		return
+	}
+
+	response, err := h.authService.ProcessGoogleIDTokenUser(tokenInfo)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Internal Server Error",
+			"message": "Failed to process Google user",
+			"code":    500,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // GitHubAuth inicia el flujo de autenticación con GitHub
