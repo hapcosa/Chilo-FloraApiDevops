@@ -30,6 +30,19 @@ RUN mkdir -p /usr/include/nlohmann && \
     curl -L https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp \
     -o /usr/include/nlohmann/json.hpp
 
+# Compilar nlohmann/json-schema-validator, requerido por
+# AtributosSchemaValidator para validar atributos_especificos por reino.
+RUN git clone --depth=1 --branch=2.3.0 https://github.com/pboettch/json-schema-validator.git /tmp/json-schema-validator && \
+    cd /tmp/json-schema-validator && \
+    mkdir build && cd build && \
+    cmake -G "Unix Makefiles" \
+        -DCMAKE_BUILD_TYPE=Debug \
+        -DJSON_VALIDATOR_BUILD_TESTS=OFF \
+        -DJSON_VALIDATOR_BUILD_EXAMPLES=OFF \
+        -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+    make -j$(nproc) && make install && \
+    rm -rf /tmp/json-schema-validator
+
 # Compilar Pistache
 RUN git clone --depth=1 --branch=master https://github.com/pistacheio/pistache.git /tmp/pistache && \
     cd /tmp/pistache && \
@@ -91,7 +104,7 @@ RUN cat > /home/developer/dev-server.sh << 'EOF'
 #!/bin/bash
 set -e
 
-echo "🚀 Starting Flora API Development Server with Hot Reload"
+echo "🚀 Starting Especies API Development Server with Hot Reload"
 
 # Función para compilar
 build_app() {
@@ -121,7 +134,7 @@ build_app() {
 # Función para ejecutar la aplicación
 run_app() {
     if [ -f "/app/build/chiloe_especies_api" ]; then
-        echo "🌿 Starting Flora API..."
+        echo "🌿 Starting Especies API..."
         cd /app
         ./build/chiloe_especies_api &
         APP_PID=$!
@@ -181,11 +194,13 @@ done
 EOF
 
 # Hacer ejecutable el script
-RUN chmod +x /home/developer/dev-server.sh
+RUN sed -i 's/\r$//' /home/developer/dev-server.sh && \
+    chmod +x /home/developer/dev-server.sh
 
 # Healthcheck para desarrollo
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:${API_PORT}/health || exit 1
 
-# Comando por defecto para desarrollo - usar el script de hot reload
-CMD ["/home/developer/dev-server.sh"]
+# Comando por defecto para desarrollo - invocar bash explícitamente evita
+# fallos por formato de shebang en imágenes construidas desde distintos hosts.
+CMD ["/bin/bash", "/home/developer/dev-server.sh"]

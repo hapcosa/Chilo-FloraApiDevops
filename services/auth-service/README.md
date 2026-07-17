@@ -78,7 +78,8 @@ GET  /api/v1/auth/whoami             # Info del usuario actual
 
 ### OAuth 2.0
 ```http
-GET /api/v1/auth/google              # Iniciar OAuth con Google
+GET /api/v1/auth/google              # Iniciar OAuth web con Google
+POST /api/v1/auth/google             # Login móvil con id_token de Google
 GET /api/v1/auth/github              # Iniciar OAuth con GitHub
 GET /api/v1/auth/callback/google     # Callback de Google
 GET /api/v1/auth/callback/github     # Callback de GitHub
@@ -297,4 +298,3 @@ Este proyecto está bajo la Licencia MIT. Ver `LICENSE` para más detalles.
 ## Autores
 
 - **Obrero** - *Desarrollo inicial* - [tu-github](https://github.com/tu-usuario)
-

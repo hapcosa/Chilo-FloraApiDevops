@@ -109,7 +109,7 @@ URLs locales:
 
 ## Qué hacer cuando algo no está claro
 
-1. **Lee primero**: [docs/PLAN_MAESTRO.md](docs/PLAN_MAESTRO.md) y la sección relevante del [README.MD](README.MD).
+1. **Lee primero**: [docs/PLAN_MAESTRO.md](docs/PLAN_MAESTRO.md) y la sección relevante del [README.MD](README.md).
 2. **Pregunta**: si el plan no cubre lo que necesitas, pregunta al humano antes de improvisar.
 3. **Si cambias arquitectura**, actualiza `docs/PLAN_MAESTRO.md` en el **mismo PR** y añade entrada en §10 (decisiones).
 

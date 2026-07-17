@@ -26,6 +26,7 @@ COPY . .
 
 # Crear usuario no-root y asignar permisos
 RUN adduser -D -u 1000 appuser && \
+    mkdir -p /app/tmp && \
     chown -R appuser:appuser /app
 
 # Cambiar a usuario no-root
@@ -38,4 +39,4 @@ ENV ENVIRONMENT=development
 
 EXPOSE 8081
 
-CMD ["air", "-c", ".air.toml"]
+CMD ["sh", "-c", "mkdir -p /app/tmp && air -c .air.toml"]
