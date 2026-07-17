@@ -1,460 +1,170 @@
 # Chiloé Especies API
 
-**Microservicio REST para la gestión de especies multi-reino (Animalia, Plantae, Fungi, Protista, Monera) de Chiloé**
+Microservicio REST en C++17 + Pistache para el catálogo multi-reino de la
+biodiversidad de Chiloé.
 
-> Renombrado desde `flora-api` en la Fase 1 del plan maestro. Ver [docs/PLAN_MAESTRO.md](../../docs/PLAN_MAESTRO.md) en el repo raíz.
+Este servicio reemplaza el alcance antiguo de `flora-api`. Las decisiones de
+modelo y arquitectura están en [../../docs/PLAN_MAESTRO.md](../../docs/PLAN_MAESTRO.md).
 
-[![C++17](https://img.shields.io/badge/C++-17-blue.svg?style=flat&logo=c%2B%2B)](https://en.cppreference.com/w/cpp/17)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg?style=flat&logo=postgresql)](https://www.postgresql.org/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg?style=flat&logo=docker)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+## Responsabilidades
 
-## 📋 Descripción
+- CRUD de familias, géneros y especies.
+- Modelo multi-reino: `animalia`, `plantae`, `fungi`, `protista`, `monera`.
+- Validación de `atributos_especificos` con JSON Schema por reino.
+- Filtros y paginación para `GET /api/v1/especies` y ruta legacy
+  `GET /api/especies`.
+- Persistencia en PostgreSQL mediante migraciones SQL planas.
 
-Chiloé Especies API es un microservicio especializado en la gestión de información taxonómica de la biodiversidad del Archipiélago de Chiloé en los cinco reinos (Animalia, Plantae, Fungi, Protista, Monera). Forma parte de una arquitectura de microservicios más amplia y proporciona endpoints RESTful para la gestión completa de familias, géneros y especies, incluyendo la gestión de imágenes asociadas.
+La infraestructura MinIO/S3 ya existe en Docker Compose dev y manifiestos K8s
+base. El endpoint `POST /api/v1/uploads/presign` genera URLs `PUT` firmadas.
+`PATCH /api/v1/especies/:id/fotos` guarda `foto_portada_key` y `fotos_keys`
+solo si las keys existen en el bucket `especies-fotos`. Ese bucket queda con
+descarga pública; `avistamientos-fotos` se mantiene privado.
 
-### 🎯 Características Principales
+El controlador todavía conserva endpoints legacy de imágenes binarias
+(`/api/especies/:id/images`). No forman parte del flujo de producción definido
+en el plan maestro.
 
-- **🔍 Gestión Taxonómica Completa**: CRUD para Familias, Géneros y Especies
-- **🖼️ Gestión Multimedia**: Subida, visualización y gestión de imágenes
-- **🔍 Búsquedas Especializadas**: Por nombre científico, género, familia
-- **🏗️ Arquitectura Limpia**: Patrón Repository, separación por capas
-- **🚀 Alto Rendimiento**: Framework Pistache con C++17
-- **📊 Base de Datos Robusta**: PostgreSQL con transacciones ACID
-- **🐳 Containerización**: Docker para desarrollo y despliegue
-- **🔧 Hot Reload**: Desarrollo ágil con recarga automática
+## Desarrollo Con Docker Compose
 
-## 🏛️ Arquitectura
+Desde la raíz del repo:
 
-```mermaid
-graph TD
-    A[HTTP Client] --> B[Pistache Router]
-    B --> C[Controllers Layer]
-    C --> D[Services Layer]
-    D --> E[Repository Layer]
-    E --> F[PostgreSQL Database]
-    
-    G[Image Files] --> H[Static File Server]
-    H --> C
-```
-
-### 🗂️ Estructura Jerárquica de Datos
-
-```
-Familia
-├── Género 1
-│   ├── Especie 1
-│   └── Especie 2
-└── Género 2
-    └── Especie 3
-```
-
-## 🚀 Inicio Rápido
-
-### 📋 Prerrequisitos
-
-- **Docker** 20.10+
-- **Docker Compose** 2.0+
-- **Git** 2.30+
-
-### 🏃‍♂️ Desarrollo Local
-
-1. **Clonar el repositorio**
 ```bash
-git clone <repository-url>
-cd especies-api
+make dev
+make logs-especies
+make api-test
 ```
 
-2. **Configurar variables de entorno**
-```bash
-cp .env.example .env
-# Editar .env con tus configuraciones
-```
+URL local:
 
-3. **Iniciar entorno de desarrollo**
-```bash
-chmod +x dev.sh
-./dev.sh
-```
-
-4. **Verificar funcionamiento**
 ```bash
 curl http://localhost:9081/health
-# Respuesta esperada: "OK"
 ```
 
-### 🐳 Docker Compose - Desarrollo
+El compose monta:
 
-```yaml
-# docker-compose.dev.yml
-services:
-  especies-api:
-    build:
-      dockerfile: Dockerfile.dev.dock
-    ports:
-      - "9081:9080"
-    volumes:
-      - ./src:/app/src
-      - ./include:/app/include
-    environment:
-      - HOT_RELOAD=true
+- `src/`
+- `include/`
+- `CMakeLists.txt`
+- `config/schemas/`
+
+Además define `SCHEMAS_DIR=/app/config/schemas`, necesario para que el servicio
+cargue los JSON Schemas al iniciar.
+
+## Migraciones
+
+Las tablas no se crean desde el código de aplicación. El schema vive en:
+
+```text
+services/especies-api/migrations/
 ```
 
-**Comandos útiles:**
-```bash
-# Iniciar servicios
-docker-compose -f docker-compose.dev.yml up --build
-
-# Ver logs en tiempo real
-docker-compose -f docker-compose.dev.yml logs -f especies-api
-
-# Reiniciar solo la API
-docker-compose -f docker-compose.dev.yml restart especies-api
-
-# Limpiar contenedores y volúmenes
-./dev.sh clean
-```
-
-## 🔧 Compilación Manual
-
-### 📦 Dependencias del Sistema
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get update && sudo apt-get install -y \
-    build-essential \
-    cmake \
-    libpq-dev \
-    libssl-dev \
-    libpistache-dev \
-    nlohmann-json3-dev \
-    libpqxx-dev
-```
-
-**Arch Linux:**
-```bash
-sudo pacman -S base-devel cmake postgresql-libs openssl pistache nlohmann-json libpqxx
-```
-
-### 🏗️ Compilación
+El runner:
 
 ```bash
-mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j$(nproc)
-./chiloe_especies_api
+services/especies-api/scripts/migrate.sh
 ```
 
-## 📡 API Endpoints
+usa la tabla `schema_migrations` para no reaplicar migraciones ya ejecutadas.
 
-### 🌱 Familias
+## Endpoints Principales
 
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `GET` | `/api/familias` | Listar todas las familias |
-| `GET` | `/api/familias/{id}` | Obtener familia por ID |
-| `POST` | `/api/familias` | Crear nueva familia |
-| `PUT` | `/api/familias/{id}` | Actualizar familia |
-| `DELETE` | `/api/familias/{id}` | Eliminar familia |
-| `GET` | `/api/familias/search/nombre?nombre=Rosaceae` | Buscar por nombre |
+```text
+GET    /health
 
-### 🌿 Géneros
+POST   /api/v1/uploads/presign
+PATCH  /api/v1/especies/{id}/fotos
 
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `GET` | `/api/generos` | Listar todos los géneros |
-| `GET` | `/api/generos/{id}` | Obtener género por ID |
-| `POST` | `/api/generos` | Crear nuevo género |
-| `PUT` | `/api/generos/{id}` | Actualizar género |
-| `DELETE` | `/api/generos/{id}` | Eliminar género |
+GET    /api/familias
+GET    /api/familias/{id}
+POST   /api/familias
+PUT    /api/familias/{id}
+DELETE /api/familias/{id}
 
-### 🍃 Especies
+GET    /api/generos
+GET    /api/generos/{id}
+POST   /api/generos
+PUT    /api/generos/{id}
+DELETE /api/generos/{id}
 
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `GET` | `/api/especies` | Listar todas las especies |
-| `GET` | `/api/especies/{id}` | Obtener especie por ID |
-| `POST` | `/api/especies` | Crear nueva especie |
-| `PUT` | `/api/especies/{id}` | Actualizar especie |
-| `DELETE` | `/api/especies/{id}` | Eliminar especie |
-| `GET` | `/api/especies/search/nombre?nombre=Drimys` | Buscar por nombre científico |
-| `GET` | `/api/especies/search/genero/{nombre}` | Buscar por género |
+GET    /api/especies
+GET    /api/especies/{id}
+POST   /api/especies
+PUT    /api/especies/{id}
+DELETE /api/especies/{id}
+PATCH  /api/especies/{id}/fotos
 
-### 🖼️ Imágenes
+GET    /api/v1/especies
+GET    /api/v1/especies/{id}
+POST   /api/v1/especies
+PUT    /api/v1/especies/{id}
+DELETE /api/v1/especies/{id}
+PATCH  /api/v1/especies/{id}/fotos
 
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `POST` | `/api/{entidad}/{id}/images/{principal}` | Subir imagen |
-| `GET` | `/api/{entidad}/{id}/images` | Listar imágenes |
-| `PUT` | `/api/{entidad}/{id}/images/{url}` | Establecer imagen principal |
-| `GET` | `/api/images/{entidad}/{filename}` | Servir imagen |
-| `DELETE` | `/api/images/{entidad}/{filename}` | Eliminar imagen |
+GET    /api/v1/avistamientos
+GET    /api/v1/avistamientos/{id}
+POST   /api/v1/avistamientos
+PATCH  /api/v1/avistamientos/{id}/moderacion
+```
 
-## 📊 Ejemplos de Uso
+Filtros soportados en `GET /api/v1/especies` y `GET /api/especies`:
 
-### Crear una nueva familia
+```text
+reino
+genero_id
+familia_id
+conservacion
+endemica
+q
+limit
+offset
+orderby
+orderdir
+```
+
+Ejemplo:
+
 ```bash
-curl -X POST http://localhost:9081/api/familias \
+curl "http://localhost:9081/api/v1/especies?reino=plantae&q=canelo&limit=20&offset=0"
+```
+
+Ejemplo de presigned URL:
+
+```bash
+curl -X POST http://localhost:9081/api/v1/uploads/presign \
   -H "Content-Type: application/json" \
-  -d '{
-    "nombre": "Rosaceae",
-    "descripcion": "Familia de plantas con flores en forma de rosa",
-    "nombre_comun": "Familia de las rosas"
-  }'
+  -d '{"bucket":"especies-fotos","filename":"canelo.jpg","content_type":"image/jpeg"}'
 ```
 
-### Buscar especies por nombre científico
-```bash
-curl "http://localhost:9081/api/especies/search/nombre?nombre=Drimys%20winteri"
-```
-
-### Subir imagen para una especie
-```bash
-curl -X POST http://localhost:9081/api/especies/1/images/true \
-  -H "Content-Type: application/octet-stream" \
-  --data-binary @imagen_especie.jpg
-```
-
-### Respuesta típica
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "nombre": "Drimys winteri",
-    "nombre_comun": "Canelo",
-    "descripcion": "Árbol sagrado del pueblo mapuche",
-    "familia": "Winteraceae",
-    "genero": "Drimys",
-    "imagen_principal": "/api/images/especies/especie_1_123456789.jpg"
-  },
-  "message": "Especie obtenida exitosamente"
-}
-```
-
-## ⚙️ Configuración
-
-### 🔧 Variables de Entorno
+Ejemplo para persistir keys ya subidas:
 
 ```bash
-# API Configuration
-API_PORT=9080                    # Puerto del servidor
-API_HOST=0.0.0.0                # Host de escucha
-
-# Database Configuration
-DB_HOST=localhost               # Host de PostgreSQL
-DB_PORT=5432                   # Puerto de PostgreSQL
-DB_NAME=chiloe_flora_db        # Nombre de la base de datos
-DB_USER=postgres               # Usuario de la base de datos
-DB_PASSWORD=postgres           # Contraseña de la base de datos
-
-# Development
-RELOAD_ON_CHANGE=true          # Hot reload en desarrollo
-CMAKE_BUILD_TYPE=Debug         # Tipo de compilación
+curl -X PATCH http://localhost:9081/api/v1/especies/1/fotos \
+  -H "Content-Type: application/json" \
+  -d '{"foto_portada_key":"especies/2026/07/15/abc-canelo.jpg","fotos_keys":["especies/2026/07/15/abc-canelo.jpg"]}'
 ```
 
-### 🗄️ Configuración de Base de Datos
-
-La aplicación crea automáticamente las tablas necesarias:
-
-```sql
--- Tablas principales
-CREATE TABLE familias (
-    id SERIAL PRIMARY KEY,
-    nombre VARCHAR(255) UNIQUE NOT NULL,
-    nombre_comun VARCHAR(255),
-    descripcion TEXT,
-    imagen_principal VARCHAR(500)
-);
-
-CREATE TABLE generos (
-    id SERIAL PRIMARY KEY,
-    nombre VARCHAR(255) UNIQUE NOT NULL,
-    nombre_comun VARCHAR(255),
-    descripcion TEXT,
-    familia_id INTEGER REFERENCES familias(id),
-    imagen_principal VARCHAR(500)
-);
-
-CREATE TABLE especies (
-    id SERIAL PRIMARY KEY,
-    nombre_cientifico VARCHAR(255) UNIQUE NOT NULL,
-    nombre_comun VARCHAR(255),
-    descripcion TEXT,
-    genero_id INTEGER REFERENCES generos(id),
-    imagen_principal VARCHAR(500)
-);
-```
-
-## 🚀 Despliegue
-
-### 🐳 Docker Production
+Ejemplo para crear un avistamiento:
 
 ```bash
-# Construir imagen de producción
-docker build -t especies-api:latest .
-
-# Ejecutar con Docker Compose
-docker-compose up -d
+curl -X POST http://localhost:9081/api/v1/avistamientos \
+  -H "Content-Type: application/json" \
+  -d '{"reino":"plantae","foto_key":"avistamientos/2026/07/15/abc-canelo.jpg","geo_lat":-42.62,"geo_lng":-73.78,"nombre_sugerido":"Canelo"}'
 ```
 
-### ☸️ Kubernetes (Próximamente)
+## Tests
 
-```yaml
-# kubernetes/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: especies-api
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: especies-api
-  template:
-    metadata:
-      labels:
-        app: especies-api
-    spec:
-      containers:
-      - name: especies-api
-        image: especies-api:latest
-        ports:
-        - containerPort: 9080
-        env:
-        - name: DB_HOST
-          value: "postgres-service"
-```
-
-### 🎯 Minikube Local
+Con dependencias locales instaladas:
 
 ```bash
-# Iniciar Minikube
-minikube start
-
-# Aplicar manifiestos
-kubectl apply -f kubernetes/
-
-# Exponer servicio
-minikube service especies-api --url
+make cpp-test
 ```
 
-## 🧪 Testing
-
-### 🔍 Health Check
+Con Docker, el CI usa el stage `tester` del Dockerfile:
 
 ```bash
-curl http://localhost:9081/health
+docker build --target tester -t especies-api-test services/especies-api
 ```
 
-### 🧹 Análisis Estático
-
-```bash
-# En el directorio build
-make static-analysis    # Análisis completo
-make quick-analysis    # Solo errores críticos
-make format           # Formatear código
-```
-
-### 📊 Métricas de Rendimiento
-
-```bash
-# Compilación optimizada
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j$(nproc)
-
-# Análisis con Valgrind (memoria)
-valgrind --leak-check=full ./chiloe_especies_api
-
-# Profiling con gprof
-gprof chiloe_especies_api gmon.out > analysis.txt
-```
-
-## 🏗️ Arquitectura de Microservicios
-
-### 🌐 Ecosistema Completo
-
-```mermaid
-graph TB
-    A[API Gateway] --> B[Flora API]
-    A --> C[Auth Service]
-    A --> D[User Service]
-    A --> E[Notification Service]
-    
-    B --> F[(PostgreSQL)]
-    C --> G[(Redis)]
-    D --> H[(MongoDB)]
-    
-    I[Frontend App] --> A
-    J[Mobile App] --> A
-```
-
-### 🔗 Integración con otros servicios
-
-- **API Gateway**: Nginx, Kong, o Istio
-- **Service Discovery**: Consul o Kubernetes DNS
-- **Logging**: ELK Stack (Elasticsearch, Logstash, Kibana)
-- **Monitoring**: Prometheus + Grafana
-- **Messaging**: RabbitMQ o Apache Kafka
-
-## 🤝 Contribución
-
-### 📝 Guía para Contribuidores
-
-1. **Fork** del repositorio
-2. **Crear** rama feature (`git checkout -b feature/nueva-funcionalidad`)
-3. **Commit** cambios (`git commit -am 'Agregar nueva funcionalidad'`)
-4. **Push** a la rama (`git push origin feature/nueva-funcionalidad`)
-5. **Crear** Pull Request
-
-### 📐 Estándares de Código
-
-- **Estilo**: Google C++ Style Guide
-- **Documentación**: Doxygen comments
-- **Testing**: Unit tests con Google Test
-- **Commits**: Conventional Commits
-
-```cpp
-/**
- * @brief Obtiene una especie por su ID
- * @param id Identificador único de la especie
- * @return std::optional<Especie> La especie si existe, std::nullopt si no
- * @throws std::invalid_argument Si el ID no es válido
- */
-std::optional<Especie> getEspecieById(int id) const;
-```
-
-## 📚 Documentación Adicional
-
-- [🏗️ Estructura del Proyecto](STRUCTURE.md)
-- [🔧 Guía de Desarrollo](docs/DEVELOPMENT.md)
-- [🚀 Guía de Despliegue](docs/DEPLOYMENT.md)
-- [📡 Documentación de API](docs/API.md)
-- [🐳 Docker Guide](docs/DOCKER.md)
-
-## 📄 Licencia
-
-Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
-
-## 👥 Equipo
-
-- **Desarrollador Principal**: [Tu Nombre]
-- **Arquitecto**: [Nombre del Arquitecto]
-- **DevOps**: [Nombre DevOps]
-
-## 📞 Soporte
-
-- **Issues**: [GitHub Issues](../../issues)
-- **Discusiones**: [GitHub Discussions](../../discussions)
-- **Email**: support@chiloe-flora.com
-- **Slack**: #especies-api-support
-
----
-
-<p align="center">
-  <strong>🌿 Preservando la biodiversidad de Chiloé a través de la tecnología 🌿</strong>
-</p>
-
-<p align="center">
-  Hecho en Chile
-</p>
+Los tests cubren serialización/parseo de `Reino`, validación real de JSON
+Schemas por reino y generación/validación básica de presigned URLs.

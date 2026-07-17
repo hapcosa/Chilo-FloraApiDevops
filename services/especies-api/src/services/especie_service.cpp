@@ -3,11 +3,16 @@
 #include <filesystem>
 #include <fstream>
 #include <chrono>
+#include <set>
+#include <utility>
 
 // Constructor
 EspecieService::EspecieService(std::shared_ptr<IEspecieRepository> repo,
-                                std::shared_ptr<AtributosSchemaValidator> validator)
-        : repository(std::move(repo)), schemaValidator(std::move(validator)) {}
+                                std::shared_ptr<AtributosSchemaValidator> validator,
+                                std::shared_ptr<UploadPresignService> storageService)
+        : repository(std::move(repo)),
+          schemaValidator(std::move(validator)),
+          storageService(std::move(storageService)) {}
 
 // Validación: invariantes locales + atributos_especificos por reino.
 void EspecieService::validateEspecie(const Especie& especie) {
@@ -21,6 +26,14 @@ void EspecieService::validateEspecie(const Especie& especie) {
     // std::invalid_argument con un mensaje detallado si no cumple.
     schemaValidator->validate(especie.getReino(),
                               especie.getAtributosEspecificos());
+}
+
+void EspecieService::validateFotoKeyExists(const std::string& key) const {
+    const std::string& bucket = storageService->getConfig().especiesBucket;
+    if (!storageService->objectExists(bucket, key)) {
+        throw std::invalid_argument(
+            "La key de foto no existe en object storage: " + key);
+    }
 }
 
 // Métodos de consulta
@@ -71,6 +84,42 @@ Especie EspecieService::updateEspecie(const Especie& especie) {
     }
 
     return repository->update(especie);
+}
+
+Especie EspecieService::updateFotoKeys(int id, const FotoKeysUpdate& update) {
+    if (id <= 0) {
+        throw std::invalid_argument("ID debe ser mayor que 0");
+    }
+    if (!update.updateFotoPortadaKey && !update.updateFotosKeys) {
+        throw std::invalid_argument("No hay campos de fotos para actualizar");
+    }
+
+    auto existing = repository->findById(id);
+    if (!existing) {
+        throw std::runtime_error("Especie no encontrada");
+    }
+
+    Especie updated = *existing;
+    if (update.updateFotoPortadaKey) {
+        if (update.fotoPortadaKey) {
+            validateFotoKeyExists(*update.fotoPortadaKey);
+        }
+        updated.setFotoPortadaKey(update.fotoPortadaKey);
+    }
+
+    if (update.updateFotosKeys) {
+        std::set<std::string> uniqueKeys;
+        for (const auto& key : update.fotosKeys) {
+            if (!uniqueKeys.insert(key).second) {
+                throw std::invalid_argument("fotos_keys contiene keys duplicadas");
+            }
+            validateFotoKeyExists(key);
+        }
+        updated.setFotosKeys(update.fotosKeys);
+    }
+
+    validateEspecie(updated);
+    return repository->update(updated);
 }
 
 bool EspecieService::deleteEspecie(int id) {

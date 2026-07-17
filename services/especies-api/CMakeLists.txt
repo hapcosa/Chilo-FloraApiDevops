@@ -21,6 +21,7 @@ endif()
 # Encontrar paquetes necesarios
 find_package(PkgConfig REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(CURL REQUIRED)
 find_package(Threads REQUIRED)
 
 # Configuración mejorada para Pistache
@@ -54,6 +55,7 @@ endif()
 
 # Include directories (rutas correctas para Docker)
 include_directories(${Pistache_INCLUDE_DIRS})
+include_directories(${CURL_INCLUDE_DIRS})
 include_directories(/usr/local/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -69,16 +71,22 @@ set(REQUIRED_SOURCES
         src/controllers/familia_controller.cpp
         src/controllers/genero_controller.cpp
         src/controllers/especie_controller.cpp
+        src/controllers/avistamiento_controller.cpp
+        src/controllers/upload_controller.cpp
         src/models/familia.cpp
         src/models/genero.cpp
         src/models/especie.cpp
+        src/models/avistamiento.cpp
         src/models/reino.cpp
         src/repository/postgres_familia_repository.cpp
         src/repository/postgres_genero_repository.cpp
         src/repository/postgresql_especie_repository.cpp
+        src/repository/postgres_avistamiento_repository.cpp
         src/services/familia_service.cpp
         src/services/genero_service.cpp
         src/services/especie_service.cpp
+        src/services/avistamiento_service.cpp
+        src/services/upload_presign_service.cpp
         src/utils/config.cpp
         src/utils/atributos_schema_validator.cpp
         src/models/imagen.cpp
@@ -98,19 +106,26 @@ set(REQUIRED_HEADERS
         include/controllers/familia_controller.hpp
         include/controllers/genero_controller.hpp
         include/controllers/especie_controller.hpp
+        include/controllers/avistamiento_controller.hpp
+        include/controllers/upload_controller.hpp
         include/models/especie.hpp
+        include/models/avistamiento.hpp
         include/models/familia.hpp
         include/models/genero.hpp
         include/models/reino.hpp
         include/repository/postgres_familia_repository.hpp
         include/repository/postgres_genero_repository.hpp
         include/repository/postgresql_especie_repository.hpp
+        include/repository/postgres_avistamiento_repository.hpp
+        include/repository/avistamiento_repository.hpp
         include/repository/familia_repository.hpp
         include/repository/genero_repository.hpp
         include/repository/especie_repository.hpp
         include/services/familia_service.hpp
         include/services/genero_service.hpp
         include/services/especie_service.hpp
+        include/services/avistamiento_service.hpp
+        include/services/upload_presign_service.hpp
         include/utils/config.hpp
         include/utils/atributos_schema_validator.hpp
         include/models/imagen.hpp
@@ -132,16 +147,22 @@ set(SOURCES
         src/controllers/familia_controller.cpp
         src/controllers/genero_controller.cpp
         src/controllers/especie_controller.cpp
+        src/controllers/avistamiento_controller.cpp
+        src/controllers/upload_controller.cpp
         src/models/familia.cpp
         src/models/genero.cpp
         src/models/especie.cpp
+        src/models/avistamiento.cpp
         src/models/reino.cpp
         src/repository/postgres_familia_repository.cpp
         src/repository/postgres_genero_repository.cpp
         src/repository/postgresql_especie_repository.cpp
+        src/repository/postgres_avistamiento_repository.cpp
         src/services/familia_service.cpp
         src/services/genero_service.cpp
         src/services/especie_service.cpp
+        src/services/avistamiento_service.cpp
+        src/services/upload_presign_service.cpp
         src/utils/config.cpp
         src/utils/atributos_schema_validator.cpp
         src/models/imagen.cpp
@@ -193,6 +214,7 @@ target_link_libraries(chiloe_especies_api
         nlohmann_json_schema_validator
         OpenSSL::SSL
         OpenSSL::Crypto
+        ${CURL_LIBRARIES}
         Threads::Threads
 )
 

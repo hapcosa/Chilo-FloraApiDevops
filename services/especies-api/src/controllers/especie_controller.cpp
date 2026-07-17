@@ -266,6 +266,89 @@ void EspecieController::update(const Pistache::Rest::Request& request,
   }
 }
 
+void EspecieController::updateFotos(const Pistache::Rest::Request& request,
+                                    Pistache::Http::ResponseWriter response) {
+  try {
+    auto id_str = request.param(":id").as<std::string>();
+    int id;
+
+    try {
+      id = std::stoi(id_str);
+    } catch (const std::exception& e) {
+      json error = {{"error", "ID debe ser un número válido"}};
+      response.headers().add<Pistache::Http::Header::ContentType>(
+          MIME(Application, Json));
+      response.send(Pistache::Http::Code::Bad_Request, error.dump());
+      return;
+    }
+
+    if (request.body().empty()) {
+      json error = {{"error", "El cuerpo de la petición no puede estar vacío"}};
+      response.headers().add<Pistache::Http::Header::ContentType>(
+          MIME(Application, Json));
+      response.send(Pistache::Http::Code::Bad_Request, error.dump());
+      return;
+    }
+
+    const auto requestJson = json::parse(request.body());
+    FotoKeysUpdate update;
+
+    if (requestJson.contains("foto_portada_key")) {
+      update.updateFotoPortadaKey = true;
+      if (requestJson["foto_portada_key"].is_null()) {
+        update.fotoPortadaKey = std::nullopt;
+      } else if (requestJson["foto_portada_key"].is_string()) {
+        update.fotoPortadaKey =
+            requestJson["foto_portada_key"].get<std::string>();
+      } else {
+        throw std::invalid_argument("'foto_portada_key' debe ser string o null");
+      }
+    }
+
+    if (requestJson.contains("fotos_keys")) {
+      if (!requestJson["fotos_keys"].is_array()) {
+        throw std::invalid_argument("'fotos_keys' debe ser un array JSON");
+      }
+      update.updateFotosKeys = true;
+      for (const auto& item : requestJson["fotos_keys"]) {
+        if (!item.is_string()) {
+          throw std::invalid_argument("'fotos_keys' solo acepta strings");
+        }
+        update.fotosKeys.push_back(item.get<std::string>());
+      }
+    }
+
+    const Especie updated = service->updateFotoKeys(id, update);
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Ok, updated.toJson().dump());
+  } catch (const json::parse_error& e) {
+    json error = {{"error", "JSON inválido: " + std::string(e.what())}};
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Bad_Request, error.dump());
+  } catch (const std::invalid_argument& e) {
+    json error = {{"error", e.what()}};
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Bad_Request, error.dump());
+  } catch (const std::runtime_error& e) {
+    json error = {{"error", e.what()}};
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    if (std::string(e.what()) == "Especie no encontrada") {
+      response.send(Pistache::Http::Code::Not_Found, error.dump());
+    } else {
+      response.send(Pistache::Http::Code::Service_Unavailable, error.dump());
+    }
+  } catch (const std::exception& e) {
+    json error = {{"error", e.what()}};
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Internal_Server_Error, error.dump());
+  }
+}
+
 void EspecieController::remove(const Pistache::Rest::Request& request,
                                Pistache::Http::ResponseWriter response) {
   try {
