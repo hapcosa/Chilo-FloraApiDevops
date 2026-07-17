@@ -31,13 +31,16 @@ type Claims struct {
 }
 
 var (
-	ErrUserNotFound    = errors.New("user not found")
-	ErrInvalidPassword = errors.New("invalid password")
-	ErrInvalidToken    = errors.New("invalid token")
-	ErrTokenExpired    = errors.New("token expired")
-	ErrUserExists      = errors.New("user already exists")
-	ErrInvalidEmail    = errors.New("invalid email")
-	ErrWeakPassword    = errors.New("password too weak")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrInvalidPassword    = errors.New("invalid password")
+	ErrInvalidToken       = errors.New("invalid token")
+	ErrTokenExpired       = errors.New("token expired")
+	ErrUserExists         = errors.New("user already exists")
+	ErrInvalidEmail       = errors.New("invalid email")
+	ErrWeakPassword       = errors.New("password too weak")
+	ErrOAuthNotConfigured = errors.New("oauth provider not configured")
+	ErrInvalidOAuthToken  = errors.New("invalid oauth token")
+	ErrUnverifiedEmail    = errors.New("email is not verified")
 )
 
 func NewAuthService(db *gorm.DB, redis *redis.Client, config config.JWTConfig) *AuthService {
@@ -393,6 +396,70 @@ func (s *AuthService) ProcessOAuthUser(provider, providerID, email, name, avatar
 	}
 
 	// Generar tokens
+	return s.generateAuthResponse(&user)
+}
+
+func (s *AuthService) ProcessGoogleIDTokenUser(info *GoogleIDTokenInfo) (*models.AuthResponse, error) {
+	if info == nil || info.Subject == "" || info.Email == "" {
+		return nil, ErrInvalidOAuthToken
+	}
+
+	googleSub := info.Subject
+	var user models.User
+	err := s.db.Where("google_sub = ?", googleSub).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		err = s.db.Where("email = ?", info.Email).First(&user).Error
+	}
+
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+
+	name := info.Name
+	if name == "" {
+		name = info.Email
+	}
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		user = models.User{
+			Email:         info.Email,
+			Password:      "",
+			Name:          name,
+			Avatar:        info.Picture,
+			Role:          models.UserRoleUser,
+			Status:        models.UserStatusActive,
+			Provider:      "google",
+			ProviderID:    googleSub,
+			GoogleSub:     &googleSub,
+			EmailVerified: info.EmailVerified,
+		}
+
+		if err := s.db.Create(&user).Error; err != nil {
+			return nil, fmt.Errorf("failed to create Google user: %w", err)
+		}
+	} else {
+		if user.GoogleSub != nil && *user.GoogleSub != googleSub {
+			return nil, ErrInvalidOAuthToken
+		}
+		user.GoogleSub = &googleSub
+		user.EmailVerified = info.EmailVerified
+		user.Name = name
+		user.Avatar = info.Picture
+		if user.Provider == "" {
+			user.Provider = "local"
+		}
+		if user.Provider == "google" {
+			user.ProviderID = googleSub
+		}
+		if user.Status != models.UserStatusActive {
+			return nil, errors.New("user account is not active")
+		}
+
+		if err := s.db.Save(&user).Error; err != nil {
+			return nil, fmt.Errorf("failed to update Google user: %w", err)
+		}
+	}
+
 	return s.generateAuthResponse(&user)
 }
 

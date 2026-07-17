@@ -1,17 +1,23 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
+	"time"
 
 	"auth-service/internal/config"
 )
 
 type OAuthService struct {
-	config config.OAuthConfig
+	config             config.OAuthConfig
+	httpClient         *http.Client
+	googleTokenInfoURL string
 }
 
 type GoogleUserInfo struct {
@@ -24,6 +30,17 @@ type GoogleUserInfo struct {
 	Picture       string `json:"picture"`
 }
 
+type GoogleIDTokenInfo struct {
+	Subject       string
+	Email         string
+	EmailVerified bool
+	Name          string
+	Picture       string
+	Audience      string
+	Issuer        string
+	ExpiresAt     time.Time
+}
+
 type GitHubUserInfo struct {
 	ID        int    `json:"id"`
 	Login     string `json:"login"`
@@ -33,8 +50,15 @@ type GitHubUserInfo struct {
 }
 
 func NewOAuthService(config config.OAuthConfig) *OAuthService {
+	return newOAuthService(config, &http.Client{Timeout: 5 * time.Second},
+		"https://oauth2.googleapis.com/tokeninfo")
+}
+
+func newOAuthService(config config.OAuthConfig, httpClient *http.Client, googleTokenInfoURL string) *OAuthService {
 	return &OAuthService{
-		config: config,
+		config:             config,
+		httpClient:         httpClient,
+		googleTokenInfoURL: googleTokenInfoURL,
 	}
 }
 
@@ -111,8 +135,7 @@ func (s *OAuthService) ExchangeGoogleCode(code string) (*GoogleUserInfo, error) 
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenResult.AccessToken))
 
-	client := &http.Client{}
-	userResp, err := client.Do(req)
+	userResp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}
@@ -149,8 +172,7 @@ func (s *OAuthService) ExchangeGitHubCode(code string) (*GitHubUserInfo, error) 
 	req.URL.RawQuery = tokenData.Encode()
 	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{}
-	tokenResp, err := client.Do(req)
+	tokenResp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code for token: %w", err)
 	}
@@ -180,7 +202,7 @@ func (s *OAuthService) ExchangeGitHubCode(code string) (*GitHubUserInfo, error) 
 	userReq.Header.Set("Authorization", fmt.Sprintf("token %s", tokenResult.AccessToken))
 	userReq.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	userResp, err := client.Do(userReq)
+	userResp, err := s.httpClient.Do(userReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}
@@ -217,8 +239,7 @@ func (s *OAuthService) getGitHubPrimaryEmail(token string) (string, error) {
 	req.Header.Set("Authorization", fmt.Sprintf("token %s", token))
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -253,4 +274,138 @@ func (s *OAuthService) getGitHubPrimaryEmail(token string) (string, error) {
 	}
 
 	return "", fmt.Errorf("no verified email found")
+}
+
+type flexibleBool bool
+
+func (value *flexibleBool) UnmarshalJSON(data []byte) error {
+	var boolValue bool
+	if err := json.Unmarshal(data, &boolValue); err == nil {
+		*value = flexibleBool(boolValue)
+		return nil
+	}
+
+	var stringValue string
+	if err := json.Unmarshal(data, &stringValue); err != nil {
+		return err
+	}
+
+	parsed, err := strconv.ParseBool(stringValue)
+	if err != nil {
+		return err
+	}
+	*value = flexibleBool(parsed)
+	return nil
+}
+
+type flexibleUnix int64
+
+func (value *flexibleUnix) UnmarshalJSON(data []byte) error {
+	var numberValue int64
+	if err := json.Unmarshal(data, &numberValue); err == nil {
+		*value = flexibleUnix(numberValue)
+		return nil
+	}
+
+	var stringValue string
+	if err := json.Unmarshal(data, &stringValue); err != nil {
+		return err
+	}
+
+	parsed, err := strconv.ParseInt(stringValue, 10, 64)
+	if err != nil {
+		return err
+	}
+	*value = flexibleUnix(parsed)
+	return nil
+}
+
+type googleTokenInfoResponse struct {
+	Iss           string       `json:"iss"`
+	Aud           string       `json:"aud"`
+	Sub           string       `json:"sub"`
+	Email         string       `json:"email"`
+	EmailVerified flexibleBool `json:"email_verified"`
+	Name          string       `json:"name"`
+	Picture       string       `json:"picture"`
+	Exp           flexibleUnix `json:"exp"`
+}
+
+func (s *OAuthService) VerifyGoogleIDToken(ctx context.Context, idToken string) (*GoogleIDTokenInfo, error) {
+	if strings.TrimSpace(s.config.GoogleClientID) == "" {
+		return nil, ErrOAuthNotConfigured
+	}
+	if strings.TrimSpace(idToken) == "" {
+		return nil, ErrInvalidOAuthToken
+	}
+
+	endpoint, err := url.Parse(s.googleTokenInfoURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tokeninfo endpoint: %w", err)
+	}
+	query := endpoint.Query()
+	query.Set("id_token", idToken)
+	endpoint.RawQuery = query.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tokeninfo request: %w", err)
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify Google ID token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, ErrInvalidOAuthToken
+	}
+
+	var tokenInfo googleTokenInfoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tokenInfo); err != nil {
+		return nil, fmt.Errorf("failed to decode tokeninfo response: %w", err)
+	}
+
+	if !s.isAllowedGoogleAudience(tokenInfo.Aud) {
+		return nil, ErrInvalidOAuthToken
+	}
+	if tokenInfo.Iss != "accounts.google.com" &&
+		tokenInfo.Iss != "https://accounts.google.com" {
+		return nil, ErrInvalidOAuthToken
+	}
+	if tokenInfo.Sub == "" || tokenInfo.Email == "" {
+		return nil, ErrInvalidOAuthToken
+	}
+
+	expiresAt := time.Unix(int64(tokenInfo.Exp), 0)
+	if tokenInfo.Exp == 0 || !expiresAt.After(time.Now()) {
+		return nil, ErrInvalidOAuthToken
+	}
+	if !bool(tokenInfo.EmailVerified) {
+		return nil, ErrUnverifiedEmail
+	}
+
+	return &GoogleIDTokenInfo{
+		Subject:       tokenInfo.Sub,
+		Email:         strings.ToLower(tokenInfo.Email),
+		EmailVerified: bool(tokenInfo.EmailVerified),
+		Name:          tokenInfo.Name,
+		Picture:       tokenInfo.Picture,
+		Audience:      tokenInfo.Aud,
+		Issuer:        tokenInfo.Iss,
+		ExpiresAt:     expiresAt,
+	}, nil
+}
+
+func (s *OAuthService) isAllowedGoogleAudience(audience string) bool {
+	for _, configuredAudience := range strings.FieldsFunc(
+		s.config.GoogleClientID,
+		func(character rune) bool { return character == ',' || character == ' ' },
+	) {
+		if strings.TrimSpace(configuredAudience) == audience {
+			return true
+		}
+	}
+	return false
 }
