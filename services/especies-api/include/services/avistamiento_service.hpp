@@ -22,6 +22,7 @@ public:
     AvistamientoSearchResult searchAvistamientos(const AvistamientoFilters& filters);
     std::optional<Avistamiento> getAvistamientoById(int id);
     Avistamiento moderateAvistamiento(int id, const ModeracionAvistamiento& moderacion);
+    Avistamiento compartirAvistamiento(int id, int userId);
 };
 
 #endif // AVISTAMIENTO_SERVICE_HPP

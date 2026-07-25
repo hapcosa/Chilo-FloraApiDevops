@@ -18,6 +18,7 @@ public:
     void getById(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void create(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void moderate(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
+    void compartir(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
 
     static void setupRoutes(Pistache::Rest::Router& router,
                             std::shared_ptr<AvistamientoController> controller) {
@@ -31,6 +32,8 @@ public:
                      Routes::bind(&AvistamientoController::create, controller));
         Routes::Patch(router, "/api/v1/avistamientos/:id/moderacion",
                       Routes::bind(&AvistamientoController::moderate, controller));
+        Routes::Patch(router, "/api/v1/avistamientos/:id/compartir",
+                      Routes::bind(&AvistamientoController::compartir, controller));
     }
 };
 

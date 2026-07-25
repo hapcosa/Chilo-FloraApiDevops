@@ -20,6 +20,7 @@ public:
     AvistamientoSearchResult find(const AvistamientoFilters& filters) override;
     std::optional<Avistamiento> findById(int id) override;
     Avistamiento moderate(int id, const ModeracionAvistamiento& moderacion) override;
+    Avistamiento compartir(int id, int userId) override;
 };
 
 #endif // POSTGRES_AVISTAMIENTO_REPOSITORY_HPP

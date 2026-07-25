@@ -56,3 +56,7 @@ Avistamiento AvistamientoService::moderateAvistamiento(
     return repository->moderate(id, moderacion);
 }
 
+Avistamiento AvistamientoService::compartirAvistamiento(int id, int userId) {
+    return repository->compartir(id, userId);
+}
+

@@ -500,9 +500,15 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
       `moderador_categorias`. De paso se corrigió que `PUT /especies/:id` sin
       `creado_por`/`categoria_moderacion_id` en el body los anulaba en vez de preservar el
       valor existente (el UPDATE reescribe la columna completa, no es un PATCH parcial). ✅
-- [ ] Avistamientos privados por defecto ("mis encuentros"): visibilidad
-      `privado`/`publico`, endpoint para que el dueño comparta un encuentro a la moderación
-      pública, UI móvil completa (hoy la cola offline/sync existe pero no hay pantalla).
+- [x] Backend de avistamientos privados por defecto ("mis encuentros"): migración `0005`
+      agrega `visibilidad` (`privado`/`publico`, default privado). `POST` siempre crea
+      privado; nuevo `PATCH /:id/compartir` (solo el dueño) lo pasa a público, recién ahí
+      entra a la cola de moderación existente. `GET` (lista y por id) filtra: un usuario
+      normal solo ve públicos + los suyos propios (aunque sean privados); admin ve todo. Por
+      id, un privado ajeno da 404 (no 403) para no revelar su existencia. ✅
+- [ ] UI móvil de "mis encuentros" (hoy la cola offline/sync ya existe en `mobile/` pero no
+      hay pantalla que la use): pantalla para agregar un encuentro (nota, ubicación, foto),
+      sección en Perfil listando los propios, botón "compartir con la comunidad".
 - [ ] Compartir un encuentro a Instagram/Facebook Stories (intents nativos, sin red social
       propia).
 - [ ] Perfil con avatar (subida vía presigned URL, bucket `perfiles-fotos`).

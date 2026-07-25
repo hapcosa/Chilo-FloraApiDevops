@@ -64,9 +64,18 @@ AvistamientoController::AvistamientoController(
 void AvistamientoController::getAll(
     const Pistache::Rest::Request& request,
     Pistache::Http::ResponseWriter response) {
+    auto identity = extractIdentity(request);
+    if (!identity) {
+        sendJson(response, Pistache::Http::Code::Unauthorized,
+                 {{"success", false}, {"error", "No se pudo verificar la sesión del usuario"}});
+        return;
+    }
+
     try {
         const auto query = request.query();
         AvistamientoFilters filters;
+        filters.viewerUserId = identity->userId;
+        filters.viewerIsAdmin = identity->isAdmin();
         if (auto value = queryStr(query, "estado")) {
             filters.estado = avistamientoEstadoFromString(*value);
         }
@@ -110,10 +119,28 @@ void AvistamientoController::getAll(
 void AvistamientoController::getById(
     const Pistache::Rest::Request& request,
     Pistache::Http::ResponseWriter response) {
+    auto identity = extractIdentity(request);
+    if (!identity) {
+        sendJson(response, Pistache::Http::Code::Unauthorized,
+                 {{"success", false}, {"error", "No se pudo verificar la sesión del usuario"}});
+        return;
+    }
+
     try {
         const int id = request.param(":id").as<int>();
         const auto avistamiento = service->getAvistamientoById(id);
         if (!avistamiento) {
+            sendJson(response, Pistache::Http::Code::Not_Found,
+                     {{"success", false}, {"error", "avistamiento no encontrado"}});
+            return;
+        }
+
+        const bool esDueno = avistamiento->getCreadoPor() &&
+                             *avistamiento->getCreadoPor() == identity->userId;
+        const bool esPublico = avistamiento->getVisibilidad() == AvistamientoVisibilidad::Publico;
+        if (!esPublico && !esDueno && !identity->isAdmin()) {
+            // 404 en vez de 403: no revelar que existe un avistamiento
+            // privado de otro usuario con ese ID.
             sendJson(response, Pistache::Http::Code::Not_Found,
                      {{"success", false}, {"error", "avistamiento no encontrado"}});
             return;
@@ -199,6 +226,32 @@ void AvistamientoController::moderate(
         sendJson(response, Pistache::Http::Code::Bad_Request,
                  {{"success", false}, {"error", error.what()}});
     } catch (const std::out_of_range& error) {
+        sendJson(response, Pistache::Http::Code::Not_Found,
+                 {{"success", false}, {"error", error.what()}});
+    } catch (const std::exception& error) {
+        sendJson(response, Pistache::Http::Code::Internal_Server_Error,
+                 {{"success", false}, {"error", error.what()}});
+    }
+}
+
+void AvistamientoController::compartir(
+    const Pistache::Rest::Request& request,
+    Pistache::Http::ResponseWriter response) {
+    auto identity = extractIdentity(request);
+    if (!identity) {
+        sendJson(response, Pistache::Http::Code::Unauthorized,
+                 {{"success", false}, {"error", "No se pudo verificar la sesión del usuario"}});
+        return;
+    }
+
+    try {
+        const int id = request.param(":id").as<int>();
+        const auto updated = service->compartirAvistamiento(id, identity->userId);
+        sendJson(response, Pistache::Http::Code::Ok, updated.toJson());
+    } catch (const std::domain_error& error) {
+        sendJson(response, Pistache::Http::Code::Forbidden,
+                 {{"success", false}, {"error", error.what()}});
+    } catch (const std::invalid_argument& error) {
         sendJson(response, Pistache::Http::Code::Not_Found,
                  {{"success", false}, {"error", error.what()}});
     } catch (const std::exception& error) {

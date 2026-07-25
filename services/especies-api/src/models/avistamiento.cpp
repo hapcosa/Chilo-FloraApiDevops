@@ -66,6 +66,22 @@ AvistamientoEstado avistamientoEstadoFromString(const std::string& value) {
     throw std::invalid_argument("estado de avistamiento inválido: " + value);
 }
 
+std::string avistamientoVisibilidadToString(AvistamientoVisibilidad visibilidad) {
+    switch (visibilidad) {
+        case AvistamientoVisibilidad::Privado:
+            return "privado";
+        case AvistamientoVisibilidad::Publico:
+            return "publico";
+    }
+    return "privado";
+}
+
+AvistamientoVisibilidad avistamientoVisibilidadFromString(const std::string& value) {
+    if (value == "privado") return AvistamientoVisibilidad::Privado;
+    if (value == "publico") return AvistamientoVisibilidad::Publico;
+    throw std::invalid_argument("visibilidad de avistamiento inválida: " + value);
+}
+
 bool Avistamiento::esValido() const {
     if (foto_key.empty() || foto_key.length() > 500) return false;
     if (geo_lat < -90 || geo_lat > 90) return false;
@@ -89,6 +105,7 @@ nlohmann::json Avistamiento::toJson() const {
     writeOpt(json, "precision_metros", precision_metros);
     writeOpt(json, "observado_en", observado_en);
     writeOpt(json, "creado_por", creado_por);
+    json["visibilidad"] = avistamientoVisibilidadToString(visibilidad);
     json["estado"] = avistamientoEstadoToString(estado);
     writeOpt(json, "moderado_por", moderado_por);
     writeOpt(json, "moderado_en", moderado_en);
