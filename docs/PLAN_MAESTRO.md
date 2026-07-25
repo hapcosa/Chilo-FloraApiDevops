@@ -489,9 +489,11 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
       `creado_por`/`revisado_por`/`moderado_por` del cuerpo del cliente — ahora vienen de la
       identidad verificada (`RequestIdentity`, headers `X-User-Id`/`X-User-Role`). Mutaciones
       de especies y moderación de avistamientos exigen rol `admin` o `moderator`. ✅
-- [ ] Moderación por categoría (muchos a muchos): tabla `categorias_moderacion` +
-      `moderador_categorias`, cada especie pertenece a una categoría, un moderador puede
-      cubrir varias categorías y una categoría puede tener varios moderadores.
+- [x] Moderación por categoría (muchos a muchos): tabla `categorias_moderacion` +
+      `moderador_categorias` (migración `0004`), columna `especies.categoria_moderacion_id`,
+      y endpoints admin-only `/api/v1/categorias-moderacion` (CRUD +
+      `/:id/moderadores/:user_id` para asignar/quitar). Verificado que un moderador puede
+      cubrir varias categorías y una categoría puede tener varios moderadores. ✅
 - [ ] Restringir edición/fotos de especies según la categoría asignada al moderador (no solo
       el rol admin/moderator genérico).
 - [ ] Avistamientos privados por defecto ("mis encuentros"): visibilidad

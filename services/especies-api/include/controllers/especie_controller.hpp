@@ -14,11 +14,6 @@ private:
     std::shared_ptr<EspecieService> service;
     // Método para validar una especie
     void validarEspecie(const Especie& especie);
-    // Exige rol admin o moderator; si no cumple, ya envía la respuesta de
-    // error (401/403) y devuelve std::nullopt para que el caller retorne.
-    std::optional<RequestIdentity> requireModerador(
-        const Pistache::Rest::Request& request,
-        Pistache::Http::ResponseWriter& response);
 
 public:
     explicit EspecieController(std::shared_ptr<EspecieService> svc);

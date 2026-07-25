@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 
+#include <pistache/http.h>
 #include <pistache/router.h>
 
 // Identidad confiable del usuario autenticado, propagada por el gateway
@@ -24,5 +25,15 @@ struct RequestIdentity {
 // correctamente; std::nullopt si faltan o son inválidos (petición sin pasar
 // por auth_request, o llamada directa a especies-api saltándose el gateway).
 std::optional<RequestIdentity> extractIdentity(const Pistache::Rest::Request& request);
+
+// Helpers de guardia reutilizables por cualquier controlador: si el chequeo
+// falla, ya envían la respuesta de error (401/403) y devuelven std::nullopt
+// para que el caller simplemente haga `if (!identity) return;`.
+std::optional<RequestIdentity> requireAuthenticated(
+    const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter& response);
+std::optional<RequestIdentity> requireModerador(
+    const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter& response);
+std::optional<RequestIdentity> requireAdmin(
+    const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter& response);
 
 #endif  // REQUEST_IDENTITY_HPP

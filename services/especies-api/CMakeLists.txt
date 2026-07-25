@@ -72,20 +72,24 @@ set(REQUIRED_SOURCES
         src/controllers/genero_controller.cpp
         src/controllers/especie_controller.cpp
         src/controllers/avistamiento_controller.cpp
+        src/controllers/categoria_moderacion_controller.cpp
         src/controllers/upload_controller.cpp
         src/models/familia.cpp
         src/models/genero.cpp
         src/models/especie.cpp
         src/models/avistamiento.cpp
+        src/models/categoria_moderacion.cpp
         src/models/reino.cpp
         src/repository/postgres_familia_repository.cpp
         src/repository/postgres_genero_repository.cpp
         src/repository/postgresql_especie_repository.cpp
         src/repository/postgres_avistamiento_repository.cpp
+        src/repository/postgres_categoria_moderacion_repository.cpp
         src/services/familia_service.cpp
         src/services/genero_service.cpp
         src/services/especie_service.cpp
         src/services/avistamiento_service.cpp
+        src/services/categoria_moderacion_service.cpp
         src/services/upload_presign_service.cpp
         src/utils/config.cpp
         src/utils/atributos_schema_validator.cpp
@@ -108,9 +112,11 @@ set(REQUIRED_HEADERS
         include/controllers/genero_controller.hpp
         include/controllers/especie_controller.hpp
         include/controllers/avistamiento_controller.hpp
+        include/controllers/categoria_moderacion_controller.hpp
         include/controllers/upload_controller.hpp
         include/models/especie.hpp
         include/models/avistamiento.hpp
+        include/models/categoria_moderacion.hpp
         include/models/familia.hpp
         include/models/genero.hpp
         include/models/reino.hpp
@@ -118,6 +124,8 @@ set(REQUIRED_HEADERS
         include/repository/postgres_genero_repository.hpp
         include/repository/postgresql_especie_repository.hpp
         include/repository/postgres_avistamiento_repository.hpp
+        include/repository/postgres_categoria_moderacion_repository.hpp
+        include/repository/categoria_moderacion_repository.hpp
         include/repository/avistamiento_repository.hpp
         include/repository/familia_repository.hpp
         include/repository/genero_repository.hpp
@@ -126,6 +134,7 @@ set(REQUIRED_HEADERS
         include/services/genero_service.hpp
         include/services/especie_service.hpp
         include/services/avistamiento_service.hpp
+        include/services/categoria_moderacion_service.hpp
         include/services/upload_presign_service.hpp
         include/utils/config.hpp
         include/utils/atributos_schema_validator.hpp
@@ -150,20 +159,24 @@ set(SOURCES
         src/controllers/genero_controller.cpp
         src/controllers/especie_controller.cpp
         src/controllers/avistamiento_controller.cpp
+        src/controllers/categoria_moderacion_controller.cpp
         src/controllers/upload_controller.cpp
         src/models/familia.cpp
         src/models/genero.cpp
         src/models/especie.cpp
         src/models/avistamiento.cpp
+        src/models/categoria_moderacion.cpp
         src/models/reino.cpp
         src/repository/postgres_familia_repository.cpp
         src/repository/postgres_genero_repository.cpp
         src/repository/postgresql_especie_repository.cpp
         src/repository/postgres_avistamiento_repository.cpp
+        src/repository/postgres_categoria_moderacion_repository.cpp
         src/services/familia_service.cpp
         src/services/genero_service.cpp
         src/services/especie_service.cpp
         src/services/avistamiento_service.cpp
+        src/services/categoria_moderacion_service.cpp
         src/services/upload_presign_service.cpp
         src/utils/config.cpp
         src/utils/atributos_schema_validator.cpp
