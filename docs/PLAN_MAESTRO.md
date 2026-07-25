@@ -505,7 +505,8 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
       privado; nuevo `PATCH /:id/compartir` (solo el dueño) lo pasa a público, recién ahí
       entra a la cola de moderación existente. `GET` (lista y por id) filtra: un usuario
       normal solo ve públicos + los suyos propios (aunque sean privados); admin ve todo. Por
-      id, un privado ajeno da 404 (no 403) para no revelar su existencia. ✅
+      id, un privado ajeno da 404 (no 403) para no revelar su existencia. `foto_key` pasa a
+      ser opcional (migración `0006`): un encuentro puede registrarse sin foto. ✅
 - [ ] UI móvil de "mis encuentros" (hoy la cola offline/sync ya existe en `mobile/` pero no
       hay pantalla que la use): pantalla para agregar un encuentro (nota, ubicación, foto),
       sección en Perfil listando los propios, botón "compartir con la comunidad".

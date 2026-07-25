@@ -83,7 +83,7 @@ AvistamientoVisibilidad avistamientoVisibilidadFromString(const std::string& val
 }
 
 bool Avistamiento::esValido() const {
-    if (foto_key.empty() || foto_key.length() > 500) return false;
+    if (foto_key && (foto_key->empty() || foto_key->length() > 500)) return false;
     if (geo_lat < -90 || geo_lat > 90) return false;
     if (geo_lng < -180 || geo_lng > 180) return false;
     if (precision_metros && *precision_metros < 0) return false;
@@ -99,7 +99,7 @@ nlohmann::json Avistamiento::toJson() const {
     json["reino"] = reinoToString(reino);
     writeOpt(json, "nombre_sugerido", nombre_sugerido);
     writeOpt(json, "descripcion", descripcion);
-    json["foto_key"] = foto_key;
+    writeOpt(json, "foto_key", foto_key);
     json["geo_lat"] = geo_lat;
     json["geo_lng"] = geo_lng;
     writeOpt(json, "precision_metros", precision_metros);
@@ -127,11 +127,7 @@ Avistamiento Avistamiento::fromJson(const nlohmann::json& json) {
     }
     avistamiento.reino = reinoFromString(json["reino"].get<std::string>());
 
-    if (!json.contains("foto_key") || !json["foto_key"].is_string() ||
-        json["foto_key"].get<std::string>().empty()) {
-        throw std::invalid_argument("'foto_key' es obligatorio");
-    }
-    avistamiento.foto_key = json["foto_key"].get<std::string>();
+    avistamiento.foto_key = optString(json, "foto_key");
 
     if (!json.contains("geo_lat") || !json["geo_lat"].is_number()) {
         throw std::invalid_argument("'geo_lat' es obligatorio");

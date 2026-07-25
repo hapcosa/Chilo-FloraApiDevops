@@ -52,7 +52,7 @@ Avistamiento PostgresAvistamientoRepository::mapRowToAvistamiento(const pqxx::ro
     avistamiento.setReino(reinoFromString(row["reino"].c_str()));
     avistamiento.setNombreSugerido(optStr(row["nombre_sugerido"]));
     avistamiento.setDescripcion(optStr(row["descripcion"]));
-    avistamiento.setFotoKey(row["foto_key"].c_str());
+    avistamiento.setFotoKey(optStr(row["foto_key"]));
     avistamiento.setGeoLat(row["geo_lat"].as<double>());
     avistamiento.setGeoLng(row["geo_lng"].as<double>());
     avistamiento.setPrecisionMetros(optDouble(row["precision_metros"]));
@@ -82,7 +82,7 @@ Avistamiento PostgresAvistamientoRepository::create(const Avistamiento& avistami
             + txn.quote(reinoToString(avistamiento.getReino())) + "::reino_enum, "
             + quoteOptString(txn, avistamiento.getNombreSugerido()) + ", "
             + quoteOptString(txn, avistamiento.getDescripcion()) + ", "
-            + txn.quote(avistamiento.getFotoKey()) + ", "
+            + quoteOptString(txn, avistamiento.getFotoKey()) + ", "
             + txn.quote(avistamiento.getGeoLat()) + ", "
             + txn.quote(avistamiento.getGeoLng()) + ", "
             + quoteOptDouble(txn, avistamiento.getPrecisionMetros()) + ", "

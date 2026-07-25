@@ -35,7 +35,7 @@ private:
     Reino reino = Reino::Plantae;
     std::optional<std::string> nombre_sugerido;
     std::optional<std::string> descripcion;
-    std::string foto_key;
+    std::optional<std::string> foto_key;
     double geo_lat = 0;
     double geo_lng = 0;
     std::optional<double> precision_metros;
@@ -55,7 +55,7 @@ public:
     Reino getReino() const { return reino; }
     const std::optional<std::string>& getNombreSugerido() const { return nombre_sugerido; }
     const std::optional<std::string>& getDescripcion() const { return descripcion; }
-    const std::string& getFotoKey() const { return foto_key; }
+    const std::optional<std::string>& getFotoKey() const { return foto_key; }
     double getGeoLat() const { return geo_lat; }
     double getGeoLng() const { return geo_lng; }
     const std::optional<double>& getPrecisionMetros() const { return precision_metros; }
@@ -74,7 +74,7 @@ public:
     void setReino(Reino value) { reino = value; }
     void setNombreSugerido(std::optional<std::string> value) { nombre_sugerido = std::move(value); }
     void setDescripcion(std::optional<std::string> value) { descripcion = std::move(value); }
-    void setFotoKey(const std::string& value) { foto_key = value; }
+    void setFotoKey(std::optional<std::string> value) { foto_key = std::move(value); }
     void setGeoLat(double value) { geo_lat = value; }
     void setGeoLng(double value) { geo_lng = value; }
     void setPrecisionMetros(std::optional<double> value) { precision_metros = value; }

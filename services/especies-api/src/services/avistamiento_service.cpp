@@ -19,12 +19,13 @@ void AvistamientoService::validateAvistamiento(const Avistamiento& avistamiento)
         throw std::invalid_argument("avistamiento inválido");
     }
 
-    if (!storageService) {
-        throw std::runtime_error("storage service no configurado");
-    }
-
-    if (!storageService->objectExists(AvistamientosBucket, avistamiento.getFotoKey())) {
-        throw std::invalid_argument("foto_key no existe en avistamientos-fotos");
+    if (avistamiento.getFotoKey()) {
+        if (!storageService) {
+            throw std::runtime_error("storage service no configurado");
+        }
+        if (!storageService->objectExists(AvistamientosBucket, *avistamiento.getFotoKey())) {
+            throw std::invalid_argument("foto_key no existe en avistamientos-fotos");
+        }
     }
 }
 
