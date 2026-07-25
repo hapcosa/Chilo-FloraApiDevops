@@ -8,7 +8,8 @@ namespace {
 
 constexpr const char* kSelectCols =
     "id, especie_id, reino, nombre_sugerido, descripcion, foto_key, "
-    "geo_lat, geo_lng, precision_metros, observado_en, creado_por, estado, "
+    "geo_lat, geo_lng, precision_metros, observado_en, creado_por, "
+    "visibilidad, estado, "
     "moderado_por, moderado_en, motivo_rechazo, created_at, updated_at";
 
 std::optional<int> optInt(const pqxx::field& field) {
@@ -57,6 +58,7 @@ Avistamiento PostgresAvistamientoRepository::mapRowToAvistamiento(const pqxx::ro
     avistamiento.setPrecisionMetros(optDouble(row["precision_metros"]));
     avistamiento.setObservadoEn(optStr(row["observado_en"]));
     avistamiento.setCreadoPor(optInt(row["creado_por"]));
+    avistamiento.setVisibilidad(avistamientoVisibilidadFromString(row["visibilidad"].c_str()));
     avistamiento.setEstado(avistamientoEstadoFromString(row["estado"].c_str()));
     avistamiento.setModeradoPor(optInt(row["moderado_por"]));
     avistamiento.setModeradoEn(optStr(row["moderado_en"]));
@@ -74,7 +76,7 @@ Avistamiento PostgresAvistamientoRepository::create(const Avistamiento& avistami
         const std::string sql =
             std::string("INSERT INTO avistamientos (")
             + "especie_id, reino, nombre_sugerido, descripcion, foto_key, "
-            + "geo_lat, geo_lng, precision_metros, observado_en, creado_por"
+            + "geo_lat, geo_lng, precision_metros, observado_en, creado_por, visibilidad"
             + ") VALUES ("
             + quoteOptInt(txn, avistamiento.getEspecieId()) + ", "
             + txn.quote(reinoToString(avistamiento.getReino())) + "::reino_enum, "
@@ -87,7 +89,10 @@ Avistamiento PostgresAvistamientoRepository::create(const Avistamiento& avistami
             + (avistamiento.getObservadoEn()
                    ? txn.quote(*avistamiento.getObservadoEn())
                    : std::string("NOW()")) + ", "
-            + quoteOptInt(txn, avistamiento.getCreadoPor())
+            + quoteOptInt(txn, avistamiento.getCreadoPor()) + ", "
+            // Siempre privado al crear, sin importar lo que traiga el
+            // objeto: solo el endpoint /compartir puede hacerlo público.
+            + "'privado'::avistamiento_visibilidad_enum"
             + ") RETURNING " + kSelectCols;
 
         pqxx::result result = txn.exec(sql);
@@ -127,6 +132,16 @@ AvistamientoSearchResult PostgresAvistamientoRepository::find(
         }
         if (filters.creado_por) {
             where += " AND creado_por = " + txn.quote(*filters.creado_por);
+        }
+        // Visibilidad: un admin ve todo; cualquier otro usuario solo ve los
+        // públicos más los suyos propios (aunque sean privados). No es un
+        // filtro que el cliente elige, viene de la identidad verificada.
+        if (!filters.viewerIsAdmin) {
+            where += " AND (visibilidad = 'publico'";
+            if (filters.viewerUserId) {
+                where += " OR creado_por = " + txn.quote(*filters.viewerUserId);
+            }
+            where += ")";
         }
 
         const auto countResult = txn.exec("SELECT COUNT(*) FROM avistamientos" + where);
@@ -196,6 +211,34 @@ Avistamiento PostgresAvistamientoRepository::moderate(
         return mapRowToAvistamiento(result[0]);
     } catch (const std::exception& error) {
         std::cerr << "Error al moderar avistamiento: " << error.what() << std::endl;
+        throw;
+    }
+}
+
+Avistamiento PostgresAvistamientoRepository::compartir(int id, int userId) {
+    try {
+        auto conn = database->createConnection();
+        pqxx::work txn(*conn);
+
+        const auto check = txn.exec_params(
+            "SELECT creado_por FROM avistamientos WHERE id = $1", id);
+        if (check.empty()) {
+            throw std::invalid_argument("avistamiento no encontrado");
+        }
+        if (check[0]["creado_por"].is_null() || check[0]["creado_por"].as<int>() != userId) {
+            throw std::domain_error("solo el dueño puede compartir este avistamiento");
+        }
+
+        const auto result = txn.exec_params(
+            std::string("UPDATE avistamientos SET visibilidad = 'publico'"
+                        "::avistamiento_visibilidad_enum WHERE id = $1 RETURNING ") +
+                kSelectCols,
+            id);
+
+        txn.commit();
+        return mapRowToAvistamiento(result[0]);
+    } catch (const std::exception& error) {
+        std::cerr << "Error al compartir avistamiento: " << error.what() << std::endl;
         throw;
     }
 }

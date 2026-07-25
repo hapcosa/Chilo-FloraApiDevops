@@ -17,6 +17,17 @@ enum class AvistamientoEstado {
 std::string avistamientoEstadoToString(AvistamientoEstado estado);
 AvistamientoEstado avistamientoEstadoFromString(const std::string& value);
 
+// Privado por defecto: solo lo ve su dueño (o admin). El dueño puede
+// compartirlo con la comunidad, momento en que pasa a 'publico' y entra a
+// la cola de moderación existente (estado).
+enum class AvistamientoVisibilidad {
+    Privado,
+    Publico
+};
+
+std::string avistamientoVisibilidadToString(AvistamientoVisibilidad visibilidad);
+AvistamientoVisibilidad avistamientoVisibilidadFromString(const std::string& value);
+
 class Avistamiento {
 private:
     int id = 0;
@@ -30,6 +41,7 @@ private:
     std::optional<double> precision_metros;
     std::optional<std::string> observado_en;
     std::optional<int> creado_por;
+    AvistamientoVisibilidad visibilidad = AvistamientoVisibilidad::Privado;
     AvistamientoEstado estado = AvistamientoEstado::Pendiente;
     std::optional<int> moderado_por;
     std::optional<std::string> moderado_en;
@@ -49,6 +61,7 @@ public:
     const std::optional<double>& getPrecisionMetros() const { return precision_metros; }
     const std::optional<std::string>& getObservadoEn() const { return observado_en; }
     const std::optional<int>& getCreadoPor() const { return creado_por; }
+    AvistamientoVisibilidad getVisibilidad() const { return visibilidad; }
     AvistamientoEstado getEstado() const { return estado; }
     const std::optional<int>& getModeradoPor() const { return moderado_por; }
     const std::optional<std::string>& getModeradoEn() const { return moderado_en; }
@@ -67,6 +80,7 @@ public:
     void setPrecisionMetros(std::optional<double> value) { precision_metros = value; }
     void setObservadoEn(std::optional<std::string> value) { observado_en = std::move(value); }
     void setCreadoPor(std::optional<int> value) { creado_por = value; }
+    void setVisibilidad(AvistamientoVisibilidad value) { visibilidad = value; }
     void setEstado(AvistamientoEstado value) { estado = value; }
     void setModeradoPor(std::optional<int> value) { moderado_por = value; }
     void setModeradoEn(std::optional<std::string> value) { moderado_en = std::move(value); }
