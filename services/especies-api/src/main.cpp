@@ -95,7 +95,8 @@ int main(int argc, char** argv) {
   // Initialize controllers
   auto familiaController = std::make_shared<FamiliaController>(familiaService);
   auto generoController = std::make_shared<GeneroController>(generoService);
-  auto especieController = std::make_shared<EspecieController>(especieService);
+  auto especieController = std::make_shared<EspecieController>(
+      especieService, categoriaModeracionService);
   auto avistamientoController =
       std::make_shared<AvistamientoController>(avistamientoService);
   auto uploadController =
