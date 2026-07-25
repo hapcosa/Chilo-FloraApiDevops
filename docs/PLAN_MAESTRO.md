@@ -481,6 +481,28 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 - [ ] Revisión por un curador.
 - [ ] Beta cerrada de la APK.
 
+### Fase 8b — Moderación real, permisos por categoría y encuentros privados
+
+- [x] Cerrar el hueco de autorización real gateway↔especies-api: `X-User-Role` propagado
+      por `auth-service`, `auth_request` real en nginx (dev y overlay K8s base) para
+      especies/familias/generos/avistamientos, y `especies-api` deja de confiar en
+      `creado_por`/`revisado_por`/`moderado_por` del cuerpo del cliente — ahora vienen de la
+      identidad verificada (`RequestIdentity`, headers `X-User-Id`/`X-User-Role`). Mutaciones
+      de especies y moderación de avistamientos exigen rol `admin` o `moderator`. ✅
+- [ ] Moderación por categoría (muchos a muchos): tabla `categorias_moderacion` +
+      `moderador_categorias`, cada especie pertenece a una categoría, un moderador puede
+      cubrir varias categorías y una categoría puede tener varios moderadores.
+- [ ] Restringir edición/fotos de especies según la categoría asignada al moderador (no solo
+      el rol admin/moderator genérico).
+- [ ] Avistamientos privados por defecto ("mis encuentros"): visibilidad
+      `privado`/`publico`, endpoint para que el dueño comparta un encuentro a la moderación
+      pública, UI móvil completa (hoy la cola offline/sync existe pero no hay pantalla).
+- [ ] Compartir un encuentro a Instagram/Facebook Stories (intents nativos, sin red social
+      propia).
+- [ ] Perfil con avatar (subida vía presigned URL, bucket `perfiles-fotos`).
+- [ ] Cámara con preview real (hoy es MVP sin preview): `Surface` de un `TextureView` nativo
+      expuesta vía JNI al `ACameraCaptureSession` existente.
+
 ---
 
 ## 10. Decisiones técnicas registradas (ADRs cortos)
@@ -496,6 +518,9 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 | 7 | Offline lectura+escritura | Solo lectura / Solo online | Realidad de conectividad en Chiloé |
 | 8 (2026-05-20) | Renombrar servicio `flora-api` → `especies-api` y binario `chiloe_flora_api` → `chiloe_especies_api`, pero **NO** la DB `chiloe_flora`, el usuario `flora_user`, el namespace K8s `chiloe-flora`, el cluster EKS `chiloe-flora-cluster` ni el path ECR `chiloe-flora/...` | Renombrar todo / no renombrar nada | El servicio necesita un nombre que refleje el alcance multi-reino, pero renombrar la DB y el namespace rompería volúmenes y deploys existentes y obliga a migración SQL coordinada. Aceptamos la inconsistencia "servicio = especies-api, DB = chiloe_flora" como deuda histórica documentada. |
 | 9 (2026-07-15) | App móvil inicia como React Native CLI bare, no Expo, con Android primero | Expo / monorepo web-mobile | El módulo NDK Camera2 de Fase 5 necesita control de proyecto nativo y releases APK independientes en el submódulo `mobile/`. |
+| 10 (2026-07-25) | Autorización real gateway→especies-api vía `auth_request` de nginx + headers `X-User-Id`/`X-User-Role` confiables; `especies-api` deja de aceptar `creado_por`/`revisado_por`/`moderado_por` del cuerpo del cliente | Validar JWT directamente en el C++ / seguir sin validación | Se detectó que `especies-api` no verificaba identidad en ninguna mutación: cualquiera podía autoatribuirse como cualquier usuario o "aprobar" cualquier avistamiento con solo cambiar el JSON. `auth-service` ya tenía el endpoint `/auth/verify` pensado para `auth_request` pero nginx nunca lo usaba. Reutilizar `auth_request` evita duplicar lógica de verificación de JWT en C++. |
+| 11 (2026-07-25) | Moderación por categoría muchos-a-muchos (`categorias_moderacion` + `moderador_categorias`) en vez de solo el rol genérico `moderator` | Un solo rol moderator sin subdivisión / roles fijos por reino (5 roles) | El usuario pidió que un moderador pueda especializarse en subgrupos (ej. "Aves" dentro de Animalia) y que varios moderadores puedan compartir una categoría. Una tabla de asignación muchos-a-muchos es más flexible que roles fijos y permite que reinos poco documentados usen una sola categoría "catch-all". |
+| 12 (2026-07-25) | Avistamientos privados por defecto (`visibilidad='privado'`), con acción explícita del dueño para publicarlos, en vez de una tabla nueva para "mis encuentros" | Tabla/flujo separado para encuentros personales | El usuario confirmó que "mis encuentros" es el mismo concepto que los avistamientos ya construidos en Fase 6 (Fase 6 los hizo públicos por defecto). Reusar la tabla y toda la cola offline/sync ya construida en mobile evita duplicar trabajo. |
 
 Cualquier cambio futuro a estas decisiones debe quedar como una entrada nueva con fecha y justificación, no editar la anterior.
 
@@ -521,6 +546,33 @@ Cosas que no necesito resolver hoy pero hay que pensar antes de la fase correspo
 - ¿Notificaciones push? FCM es lo natural si ya usamos Google.
 - ¿Política de moderación de avistamientos? ¿Un solo curador aprueba, o votación?
 - ¿Open-sourcear el dataset? Tiene valor académico; decidir licencia (CC-BY-SA podría encajar).
+- **Red social completa** (objetivo futuro, no planificado aún): que el perfil evolucione a
+  red social — seguir a otros usuarios, ver sus encuentros públicos, likes/comentarios. La
+  Fase 8b (perfil con avatar, encuentros con visibilidad privado/público, compartir externo)
+  deja la base de datos y la UI listas para esa transición, pero no la implementa.
+- **Reconocimiento de especies por IA local** (objetivo futuro, no planificado aún): el
+  usuario sube una foto y un modelo corriendo en nuestro propio backend (no una API cloud de
+  terceros) identifica la especie o confirma la que el usuario sugiere. Análisis de
+  viabilidad:
+  - El VPS de Fase 7 (mínimo 4 vCPU/8GB RAM, sin GPU) alcanza para **inferencia** de un
+    modelo liviano (MobileNetV3/EfficientNet-Lite cuantizado, runtime ONNX/TFLite, CPU-only,
+    latencia esperada de cientos de ms por imagen) pero no para **entrenar** uno desde cero
+    en tiempos razonables.
+  - Enfoque realista: entrenar el modelo fuera de la VPS (máquina propia o rentada
+    puntualmente con GPU, ej. una RTX de gama media) y desplegar solo el modelo ya entrenado
+    (inferencia CPU en el VPS, o incluso on-device en la app, coherente con el ADR de
+    offline-first).
+  - Requisito bloqueante real, no paralelo: un dataset de fotos etiquetadas por especie. Hoy
+    es prácticamente inexistente (Fase 8 de contenido curado sigue pendiente). Las fotos que
+    los usuarios suban en sus encuentros privados (Fase 8b) generan ese dataset
+    orgánicamente con el tiempo.
+  - Alternativa de respaldo si entrenar un modelo propio no resulta viable: APIs cloud de
+    visión (Google Vision AutoML, AWS Rekognition Custom Labels) — más rápidas de
+    bootstrapear pero dejan de ser "IA local" y agregan costo por llamada y dependencia de
+    terceros.
+  - Conclusión: viable a mediano plazo, condicionado a (1) acumular dataset vía encuentros de
+    usuarios, (2) acceso puntual a GPU para entrenar, (3) decidir inferencia on-device vs
+    servidor una vez exista el modelo.
 
 ---
 

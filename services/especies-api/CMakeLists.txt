@@ -89,6 +89,7 @@ set(REQUIRED_SOURCES
         src/services/upload_presign_service.cpp
         src/utils/config.cpp
         src/utils/atributos_schema_validator.cpp
+        src/utils/request_identity.cpp
         src/models/imagen.cpp
 )
 
@@ -128,6 +129,7 @@ set(REQUIRED_HEADERS
         include/services/upload_presign_service.hpp
         include/utils/config.hpp
         include/utils/atributos_schema_validator.hpp
+        include/utils/request_identity.hpp
         include/models/imagen.hpp
         include/utils/constants.hpp
 )
@@ -165,6 +167,7 @@ set(SOURCES
         src/services/upload_presign_service.cpp
         src/utils/config.cpp
         src/utils/atributos_schema_validator.cpp
+        src/utils/request_identity.cpp
         src/models/imagen.cpp
 )
 

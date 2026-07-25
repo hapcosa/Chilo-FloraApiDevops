@@ -213,9 +213,10 @@ func (h *AuthHandler) VerifyToken(c *gin.Context) {
 		return
 	}
 
-	// Headers para nginx
+	// Headers para nginx (auth_request los reenvía a especies-api vía auth_request_set)
 	c.Header("X-User-ID", strconv.Itoa(int(user.ID)))
 	c.Header("X-User", user.Email)
+	c.Header("X-User-Role", string(user.Role))
 
 	c.JSON(http.StatusOK, gin.H{
 		"valid":  true,

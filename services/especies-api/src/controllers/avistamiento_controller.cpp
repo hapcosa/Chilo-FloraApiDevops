@@ -1,4 +1,5 @@
 #include "../../include/controllers/avistamiento_controller.hpp"
+#include "../../include/utils/request_identity.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -41,13 +42,8 @@ ModeracionAvistamiento parseModeracion(const json& payload) {
 
     ModeracionAvistamiento moderacion;
     moderacion.estado = avistamientoEstadoFromString(payload["estado"].get<std::string>());
-
-    if (payload.contains("moderado_por") && !payload["moderado_por"].is_null()) {
-        if (!payload["moderado_por"].is_number_integer()) {
-            throw std::invalid_argument("'moderado_por' debe ser entero");
-        }
-        moderacion.moderado_por = payload["moderado_por"].get<int>();
-    }
+    // moderado_por NO se toma del body: lo asigna el caller con la identidad
+    // verificada del gateway (ver AvistamientoController::moderate).
 
     if (payload.contains("motivo_rechazo") && !payload["motivo_rechazo"].is_null()) {
         if (!payload["motivo_rechazo"].is_string()) {
@@ -133,6 +129,13 @@ void AvistamientoController::getById(
 void AvistamientoController::create(
     const Pistache::Rest::Request& request,
     Pistache::Http::ResponseWriter response) {
+    auto identity = extractIdentity(request);
+    if (!identity) {
+        sendJson(response, Pistache::Http::Code::Unauthorized,
+                 {{"success", false}, {"error", "No se pudo verificar la sesión del usuario"}});
+        return;
+    }
+
     try {
         if (request.body().empty()) {
             sendJson(response, Pistache::Http::Code::Bad_Request,
@@ -141,7 +144,10 @@ void AvistamientoController::create(
         }
 
         const auto payload = json::parse(request.body());
-        const auto avistamiento = service->createAvistamiento(Avistamiento::fromJson(payload));
+        auto nuevoAvistamiento = Avistamiento::fromJson(payload);
+        // creado_por viene de la identidad verificada, no del body del cliente.
+        nuevoAvistamiento.setCreadoPor(identity->userId);
+        const auto avistamiento = service->createAvistamiento(nuevoAvistamiento);
 
         sendJson(response, Pistache::Http::Code::Created, avistamiento.toJson());
     } catch (const json::parse_error& error) {
@@ -159,6 +165,18 @@ void AvistamientoController::create(
 void AvistamientoController::moderate(
     const Pistache::Rest::Request& request,
     Pistache::Http::ResponseWriter response) {
+    auto identity = extractIdentity(request);
+    if (!identity) {
+        sendJson(response, Pistache::Http::Code::Unauthorized,
+                 {{"success", false}, {"error", "No se pudo verificar la sesión del usuario"}});
+        return;
+    }
+    if (!identity->canModerate()) {
+        sendJson(response, Pistache::Http::Code::Forbidden,
+                 {{"success", false}, {"error", "Se requiere rol admin o moderator"}});
+        return;
+    }
+
     try {
         if (request.body().empty()) {
             sendJson(response, Pistache::Http::Code::Bad_Request,
@@ -168,7 +186,10 @@ void AvistamientoController::moderate(
 
         const int id = request.param(":id").as<int>();
         const auto payload = json::parse(request.body());
-        const auto updated = service->moderateAvistamiento(id, parseModeracion(payload));
+        auto moderacion = parseModeracion(payload);
+        // moderado_por viene de la identidad verificada, no del body del cliente.
+        moderacion.moderado_por = identity->userId;
+        const auto updated = service->moderateAvistamiento(id, moderacion);
 
         sendJson(response, Pistache::Http::Code::Ok, updated.toJson());
     } catch (const json::parse_error& error) {
