@@ -507,9 +507,11 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
       normal solo ve públicos + los suyos propios (aunque sean privados); admin ve todo. Por
       id, un privado ajeno da 404 (no 403) para no revelar su existencia. `foto_key` pasa a
       ser opcional (migración `0006`): un encuentro puede registrarse sin foto. ✅
-- [ ] UI móvil de "mis encuentros" (hoy la cola offline/sync ya existe en `mobile/` pero no
-      hay pantalla que la use): pantalla para agregar un encuentro (nota, ubicación, foto),
-      sección en Perfil listando los propios, botón "compartir con la comunidad".
+- [x] UI móvil de "mis encuentros": `MiEncuentroFormScreen` (nota privada, ubicación con
+      fallback GPS→red, foto opcional vía `ChiloeCamera`), sección "Mis encuentros" en
+      `PerfilScreen` (estado de sync, botón "Compartir con la comunidad"), reusa
+      `enqueueAvistamiento`/`mutationSync` ya construidos. La subida de foto queda diferida al
+      momento de sincronizar (no al guardar) para no romper offline-first si no hay red. ✅
 - [ ] Compartir un encuentro a Instagram/Facebook Stories (intents nativos, sin red social
       propia).
 - [ ] Perfil con avatar (subida vía presigned URL, bucket `perfiles-fotos`).
