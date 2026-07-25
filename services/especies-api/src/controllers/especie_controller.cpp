@@ -45,6 +45,27 @@ std::optional<std::string> queryStr(const Pistache::Http::Uri::Query& q,
 EspecieController::EspecieController(std::shared_ptr<EspecieService> svc)
     : service(svc) {}
 
+std::optional<RequestIdentity> EspecieController::requireModerador(
+    const Pistache::Rest::Request& request,
+    Pistache::Http::ResponseWriter& response) {
+  auto identity = extractIdentity(request);
+  if (!identity) {
+    json error = {{"error", "No se pudo verificar la sesión del usuario"}};
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Unauthorized, error.dump());
+    return std::nullopt;
+  }
+  if (!identity->canModerate()) {
+    json error = {{"error", "Se requiere rol admin o moderator"}};
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Forbidden, error.dump());
+    return std::nullopt;
+  }
+  return identity;
+}
+
 void EspecieController::validarEspecie(const Especie& especie) {
   if (!especie.esValida()) {
     throw std::invalid_argument("Los datos de la especie no son válidos");
@@ -147,6 +168,9 @@ void EspecieController::getById(const Pistache::Rest::Request& request,
 
 void EspecieController::create(const Pistache::Rest::Request& request,
                                Pistache::Http::ResponseWriter response) {
+  auto identity = requireModerador(request, response);
+  if (!identity) return;
+
   try {
     auto body = request.body();
     if (body.empty()) {
@@ -159,6 +183,11 @@ void EspecieController::create(const Pistache::Rest::Request& request,
 
     auto requestJson = json::parse(body);
     Especie nuevaEspecie = Especie::fromJson(requestJson);
+    // creado_por/revisado_por vienen de la identidad verificada, nunca del
+    // cliente: nadie puede autoatribuirse como otro usuario ni auto-revisarse.
+    nuevaEspecie.setCreadoPor(identity->userId);
+    nuevaEspecie.setRevisadoPor(std::nullopt);
+    nuevaEspecie.setFechaRevision(std::nullopt);
 
     try {
       validarEspecie(nuevaEspecie);
@@ -200,6 +229,9 @@ void EspecieController::create(const Pistache::Rest::Request& request,
 
 void EspecieController::update(const Pistache::Rest::Request& request,
                                Pistache::Http::ResponseWriter response) {
+  auto identity = requireModerador(request, response);
+  if (!identity) return;
+
   try {
     auto id_str = request.param(":id").as<std::string>();
     int id;
@@ -226,6 +258,8 @@ void EspecieController::update(const Pistache::Rest::Request& request,
     auto requestJson = json::parse(body);
     Especie especieActualizada = Especie::fromJson(requestJson);
     especieActualizada.setId(id);
+    // Quien edita queda como revisor real; no se toma del body del cliente.
+    especieActualizada.setRevisadoPor(identity->userId);
 
     try {
       validarEspecie(especieActualizada);
@@ -268,6 +302,8 @@ void EspecieController::update(const Pistache::Rest::Request& request,
 
 void EspecieController::updateFotos(const Pistache::Rest::Request& request,
                                     Pistache::Http::ResponseWriter response) {
+  if (!requireModerador(request, response)) return;
+
   try {
     auto id_str = request.param(":id").as<std::string>();
     int id;
@@ -351,6 +387,8 @@ void EspecieController::updateFotos(const Pistache::Rest::Request& request,
 
 void EspecieController::remove(const Pistache::Rest::Request& request,
                                Pistache::Http::ResponseWriter response) {
+  if (!requireModerador(request, response)) return;
+
   try {
     auto id_str = request.param(":id").as<std::string>();
     int id;
