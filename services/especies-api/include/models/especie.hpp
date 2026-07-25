@@ -47,6 +47,11 @@ private:
     std::optional<std::string> foto_portada_key;
     nlohmann::json fotos_keys;  // array de strings JSONB, default []
 
+    // Categoría de moderación asignada (ver categorias_moderacion /
+    // moderador_categorias, migración 0004). Determina qué moderador puede
+    // editar esta especie.
+    std::optional<int> categoria_moderacion_id;
+
     // Auditoría y revisión curatorial
     std::optional<int> creado_por;
     std::optional<int> revisado_por;
@@ -81,6 +86,7 @@ public:
     const nlohmann::json&              getAtributosEspecificos()const { return atributos_especificos; }
     const std::optional<std::string>&  getFotoPortadaKey()      const { return foto_portada_key; }
     const nlohmann::json&              getFotosKeys()           const { return fotos_keys; }
+    const std::optional<int>&          getCategoriaModeracionId() const { return categoria_moderacion_id; }
     const std::optional<int>&          getCreadoPor()           const { return creado_por; }
     const std::optional<int>&          getRevisadoPor()         const { return revisado_por; }
     const std::optional<std::string>&  getFechaRevision()       const { return fecha_revision; }
@@ -107,6 +113,7 @@ public:
     void setAtributosEspecificos(const nlohmann::json& v)       { atributos_especificos = v; }
     void setFotoPortadaKey(std::optional<std::string> v)        { foto_portada_key = std::move(v); }
     void setFotosKeys(const nlohmann::json& v)                  { fotos_keys = v; }
+    void setCategoriaModeracionId(std::optional<int> v)         { categoria_moderacion_id = v; }
     void setCreadoPor(std::optional<int> v)                     { creado_por = v; }
     void setRevisadoPor(std::optional<int> v)                   { revisado_por = v; }
     void setFechaRevision(std::optional<std::string> v)         { fecha_revision = std::move(v); }

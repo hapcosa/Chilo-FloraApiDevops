@@ -79,6 +79,7 @@ nlohmann::json Especie::toJson() const {
     j["atributos_especificos"] = atributos_especificos;
     writeOpt(j, "foto_portada_key", foto_portada_key);
     j["fotos_keys"] = fotos_keys;
+    writeOpt(j, "categoria_moderacion_id", categoria_moderacion_id);
     writeOpt(j, "creado_por", creado_por);
     writeOpt(j, "revisado_por", revisado_por);
     writeOpt(j, "fecha_revision", fecha_revision);
@@ -156,6 +157,9 @@ Especie Especie::fromJson(const nlohmann::json& j) {
     }
     if (j.contains("foto_portada_key") && !j["foto_portada_key"].is_null()) {
         e.foto_portada_key = j["foto_portada_key"].get<std::string>();
+    }
+    if (j.contains("categoria_moderacion_id") && !j["categoria_moderacion_id"].is_null()) {
+        e.categoria_moderacion_id = j["categoria_moderacion_id"].get<int>();
     }
     if (j.contains("creado_por") && !j["creado_por"].is_null()) {
         e.creado_por = j["creado_por"].get<int>();

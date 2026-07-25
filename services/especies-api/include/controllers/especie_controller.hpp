@@ -5,6 +5,7 @@
 #include <pistache/http.h>
 #include <pistache/router.h>
 #include <pistache/endpoint.h>
+#include "../services/categoria_moderacion_service.hpp"
 #include "../services/especie_service.hpp"
 #include "../utils/constants.hpp"
 #include "../utils/request_identity.hpp"
@@ -12,11 +13,20 @@
 class EspecieController {
 private:
     std::shared_ptr<EspecieService> service;
+    std::shared_ptr<CategoriaModeracionService> categoriaModeracionService;
+
     // Método para validar una especie
     void validarEspecie(const Especie& especie);
 
+    // Un admin puede editar cualquier especie; un moderator solo las de una
+    // categoría a la que esté asignado (moderador_categorias). Si el chequeo
+    // falla, ya envía la respuesta de error (403/404) y devuelve false.
+    bool puedeEditarCategoria(const RequestIdentity& identity, int categoriaId,
+                              Pistache::Http::ResponseWriter& response);
+
 public:
-    explicit EspecieController(std::shared_ptr<EspecieService> svc);
+    EspecieController(std::shared_ptr<EspecieService> svc,
+                      std::shared_ptr<CategoriaModeracionService> categoriaModeracionSvc);
 
     // Manejadores de peticiones HTTP
     void getAll(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);

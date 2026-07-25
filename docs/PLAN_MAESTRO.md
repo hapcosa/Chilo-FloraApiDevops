@@ -494,8 +494,12 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
       y endpoints admin-only `/api/v1/categorias-moderacion` (CRUD +
       `/:id/moderadores/:user_id` para asignar/quitar). Verificado que un moderador puede
       cubrir varias categorías y una categoría puede tener varios moderadores. ✅
-- [ ] Restringir edición/fotos de especies según la categoría asignada al moderador (no solo
-      el rol admin/moderator genérico).
+- [x] Restringir edición/fotos de especies según la categoría asignada al moderador (no solo
+      el rol admin/moderator genérico): `especies.categoria_moderacion_id` obligatorio al
+      crear, admin sin restricción, moderator exige asignación real en
+      `moderador_categorias`. De paso se corrigió que `PUT /especies/:id` sin
+      `creado_por`/`categoria_moderacion_id` en el body los anulaba en vez de preservar el
+      valor existente (el UPDATE reescribe la columna completa, no es un PATCH parcial). ✅
 - [ ] Avistamientos privados por defecto ("mis encuentros"): visibilidad
       `privado`/`publico`, endpoint para que el dueño comparta un encuentro a la moderación
       pública, UI móvil completa (hoy la cola offline/sync existe pero no hay pantalla).
