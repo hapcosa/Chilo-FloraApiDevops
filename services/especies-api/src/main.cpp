@@ -7,14 +7,17 @@
 
 #include "../include/controllers/especie_controller.hpp"
 #include "../include/controllers/avistamiento_controller.hpp"
+#include "../include/controllers/categoria_moderacion_controller.hpp"
 #include "../include/controllers/familia_controller.hpp"
 #include "../include/controllers/genero_controller.hpp"
 #include "../include/controllers/upload_controller.hpp"
+#include "../include/repository/postgres_categoria_moderacion_repository.hpp"
 #include "../include/repository/postgres_familia_repository.hpp"
 #include "../include/repository/postgres_genero_repository.hpp"
 #include "../include/repository/postgresql_especie_repository.hpp"
 #include "../include/repository/postgres_avistamiento_repository.hpp"
 #include "../include/services/avistamiento_service.hpp"
+#include "../include/services/categoria_moderacion_service.hpp"
 #include "../include/services/especie_service.hpp"
 #include "../include/services/familia_service.hpp"
 #include "../include/services/genero_service.hpp"
@@ -60,6 +63,8 @@ int main(int argc, char** argv) {
       std::make_shared<PostgreSQLEspecieRepository>(dataBase);
   auto avistamientoRepository =
       std::make_shared<PostgresAvistamientoRepository>(dataBase);
+  auto categoriaModeracionRepository =
+      std::make_shared<PostgresCategoriaModeracionRepository>(dataBase);
 
   // El schema lo gestiona scripts/migrate.sh contra la BD antes de arrancar
   // el binario (ver services/especies-api/migrations/README.md).
@@ -84,6 +89,8 @@ int main(int argc, char** argv) {
   auto avistamientoService =
       std::make_shared<AvistamientoService>(avistamientoRepository,
                                             uploadPresignService);
+  auto categoriaModeracionService =
+      std::make_shared<CategoriaModeracionService>(categoriaModeracionRepository);
 
   // Initialize controllers
   auto familiaController = std::make_shared<FamiliaController>(familiaService);
@@ -93,6 +100,8 @@ int main(int argc, char** argv) {
       std::make_shared<AvistamientoController>(avistamientoService);
   auto uploadController =
       std::make_shared<UploadController>(uploadPresignService);
+  auto categoriaModeracionController =
+      std::make_shared<CategoriaModeracionController>(categoriaModeracionService);
 
   // Setup router
   auto router = std::make_shared<Pistache::Rest::Router>();
@@ -112,6 +121,7 @@ int main(int argc, char** argv) {
   EspecieController::setupRoutes(*router, especieController);
   AvistamientoController::setupRoutes(*router, avistamientoController);
   UploadController::setupRoutes(*router, uploadController);
+  CategoriaModeracionController::setupRoutes(*router, categoriaModeracionController);
 
   // Configure server - MEJORADO para red local
   Pistache::Http::Endpoint server(addr);

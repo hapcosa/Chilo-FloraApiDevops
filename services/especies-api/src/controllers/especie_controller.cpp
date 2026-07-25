@@ -45,27 +45,6 @@ std::optional<std::string> queryStr(const Pistache::Http::Uri::Query& q,
 EspecieController::EspecieController(std::shared_ptr<EspecieService> svc)
     : service(svc) {}
 
-std::optional<RequestIdentity> EspecieController::requireModerador(
-    const Pistache::Rest::Request& request,
-    Pistache::Http::ResponseWriter& response) {
-  auto identity = extractIdentity(request);
-  if (!identity) {
-    json error = {{"error", "No se pudo verificar la sesión del usuario"}};
-    response.headers().add<Pistache::Http::Header::ContentType>(
-        MIME(Application, Json));
-    response.send(Pistache::Http::Code::Unauthorized, error.dump());
-    return std::nullopt;
-  }
-  if (!identity->canModerate()) {
-    json error = {{"error", "Se requiere rol admin o moderator"}};
-    response.headers().add<Pistache::Http::Header::ContentType>(
-        MIME(Application, Json));
-    response.send(Pistache::Http::Code::Forbidden, error.dump());
-    return std::nullopt;
-  }
-  return identity;
-}
-
 void EspecieController::validarEspecie(const Especie& especie) {
   if (!especie.esValida()) {
     throw std::invalid_argument("Los datos de la especie no son válidos");
