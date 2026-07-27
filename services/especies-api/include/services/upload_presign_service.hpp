@@ -13,6 +13,7 @@ struct UploadStorageConfig {
     std::string secretAccessKey;
     std::string especiesBucket;
     std::string avistamientosBucket;
+    std::string perfilesBucket;
     int defaultExpiresIn;
 
     static UploadStorageConfig fromEnvironment();
