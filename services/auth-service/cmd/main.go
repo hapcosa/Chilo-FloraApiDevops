@@ -37,7 +37,7 @@ func main() {
 	}
 
 	// Ejecutar migraciones
-	if err := database.Migrate(db); err != nil {
+	if err := database.Migrate(db, cfg.Environment); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 

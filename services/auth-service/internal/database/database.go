@@ -68,7 +68,7 @@ func ConnectRedis(cfg config.RedisConfig) (*redis.Client, error) {
 }
 
 // Migrate ejecuta las migraciones de la base de datos
-func Migrate(db *gorm.DB) error {
+func Migrate(db *gorm.DB, environment string) error {
 	log.Println("🔄 Running database migrations...")
 
 	// Crear extensiones si no existen
@@ -89,8 +89,12 @@ func Migrate(db *gorm.DB) error {
 		return fmt.Errorf("failed to create indexes: %w", err)
 	}
 
-	// Crear usuario admin por defecto si no existe
-	if err := createDefaultAdmin(db); err != nil {
+	// Crear usuario admin por defecto solo fuera de producción. El admin lleva
+	// una contraseña con hash fijo en el código: en producción sería una puerta
+	// trasera conocida por cualquiera que lea el repo.
+	if environment == "production" {
+		log.Println("🔒 Entorno de producción: se omite la creación del admin por defecto")
+	} else if err := createDefaultAdmin(db); err != nil {
 		return fmt.Errorf("failed to create default admin: %w", err)
 	}
 
@@ -130,7 +134,7 @@ func createDefaultAdmin(db *gorm.DB) error {
 		return nil
 	}
 
-	// Crear admin por defecto (solo en desarrollo)
+	// Solo se llega aquí fuera de producción (ver Migrate).
 	adminUser := models.User{
 		Email:         "admin@chiloe.dev",
 		Password:      "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", // "admin123"
