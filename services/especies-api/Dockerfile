@@ -120,13 +120,15 @@ RUN mkdir build && cd build && \
 # Etapa final de runtime
 FROM ubuntu:${UBUNTU_VERSION} AS runtime
 
-# Instalar solo dependencias de runtime
+# Instalar solo dependencias de runtime.
+# curl (el binario, no solo libcurl4) lo usa el HEALTHCHECK de abajo.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 \
     libpq5 \
     libboost-system1.74.0 \
     libboost-thread1.74.0 \
     libcurl4 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar bibliotecas compiladas y schemas

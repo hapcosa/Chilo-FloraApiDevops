@@ -1,0 +1,290 @@
+# Despliegue de producción sobre Docker Compose + Cloudflare Tunnel.
+#
+# Este stack está pensado para un host compartido con otras cargas en producción
+# (ver docs/deployment/PRODUCCION_DOCKER_CLOUDFLARE.md). De ahí tres decisiones:
+#   - No se publica ningún puerto al host: todo el tráfico entra por cloudflared.
+#   - Red propia con subred fija, para no colisionar con las redes existentes.
+#   - Límite de memoria en cada servicio: el host no es de este proyecto.
+#
+# Los secretos NO viven en el repo. Se pasan con --env-file apuntando a un
+# archivo fuera del árbol de git:
+#   docker compose -p chiloe-prod \
+#     --env-file /home/trader/.config/chiloe-prod/chiloe.env \
+#     -f infrastructure/docker/docker-compose.prod.yml up -d
+#
+# Las variables marcadas con :? hacen fallar el `up` si faltan, en vez de
+# arrancar Postgres con una contraseña por defecto.
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: chiloe-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:?falta DB_NAME}
+      POSTGRES_USER: ${DB_USER:?falta DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - chiloe-prod-network
+    restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: chiloe-redis
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 192mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - chiloe-prod-network
+    restart: unless-stopped
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  minio:
+    image: minio/minio:latest
+    container_name: chiloe-minio
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?falta MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?falta MINIO_ROOT_PASSWORD}
+      # Sin esto MinIO no sabría cuál es su hostname externo y rechazaría la
+      # firma de las URLs presignadas que emite especies-api.
+      MINIO_SERVER_URL: ${S3_PUBLIC_ENDPOINT:?falta S3_PUBLIC_ENDPOINT}
+      # La consola web no se expone: el único hostname público de MinIO sirve
+      # la API S3.
+      MINIO_BROWSER: "off"
+    volumes:
+      - minio_data:/data
+    networks:
+      - chiloe-prod-network
+    restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  minio-create-buckets:
+    image: minio/mc:latest
+    container_name: chiloe-minio-buckets
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      ESPECIES_FOTOS_BUCKET: ${ESPECIES_FOTOS_BUCKET:-especies-fotos}
+      AVISTAMIENTOS_FOTOS_BUCKET: ${AVISTAMIENTOS_FOTOS_BUCKET:-avistamientos-fotos}
+      PERFILES_FOTOS_BUCKET: ${PERFILES_FOTOS_BUCKET:-perfiles-fotos}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing "local/$${ESPECIES_FOTOS_BUCKET}"
+        mc mb --ignore-existing "local/$${AVISTAMIENTOS_FOTOS_BUCKET}"
+        mc mb --ignore-existing "local/$${PERFILES_FOTOS_BUCKET}"
+        mc anonymous set download "local/$${ESPECIES_FOTOS_BUCKET}"
+        mc anonymous set none "local/$${AVISTAMIENTOS_FOTOS_BUCKET}"
+        mc anonymous set download "local/$${PERFILES_FOTOS_BUCKET}"
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - chiloe-prod-network
+    mem_limit: 128m
+    restart: "no"
+
+  # Aplica services/especies-api/migrations/*.sql y termina. especies-api lo
+  # espera con service_completed_successfully.
+  especies-api-migrate:
+    image: postgres:15
+    container_name: chiloe-especies-api-migrate
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ../../services/especies-api/scripts:/app/scripts:ro
+      - ../../services/especies-api/migrations:/app/migrations:ro
+    entrypoint: ["/bin/bash", "/app/scripts/migrate.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - chiloe-prod-network
+    mem_limit: 256m
+    restart: "no"
+
+  especies-api:
+    build:
+      context: ../../services/especies-api
+      dockerfile: Dockerfile
+      target: runtime
+    image: chiloe/especies-api:prod
+    container_name: chiloe-especies-api
+    environment:
+      - API_PORT=9080
+      - API_HOST=0.0.0.0
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AUTH_SERVICE_URL=http://auth-service:8081
+      # Interno para HEAD de verificación; público para firmar las presigned URLs
+      # que va a usar el teléfono.
+      - S3_ENDPOINT=http://minio:9000
+      - S3_PUBLIC_ENDPOINT=${S3_PUBLIC_ENDPOINT}
+      - S3_REGION=${S3_REGION:-us-east-1}
+      - S3_ACCESS_KEY_ID=${MINIO_ROOT_USER}
+      - S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
+      - S3_BUCKET_ESPECIES=${ESPECIES_FOTOS_BUCKET:-especies-fotos}
+      - S3_BUCKET_AVISTAMIENTOS=${AVISTAMIENTOS_FOTOS_BUCKET:-avistamientos-fotos}
+      - S3_BUCKET_PERFILES=${PERFILES_FOTOS_BUCKET:-perfiles-fotos}
+      - S3_FORCE_PATH_STYLE=true
+      - S3_PRESIGN_EXPIRES_SECONDS=${S3_PRESIGN_EXPIRES_SECONDS:-900}
+      # La imagen de runtime copia los schemas aquí, no a /app/config.
+      - SCHEMAS_DIR=/etc/chiloe-especies-api/schemas
+      - LOG_LEVEL=info
+      - ENVIRONMENT=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-create-buckets:
+        condition: service_completed_successfully
+      especies-api-migrate:
+        condition: service_completed_successfully
+    networks:
+      - chiloe-prod-network
+    restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  auth-service:
+    build:
+      context: ../../services/auth-service
+      dockerfile: Dockerfile.prod
+    image: chiloe/auth-service:prod
+    container_name: chiloe-auth
+    environment:
+      - API_PORT=8081
+      - API_HOST=0.0.0.0
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_SSLMODE=disable
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:?falta JWT_SECRET}
+      - JWT_EXPIRY=${JWT_EXPIRY:-24h}
+      - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-168h}
+      - ENVIRONMENT=production
+      - GIN_MODE=release
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - OAUTH_REDIRECT_URL=${PUBLIC_API_URL:-https://api.budaicapital.com}/api/v1/auth/callback
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chiloe-prod-network
+    restart: unless-stopped
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  gateway:
+    image: nginx:1.25-alpine
+    container_name: chiloe-gateway
+    volumes:
+      - ../../services/gateway/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ../../services/gateway/docs-api.json:/etc/nginx/html/docs-api.json:ro
+    depends_on:
+      especies-api:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    networks:
+      - chiloe-prod-network
+    restart: unless-stopped
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Túnel propio (chiloe-api). No comparte nada con los túneles de otros
+  # proyectos que corren en este host.
+  cloudflared:
+    image: cloudflare/cloudflared:2026.7.3
+    container_name: chiloe-cloudflared
+    command: ["tunnel", "--config", "/etc/cloudflared/config.yml", "run"]
+    # La imagen corre como uid 65532; el JSON de credenciales es 0600 del
+    # usuario del host. Se ajusta el uid del contenedor en vez de aflojar los
+    # permisos del secreto.
+    user: "${CLOUDFLARED_UID:?falta CLOUDFLARED_UID}:${CLOUDFLARED_GID:?falta CLOUDFLARED_GID}"
+    volumes:
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - ${CLOUDFLARED_CREDENTIALS_FILE:?falta CLOUDFLARED_CREDENTIALS_FILE}:/etc/cloudflared/credentials.json:ro
+    depends_on:
+      gateway:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - chiloe-prod-network
+    restart: unless-stopped
+    mem_limit: 128m
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  chiloe-prod-network:
+    driver: bridge
+    ipam:
+      config:
+        # Subred fija y libre en este host: 172.17/18/19/23 ya están en uso por
+        # otros proyectos. nginx.prod.conf confía en este rango para CF-Connecting-IP.
+        - subnet: 172.28.0.0/16

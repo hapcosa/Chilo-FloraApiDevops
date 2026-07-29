@@ -1,7 +1,7 @@
 # Plan Maestro — Biodiversidad de Chiloé (Backend microservicios + APK Android)
 
 > Documento vivo. Cualquier cambio estructural se discute aquí antes de tocar código.
-> Última actualización: 2026-07-15.
+> Última actualización: 2026-07-29.
 
 ---
 
@@ -521,6 +521,7 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 | 10 (2026-07-25) | Autorización real gateway→especies-api vía `auth_request` de nginx + headers `X-User-Id`/`X-User-Role` confiables; `especies-api` deja de aceptar `creado_por`/`revisado_por`/`moderado_por` del cuerpo del cliente | Validar JWT directamente en el C++ / seguir sin validación | Se detectó que `especies-api` no verificaba identidad en ninguna mutación: cualquiera podía autoatribuirse como cualquier usuario o "aprobar" cualquier avistamiento con solo cambiar el JSON. `auth-service` ya tenía el endpoint `/auth/verify` pensado para `auth_request` pero nginx nunca lo usaba. Reutilizar `auth_request` evita duplicar lógica de verificación de JWT en C++. |
 | 11 (2026-07-25) | Moderación por categoría muchos-a-muchos (`categorias_moderacion` + `moderador_categorias`) en vez de solo el rol genérico `moderator` | Un solo rol moderator sin subdivisión / roles fijos por reino (5 roles) | El usuario pidió que un moderador pueda especializarse en subgrupos (ej. "Aves" dentro de Animalia) y que varios moderadores puedan compartir una categoría. Una tabla de asignación muchos-a-muchos es más flexible que roles fijos y permite que reinos poco documentados usen una sola categoría "catch-all". |
 | 12 (2026-07-25) | Avistamientos privados por defecto (`visibilidad='privado'`), con acción explícita del dueño para publicarlos, en vez de una tabla nueva para "mis encuentros" | Tabla/flujo separado para encuentros personales | El usuario confirmó que "mis encuentros" es el mismo concepto que los avistamientos ya construidos en Fase 6 (Fase 6 los hizo públicos por defecto). Reusar la tabla y toda la cola offline/sync ya construida en mobile evita duplicar trabajo. |
+| 13 (2026-07-29) | En el host compartido actual, desplegar con **Docker Compose + túnel Cloudflare propio** (`infrastructure/docker/docker-compose.prod.yml`), no con k3s. La decisión #6 (k3s) sigue vigente para un VPS dedicado | Instalar k3s junto al Docker existente / no desplegar | El host ya sostiene ~20 contenedores de otro negocio en producción real. El Traefik que k3s trae por defecto reclama los puertos 80/443 —que en este host nadie ocupa porque la salida es por Cloudflare Tunnel— y su containerd conviviría mal con el Docker que corre esas cargas. El riesgo recae sobre un negocio ajeno a este proyecto y la ganancia sería paridad con unos manifiestos que este host no usa. Los manifiestos de `infrastructure/kubernetes/` quedan intactos como camino de migración. Detalle operativo en [docs/deployment/PRODUCCION_DOCKER_CLOUDFLARE.md](deployment/PRODUCCION_DOCKER_CLOUDFLARE.md). |
 
 Cualquier cambio futuro a estas decisiones debe quedar como una entrada nueva con fecha y justificación, no editar la anterior.
 
