@@ -164,6 +164,37 @@ tracking en `schema_migrations`; es idempotente y se puede relanzar.
 La tabla de usuarios la crea `auth-service` al arrancar (GORM `AutoMigrate`), no
 las migraciones SQL.
 
+### 5.5 Seeds
+
+Las migraciones dejan el esquema vacío. El contenido inicial (13 especies de los
+cinco reinos) se carga aparte, y sin él la app se ve rota:
+
+```bash
+docker run --rm \
+  --network chiloe-prod_chiloe-prod-network \
+  --env-file ~/.config/chiloe-prod/chiloe.env \
+  -e DB_HOST=postgres -e DB_PORT=5432 \
+  -v "$PWD/services/especies-api/scripts:/app/scripts:ro" \
+  -v "$PWD/services/especies-api/seeds:/app/seeds:ro" \
+  --entrypoint /bin/bash postgres:15 /app/scripts/seed.sh
+```
+
+Los seeds son idempotentes (`ON CONFLICT DO NOTHING`) y no llevan tabla de
+tracking: reaplicarlos no duplica ni pisa ediciones manuales. Por eso el paso es
+manual y no un servicio más del compose: cargar contenido es una decisión de
+operación, no parte del arranque.
+
+Reparto esperado tras cargarlos:
+
+| reino | especies |
+|-------|----------|
+| animalia | 4 |
+| plantae | 4 |
+| fungi | 2 |
+| protista | 2 |
+| monera | 1 |
+| **total** | **13** |
+
 ---
 
 ## 6. Buckets
@@ -243,7 +274,12 @@ TOKEN=$(curl -s -X POST https://api.budaicapital.com/api/v1/auth/login \
 
 # especies: requiere sesión (auth_request, ADR #10). Sin token → 401.
 curl -s -H "Authorization: Bearer $TOKEN" \
-  "https://api.budaicapital.com/api/v1/especies?limit=3"
+  "https://api.budaicapital.com/api/v1/especies?limit=3" | grep -o '"total":[0-9]*'
+# → "total":13
+
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://api.budaicapital.com/api/v1/especies?reino=fungi" | grep -o '"total":[0-9]*'
+# → "total":2
 
 # ciclo de foto completo
 curl -s -X POST https://api.budaicapital.com/api/v1/uploads/presign \
@@ -263,9 +299,6 @@ chiloe-prod ps            # ninguno debe estar reiniciándose
 
 ## 10. Pendientes
 
-- **Seeds.** No existen en el repo: ni `services/especies-api/seeds/` ni
-  `scripts/seed.sh`, y tampoco hay rama remota con ellos. La BD arranca vacía y
-  la app se verá sin contenido hasta que se carguen especies.
 - **Backups.** Igual que en k3s: falta `pg_dump` nocturno del volumen
   `chiloe-prod_postgres_data` y `mc mirror` de MinIO a almacenamiento externo,
   más una prueba de restauración.
