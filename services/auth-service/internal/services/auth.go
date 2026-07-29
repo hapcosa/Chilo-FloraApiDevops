@@ -41,6 +41,7 @@ var (
 	ErrOAuthNotConfigured = errors.New("oauth provider not configured")
 	ErrInvalidOAuthToken  = errors.New("invalid oauth token")
 	ErrUnverifiedEmail    = errors.New("email is not verified")
+	ErrUserNotActive      = errors.New("user account is not active")
 )
 
 func NewAuthService(db *gorm.DB, redis *redis.Client, config config.JWTConfig) *AuthService {
@@ -96,7 +97,7 @@ func (s *AuthService) Login(req *models.LoginRequest) (*models.AuthResponse, err
 
 	// Verificar estado del usuario
 	if user.Status != models.UserStatusActive {
-		return nil, errors.New("user account is not active")
+		return nil, ErrUserNotActive
 	}
 
 	// Verificar contraseña
@@ -122,7 +123,7 @@ func (s *AuthService) RefreshToken(refreshToken string) (*models.AuthResponse, e
 
 	// Verificar estado del usuario
 	if tokenRecord.User.Status != models.UserStatusActive {
-		return nil, errors.New("user account is not active")
+		return nil, ErrUserNotActive
 	}
 
 	// Generar nuevo access token
@@ -183,7 +184,7 @@ func (s *AuthService) VerifyToken(tokenString string) (*models.User, error) {
 
 	// Verificar estado del usuario
 	if user.Status != models.UserStatusActive {
-		return nil, errors.New("user account is not active")
+		return nil, ErrUserNotActive
 	}
 
 	return &user, nil
@@ -452,7 +453,7 @@ func (s *AuthService) ProcessGoogleIDTokenUser(info *GoogleIDTokenInfo) (*models
 			user.ProviderID = googleSub
 		}
 		if user.Status != models.UserStatusActive {
-			return nil, errors.New("user account is not active")
+			return nil, ErrUserNotActive
 		}
 
 		if err := s.db.Save(&user).Error; err != nil {
