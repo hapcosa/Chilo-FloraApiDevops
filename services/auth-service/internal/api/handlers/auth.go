@@ -120,7 +120,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	response, err := h.authService.Login(&req)
 	if err != nil {
-		if errors.Is(err, services.ErrUserNotFound) || errors.Is(err, services.ErrInvalidPassword) {
+		// ErrUserNotActive comparte respuesta con las credenciales inválidas a
+		// propósito: distinguirlas revelaría qué cuentas existen.
+		if errors.Is(err, services.ErrUserNotFound) ||
+			errors.Is(err, services.ErrInvalidPassword) ||
+			errors.Is(err, services.ErrUserNotActive) {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "Unauthorized",
 				"message": "Invalid email or password",
@@ -158,7 +162,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 
 	response, err := h.authService.RefreshToken(req.RefreshToken)
 	if err != nil {
-		if errors.Is(err, services.ErrInvalidToken) {
+		if errors.Is(err, services.ErrInvalidToken) || errors.Is(err, services.ErrUserNotActive) {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "Unauthorized",
 				"message": "Invalid or expired refresh token",
@@ -431,6 +435,18 @@ func (h *AuthHandler) GoogleIDTokenLogin(c *gin.Context) {
 
 	response, err := h.authService.ProcessGoogleIDTokenUser(tokenInfo)
 	if err != nil {
+		// Aquí no hay riesgo de enumeración: Google ya verificó que quien llama
+		// es dueño de esa cuenta, así que decirle que está deshabilitada es más
+		// útil que un error genérico.
+		if errors.Is(err, services.ErrUserNotActive) {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error":   "Forbidden",
+				"message": "User account is not active",
+				"code":    403,
+			})
+			return
+		}
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Internal Server Error",
 			"message": "Failed to process Google user",
