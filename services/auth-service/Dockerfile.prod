@@ -1,0 +1,45 @@
+# Dockerfile de producción para Auth Service.
+# El `Dockerfile` de esta carpeta arranca Air (hot reload) y monta el código:
+# sirve para dev, no para producción. Aquí compilamos un binario estático y lo
+# servimos desde una imagen mínima.
+FROM golang:1.21-alpine AS builder
+
+RUN apk add --no-cache git ca-certificates tzdata
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# CGO desactivado para obtener un binario estático que corra en la imagen final.
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w" \
+    -o /out/auth-service ./cmd/main.go
+
+FROM alpine:3.19 AS runtime
+
+# curl es necesario para el HEALTHCHECK; tzdata para America/Santiago.
+RUN apk add --no-cache ca-certificates curl tzdata
+
+ENV TZ=America/Santiago
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+RUN adduser -D -s /bin/sh appuser
+
+COPY --from=builder /out/auth-service /usr/local/bin/auth-service
+
+USER appuser
+
+ENV GIN_MODE=release
+ENV API_PORT=8081
+ENV API_HOST=0.0.0.0
+ENV ENVIRONMENT=production
+
+EXPOSE 8081
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:${API_PORT}/health || exit 1
+
+CMD ["/usr/local/bin/auth-service"]

@@ -1,7 +1,19 @@
-# Deploy k3s — Producción
+# Deploy k3s — Producción (VPS dedicado)
 
-Guía operativa para desplegar la API en un VPS Linux con k3s. No contiene
-secrets reales.
+Guía operativa para desplegar la API en un **VPS Linux dedicado** con k3s. No
+contiene secrets reales.
+
+> **Alcance.** Este documento aplica a un VPS dedicado a este proyecto, donde
+> k3s puede tomar los puertos 80/443 y ser el único runtime de contenedores.
+>
+> **No** describe el despliegue público que está corriendo hoy. Ese vive en un
+> host compartido con otras cargas en producción y usa Docker Compose + un túnel
+> Cloudflare propio: ver
+> [PRODUCCION_DOCKER_CLOUDFLARE.md](PRODUCCION_DOCKER_CLOUDFLARE.md) y el ADR #13
+> de [PLAN_MAESTRO.md §10](../PLAN_MAESTRO.md). Instalar k3s en aquel host
+> pondría en riesgo un negocio ajeno a este proyecto.
+>
+> Los manifiestos de `infrastructure/kubernetes/` se mantienen para esta ruta.
 
 ## Prerrequisitos
 
