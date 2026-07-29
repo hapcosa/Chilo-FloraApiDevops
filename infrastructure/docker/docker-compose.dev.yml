@@ -65,14 +65,17 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
       ESPECIES_FOTOS_BUCKET: ${ESPECIES_FOTOS_BUCKET:-especies-fotos}
       AVISTAMIENTOS_FOTOS_BUCKET: ${AVISTAMIENTOS_FOTOS_BUCKET:-avistamientos-fotos}
+      PERFILES_FOTOS_BUCKET: ${PERFILES_FOTOS_BUCKET:-perfiles-fotos}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
         mc mb --ignore-existing "local/$${ESPECIES_FOTOS_BUCKET}"
         mc mb --ignore-existing "local/$${AVISTAMIENTOS_FOTOS_BUCKET}"
+        mc mb --ignore-existing "local/$${PERFILES_FOTOS_BUCKET}"
         mc anonymous set download "local/$${ESPECIES_FOTOS_BUCKET}"
         mc anonymous set none "local/$${AVISTAMIENTOS_FOTOS_BUCKET}"
+        mc anonymous set download "local/$${PERFILES_FOTOS_BUCKET}"
     depends_on:
       minio:
         condition: service_healthy
@@ -132,6 +135,7 @@ services:
       - S3_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD:-minioadmin123}
       - S3_BUCKET_ESPECIES=${ESPECIES_FOTOS_BUCKET:-especies-fotos}
       - S3_BUCKET_AVISTAMIENTOS=${AVISTAMIENTOS_FOTOS_BUCKET:-avistamientos-fotos}
+      - S3_BUCKET_PERFILES=${PERFILES_FOTOS_BUCKET:-perfiles-fotos}
       - S3_FORCE_PATH_STYLE=true
       - S3_PRESIGN_EXPIRES_SECONDS=${S3_PRESIGN_EXPIRES_SECONDS:-900}
       - SCHEMAS_DIR=/app/config/schemas

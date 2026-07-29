@@ -15,6 +15,7 @@ UploadStorageConfig testConfig() {
     config.secretAccessKey = "minioadmin123";
     config.especiesBucket = "especies-fotos";
     config.avistamientosBucket = "avistamientos-fotos";
+    config.perfilesBucket = "perfiles-fotos";
     config.defaultExpiresIn = 900;
     return config;
 }
@@ -48,6 +49,15 @@ TEST(UploadPresignServiceTest, UsaPrefijoAvistamientos) {
         "avistamientos-fotos", "foto.webp", "image/webp");
 
     EXPECT_EQ(upload.key.rfind("avistamientos/", 0), 0);
+}
+
+TEST(UploadPresignServiceTest, UsaPrefijoPerfiles) {
+    UploadPresignService service(testConfig());
+
+    const PresignedUpload upload = service.createPresignedPut(
+        "perfiles-fotos", "avatar.jpg", "image/jpeg");
+
+    EXPECT_EQ(upload.key.rfind("perfiles/", 0), 0);
 }
 
 TEST(UploadPresignServiceTest, RechazaBucketNoPermitido) {

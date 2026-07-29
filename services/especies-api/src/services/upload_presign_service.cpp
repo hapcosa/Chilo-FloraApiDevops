@@ -291,7 +291,8 @@ SignedUrl createSignedUrl(const UploadStorageConfig& storageConfig,
 void validateAllowedBucket(const UploadStorageConfig& storageConfig,
                            const std::string& bucket) {
     if (bucket != storageConfig.especiesBucket &&
-        bucket != storageConfig.avistamientosBucket) {
+        bucket != storageConfig.avistamientosBucket &&
+        bucket != storageConfig.perfilesBucket) {
         throw std::invalid_argument("'bucket' no está permitido");
     }
 }
@@ -324,6 +325,7 @@ UploadStorageConfig UploadStorageConfig::fromEnvironment() {
         envOr("S3_BUCKET_ESPECIES", "especies-fotos");
     config.avistamientosBucket =
         envOr("S3_BUCKET_AVISTAMIENTOS", "avistamientos-fotos");
+    config.perfilesBucket = envOr("S3_BUCKET_PERFILES", "perfiles-fotos");
     config.defaultExpiresIn = envIntOr("S3_PRESIGN_EXPIRES_SECONDS", 900);
     return config;
 }
@@ -354,8 +356,12 @@ PresignedUpload UploadPresignService::createPresignedPut(
 
     const std::tm now = utcNow();
     const std::string datePath = formatTime(now, "%Y/%m/%d");
-    const std::string prefix =
-        bucket == storageConfig.especiesBucket ? "especies" : "avistamientos";
+    std::string prefix = "avistamientos";
+    if (bucket == storageConfig.especiesBucket) {
+        prefix = "especies";
+    } else if (bucket == storageConfig.perfilesBucket) {
+        prefix = "perfiles";
+    }
     const std::string key = prefix + "/" + datePath + "/" + randomHex(16) +
                             "-" + sanitizeFilename(filename);
 
