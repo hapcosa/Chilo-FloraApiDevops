@@ -7,6 +7,7 @@
 
 #include "../include/controllers/especie_controller.hpp"
 #include "../include/controllers/avistamiento_controller.hpp"
+#include "../include/controllers/categoria_controller.hpp"
 #include "../include/controllers/familia_controller.hpp"
 #include "../include/controllers/genero_controller.hpp"
 #include "../include/controllers/upload_controller.hpp"
@@ -14,7 +15,9 @@
 #include "../include/repository/postgres_genero_repository.hpp"
 #include "../include/repository/postgresql_especie_repository.hpp"
 #include "../include/repository/postgres_avistamiento_repository.hpp"
+#include "../include/repository/postgres_categoria_repository.hpp"
 #include "../include/services/avistamiento_service.hpp"
+#include "../include/services/categoria_service.hpp"
 #include "../include/services/especie_service.hpp"
 #include "../include/services/familia_service.hpp"
 #include "../include/services/genero_service.hpp"
@@ -60,6 +63,8 @@ int main(int argc, char** argv) {
       std::make_shared<PostgreSQLEspecieRepository>(dataBase);
   auto avistamientoRepository =
       std::make_shared<PostgresAvistamientoRepository>(dataBase);
+  auto categoriaRepository =
+      std::make_shared<PostgresCategoriaRepository>(dataBase);
 
   // El schema lo gestiona scripts/migrate.sh contra la BD antes de arrancar
   // el binario (ver services/especies-api/migrations/README.md).
@@ -84,6 +89,7 @@ int main(int argc, char** argv) {
   auto avistamientoService =
       std::make_shared<AvistamientoService>(avistamientoRepository,
                                             uploadPresignService);
+  auto categoriaService = std::make_shared<CategoriaService>(categoriaRepository);
 
   // Initialize controllers
   auto familiaController = std::make_shared<FamiliaController>(familiaService);
@@ -91,6 +97,8 @@ int main(int argc, char** argv) {
   auto especieController = std::make_shared<EspecieController>(especieService);
   auto avistamientoController =
       std::make_shared<AvistamientoController>(avistamientoService);
+  auto categoriaController =
+      std::make_shared<CategoriaController>(categoriaService);
   auto uploadController =
       std::make_shared<UploadController>(uploadPresignService);
 
@@ -111,6 +119,7 @@ int main(int argc, char** argv) {
   GeneroController::setupRoutes(*router, generoController);
   EspecieController::setupRoutes(*router, especieController);
   AvistamientoController::setupRoutes(*router, avistamientoController);
+  CategoriaController::setupRoutes(*router, categoriaController);
   UploadController::setupRoutes(*router, uploadController);
 
   // Configure server - MEJORADO para red local

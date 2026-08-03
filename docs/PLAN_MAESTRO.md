@@ -143,6 +143,9 @@ CREATE TABLE especies (
     foto_portada_key VARCHAR(500),           -- key MinIO/S3
     fotos_keys JSONB DEFAULT '[]',           -- ["bucket/key1", ...]
 
+    -- Curaduría: quién puede editar esta ficha (ver categorías más abajo)
+    categoria_id INTEGER REFERENCES categorias_moderacion(id) ON DELETE RESTRICT,
+
     -- Auditoría
     creado_por INTEGER,                      -- user_id de auth-service
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -154,6 +157,51 @@ CREATE INDEX idx_especies_reino ON especies(reino);
 CREATE INDEX idx_especies_atributos ON especies USING GIN (atributos_especificos);
 CREATE INDEX idx_especies_nombre_trgm ON especies USING GIN (nombre_comun gin_trgm_ops);
 ```
+
+### Categorías de moderación (ADR #11 y #14)
+
+El permiso de edición no cuelga del reino sino de una **categoría de curaduría**: un
+subgrupo dentro de un reino (ej. "Aves" dentro de `animalia`). Sin jerarquía: el ADR #11
+no la pide y añadirla ahora sería especular.
+
+```sql
+CREATE TABLE categorias_moderacion (
+    id SERIAL PRIMARY KEY,
+    slug VARCHAR(60) NOT NULL UNIQUE,        -- 'aves', 'hongos-comestibles'
+    nombre VARCHAR(120) NOT NULL,
+    reino reino_enum NOT NULL,
+    descripcion TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Muchos a muchos: un curador cubre varias categorías, una categoría tiene
+-- varios curadores. usuario_id/asignado_por son referencias lógicas a
+-- `usuarios` del auth-service (sin FK, igual que especies.creado_por).
+CREATE TABLE moderador_categorias (
+    usuario_id INTEGER NOT NULL,
+    categoria_id INTEGER NOT NULL REFERENCES categorias_moderacion(id) ON DELETE CASCADE,
+    asignado_por INTEGER,
+    asignado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (usuario_id, categoria_id)
+);
+```
+
+La migración `0004_categorias_moderacion.sql` siembra una categoría `<reino>-general` por
+reino y clasifica ahí las especies existentes, para que ninguna ficha quede sin curador
+posible. `especies.categoria_id` nace nullable por eso mismo y se endurecerá a `NOT NULL`
+en una migración posterior, cuando ningún entorno tenga huérfanas.
+
+Modelo de permisos resultante:
+
+| Quién | Alcance |
+|-------|---------|
+| `admin` (rol JWT) | Todo, en cualquier categoría. No necesita asignación. |
+| `moderator` (rol JWT) | Moderador **global**, se mantiene tal cual. |
+| Curador de categoría | Rol `user` + fila en `moderador_categorias`. |
+
+Aprobar a un curador **no** escribe roles en la BD del `auth-service`: solo inserta la
+asignación. Es lo que evita acoplar las dos bases de datos.
 
 ### Campos sugeridos por reino (en `atributos_especificos`)
 
@@ -489,11 +537,24 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
       `creado_por`/`revisado_por`/`moderado_por` del cuerpo del cliente — ahora vienen de la
       identidad verificada (`RequestIdentity`, headers `X-User-Id`/`X-User-Role`). Mutaciones
       de especies y moderación de avistamientos exigen rol `admin` o `moderator`. ✅
-- [ ] Moderación por categoría (muchos a muchos): tabla `categorias_moderacion` +
-      `moderador_categorias`, cada especie pertenece a una categoría, un moderador puede
-      cubrir varias categorías y una categoría puede tener varios moderadores.
+- [x] Moderación por categoría (muchos a muchos): tablas `categorias_moderacion` +
+      `moderador_categorias` y `especies.categoria_id` (migración
+      `0004_categorias_moderacion.sql`), con `GET /api/v1/categorias` para cualquier sesión
+      y `POST`/`PUT`/`DELETE` solo para `admin`. ✅
 - [ ] Restringir edición/fotos de especies según la categoría asignada al moderador (no solo
-      el rol admin/moderator genérico).
+      el rol admin/moderator genérico): `puedeEditarCategoria()` y el guard
+      `requireCuradorDeCategoria()` en `especie_controller.cpp`, más los endpoints de
+      asignación de curadores.
+- [ ] Postular a curador desde la app (`postulaciones_curador`); un admin aprueba o rechaza,
+      y aprobar inserta la asignación en la misma transacción.
+- [ ] Especies con estado `borrador`/`publicada`: el curador publica dentro de su categoría y
+      el `GET` público filtra los borradores (es lo que impide que lleguen al cache SQLite
+      del móvil).
+- [ ] Panel web de curaduría (`services/panel-curaduria/`), servido por el gateway bajo
+      `/curaduria/` con el mismo JWT. La curaduría no vive en el móvil.
+- [ ] Identificación comunitaria de avistamientos estilo iNaturalist
+      (`avistamiento_identificaciones`, grado de identificación por quórum) con voto decisivo
+      del curador de la categoría.
 - [ ] Avistamientos privados por defecto ("mis encuentros"): visibilidad
       `privado`/`publico`, endpoint para que el dueño comparta un encuentro a la moderación
       pública, UI móvil completa (hoy la cola offline/sync existe pero no hay pantalla).
@@ -523,6 +584,8 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 | 12 (2026-07-25) | Avistamientos privados por defecto (`visibilidad='privado'`), con acción explícita del dueño para publicarlos, en vez de una tabla nueva para "mis encuentros" | Tabla/flujo separado para encuentros personales | El usuario confirmó que "mis encuentros" es el mismo concepto que los avistamientos ya construidos en Fase 6 (Fase 6 los hizo públicos por defecto). Reusar la tabla y toda la cola offline/sync ya construida en mobile evita duplicar trabajo. |
 | 13 (2026-07-29) | En el host compartido actual, desplegar con **Docker Compose + túnel Cloudflare propio** (`infrastructure/docker/docker-compose.prod.yml`), no con k3s. La decisión #6 (k3s) sigue vigente para un VPS dedicado | Instalar k3s junto al Docker existente / no desplegar | El host ya sostiene ~20 contenedores de otro negocio en producción real. El Traefik que k3s trae por defecto reclama los puertos 80/443 —que en este host nadie ocupa porque la salida es por Cloudflare Tunnel— y su containerd conviviría mal con el Docker que corre esas cargas. El riesgo recae sobre un negocio ajeno a este proyecto y la ganancia sería paridad con unos manifiestos que este host no usa. Los manifiestos de `infrastructure/kubernetes/` quedan intactos como camino de migración. Detalle operativo en [docs/deployment/PRODUCCION_DOCKER_CLOUDFLARE.md](deployment/PRODUCCION_DOCKER_CLOUDFLARE.md). |
 
+| 14 (2026-08-03) | Curaduría estilo iNaturalist sobre el ADR #11: (a) se llega a curador **postulando** desde la app y un admin aprueba; (b) las especies tienen estado **borrador → publicada** y el curador publica dentro de su categoría sin pedir permiso; (c) la curaduría vive en un **panel web separado**, no en el móvil; (d) los avistamientos se resuelven por **identificación comunitaria** con voto decisivo del curador. Un curador es un usuario con rol `user` + fila en `moderador_categorias`; aprobarlo **no** escribe roles en el `auth-service` | Nombrar curadores solo a mano desde la BD / meter la curaduría en la app móvil / dejar la identificación de avistamientos a un solo moderador | Postular es lo único que escala sin que el admin conozca personalmente a cada experto. El borrador evita que una ficha a medio escribir llegue al público y al cache SQLite del móvil. El panel web separado mantiene la app enfocada en divulgación y captura, y da formularios largos (atributos por reino, fuentes) que en un teléfono son hostiles. La identificación comunitaria aprovecha a la gente que sabe pero no cura, y el voto decisivo del curador hace que el sistema funcione mientras la comunidad sea chica y el quórum no se cumpla nunca. No escribir roles cruzados es lo que evita acoplar la BD de `especies-api` con la de `auth-service`. |
+
 Cualquier cambio futuro a estas decisiones debe quedar como una entrada nueva con fecha y justificación, no editar la anterior.
 
 ---
@@ -545,7 +608,6 @@ Cosas que no necesito resolver hoy pero hay que pensar antes de la fase correspo
 - ¿Mapa con avistamientos en la app? Si sí, qué proveedor (Mapbox cuesta, OpenStreetMap es gratis pero más limitado).
 - ¿Soporte i18n? Idea: español (default), inglés, mapudungun cuando haya colaboradores.
 - ¿Notificaciones push? FCM es lo natural si ya usamos Google.
-- ¿Política de moderación de avistamientos? ¿Un solo curador aprueba, o votación?
 - ¿Open-sourcear el dataset? Tiene valor académico; decidir licencia (CC-BY-SA podría encajar).
 - **Red social completa** (objetivo futuro, no planificado aún): que el perfil evolucione a
   red social — seguir a otros usuarios, ver sus encuentros públicos, likes/comentarios. La

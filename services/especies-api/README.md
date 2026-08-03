@@ -105,6 +105,12 @@ GET    /api/v1/avistamientos
 GET    /api/v1/avistamientos/{id}
 POST   /api/v1/avistamientos
 PATCH  /api/v1/avistamientos/{id}/moderacion
+
+GET    /api/v1/categorias            (?reino=fungi para filtrar)
+GET    /api/v1/categorias/{id}
+POST   /api/v1/categorias            (solo admin)
+PUT    /api/v1/categorias/{id}       (solo admin)
+DELETE /api/v1/categorias/{id}       (solo admin; 409 si tiene especies)
 ```
 
 Filtros soportados en `GET /api/v1/especies` y `GET /api/especies`:

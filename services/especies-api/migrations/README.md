@@ -10,6 +10,7 @@ services/especies-api/
 │   ├── 0001_initial.sql       # baseline (extraído del antiguo initDatabase())
 │   ├── 0002_multi_reino.sql   # modelo multi-reino
 │   ├── 0003_avistamientos.sql # registros subidos por la app móvil
+│   ├── 0004_categorias_moderacion.sql # categorías de curaduría y sus moderadores
 │   └── README.md              # este archivo
 └── scripts/
     └── migrate.sh             # runner
