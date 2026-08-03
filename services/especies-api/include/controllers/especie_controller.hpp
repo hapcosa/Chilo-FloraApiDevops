@@ -6,22 +6,31 @@
 #include <pistache/router.h>
 #include <pistache/endpoint.h>
 #include "../services/especie_service.hpp"
+#include "../services/moderacion_service.hpp"
 #include "../utils/constants.hpp"
 #include "../utils/request_identity.hpp"
 
 class EspecieController {
 private:
     std::shared_ptr<EspecieService> service;
+    std::shared_ptr<ModeracionService> moderacion;
     // Método para validar una especie
     void validarEspecie(const Especie& especie);
-    // Exige rol admin o moderator; si no cumple, ya envía la respuesta de
-    // error (401/403) y devuelve std::nullopt para que el caller retorne.
-    std::optional<RequestIdentity> requireModerador(
+    // Exige sesión válida; si falta, ya envía el 401 y devuelve std::nullopt
+    // para que el caller retorne.
+    std::optional<RequestIdentity> requireSesion(
         const Pistache::Rest::Request& request,
         Pistache::Http::ResponseWriter& response);
+    // Exige curaduría sobre `categoriaId` (ADR #14): admin y moderator pasan
+    // siempre; el resto necesita una fila en `moderador_categorias`. Envía el
+    // 403 y devuelve false si no cumple.
+    bool requireCuradorDeCategoria(const RequestIdentity& identity,
+                                   std::optional<int> categoriaId,
+                                   Pistache::Http::ResponseWriter& response);
 
 public:
-    explicit EspecieController(std::shared_ptr<EspecieService> svc);
+    EspecieController(std::shared_ptr<EspecieService> svc,
+                      std::shared_ptr<ModeracionService> moderacion);
 
     // Manejadores de peticiones HTTP
     void getAll(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);

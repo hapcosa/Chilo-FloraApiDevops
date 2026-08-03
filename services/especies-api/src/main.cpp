@@ -10,17 +10,20 @@
 #include "../include/controllers/categoria_controller.hpp"
 #include "../include/controllers/familia_controller.hpp"
 #include "../include/controllers/genero_controller.hpp"
+#include "../include/controllers/moderador_controller.hpp"
 #include "../include/controllers/upload_controller.hpp"
 #include "../include/repository/postgres_familia_repository.hpp"
 #include "../include/repository/postgres_genero_repository.hpp"
 #include "../include/repository/postgresql_especie_repository.hpp"
 #include "../include/repository/postgres_avistamiento_repository.hpp"
 #include "../include/repository/postgres_categoria_repository.hpp"
+#include "../include/repository/postgres_moderador_categoria_repository.hpp"
 #include "../include/services/avistamiento_service.hpp"
 #include "../include/services/categoria_service.hpp"
 #include "../include/services/especie_service.hpp"
 #include "../include/services/familia_service.hpp"
 #include "../include/services/genero_service.hpp"
+#include "../include/services/moderacion_service.hpp"
 #include "../include/services/upload_presign_service.hpp"
 #include "../include/utils/atributos_schema_validator.hpp"
 #include "../include/utils/database.hpp"
@@ -65,6 +68,8 @@ int main(int argc, char** argv) {
       std::make_shared<PostgresAvistamientoRepository>(dataBase);
   auto categoriaRepository =
       std::make_shared<PostgresCategoriaRepository>(dataBase);
+  auto moderadorCategoriaRepository =
+      std::make_shared<PostgresModeradorCategoriaRepository>(dataBase);
 
   // El schema lo gestiona scripts/migrate.sh contra la BD antes de arrancar
   // el binario (ver services/especies-api/migrations/README.md).
@@ -83,6 +88,8 @@ int main(int argc, char** argv) {
   auto familiaService = std::make_shared<FamiliaService>(familiaRepository);
   auto generoService = std::make_shared<GeneroService>(generoRepository);
   auto uploadPresignService = std::make_shared<UploadPresignService>();
+  auto moderacionService =
+      std::make_shared<ModeracionService>(moderadorCategoriaRepository);
   auto especieService =
       std::make_shared<EspecieService>(especieRepository, schemaValidator,
                                        uploadPresignService);
@@ -94,11 +101,14 @@ int main(int argc, char** argv) {
   // Initialize controllers
   auto familiaController = std::make_shared<FamiliaController>(familiaService);
   auto generoController = std::make_shared<GeneroController>(generoService);
-  auto especieController = std::make_shared<EspecieController>(especieService);
+  auto especieController =
+      std::make_shared<EspecieController>(especieService, moderacionService);
   auto avistamientoController =
       std::make_shared<AvistamientoController>(avistamientoService);
   auto categoriaController =
       std::make_shared<CategoriaController>(categoriaService);
+  auto moderadorController =
+      std::make_shared<ModeradorController>(moderacionService);
   auto uploadController =
       std::make_shared<UploadController>(uploadPresignService);
 
@@ -120,6 +130,7 @@ int main(int argc, char** argv) {
   EspecieController::setupRoutes(*router, especieController);
   AvistamientoController::setupRoutes(*router, avistamientoController);
   CategoriaController::setupRoutes(*router, categoriaController);
+  ModeradorController::setupRoutes(*router, moderadorController);
   UploadController::setupRoutes(*router, uploadController);
 
   // Configure server - MEJORADO para red local

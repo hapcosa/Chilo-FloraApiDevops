@@ -42,10 +42,11 @@ std::optional<std::string> queryStr(const Pistache::Http::Uri::Query& q,
 
 }  // namespace
 
-EspecieController::EspecieController(std::shared_ptr<EspecieService> svc)
-    : service(svc) {}
+EspecieController::EspecieController(std::shared_ptr<EspecieService> svc,
+                                     std::shared_ptr<ModeracionService> moderacion)
+    : service(svc), moderacion(moderacion) {}
 
-std::optional<RequestIdentity> EspecieController::requireModerador(
+std::optional<RequestIdentity> EspecieController::requireSesion(
     const Pistache::Rest::Request& request,
     Pistache::Http::ResponseWriter& response) {
   auto identity = extractIdentity(request);
@@ -56,14 +57,29 @@ std::optional<RequestIdentity> EspecieController::requireModerador(
     response.send(Pistache::Http::Code::Unauthorized, error.dump());
     return std::nullopt;
   }
-  if (!identity->canModerate()) {
-    json error = {{"error", "Se requiere rol admin o moderator"}};
-    response.headers().add<Pistache::Http::Header::ContentType>(
-        MIME(Application, Json));
-    response.send(Pistache::Http::Code::Forbidden, error.dump());
-    return std::nullopt;
-  }
   return identity;
+}
+
+bool EspecieController::requireCuradorDeCategoria(
+    const RequestIdentity& identity,
+    std::optional<int> categoriaId,
+    Pistache::Http::ResponseWriter& response) {
+  if (moderacion->puedeEditarCategoria(identity.userId, identity.role,
+                                       categoriaId)) {
+    return true;
+  }
+
+  // Sin categoría no hay nada sobre lo que demostrar curaduría; el mensaje
+  // distingue los dos casos porque la acción del cliente es distinta.
+  const std::string mensaje =
+      categoriaId ? "No tienes permiso de curaduría sobre esta categoría"
+                  : "Debes indicar una 'categoria_id' sobre la que tengas curaduría";
+
+  json error = {{"error", mensaje}};
+  response.headers().add<Pistache::Http::Header::ContentType>(
+      MIME(Application, Json));
+  response.send(Pistache::Http::Code::Forbidden, error.dump());
+  return false;
 }
 
 void EspecieController::validarEspecie(const Especie& especie) {
@@ -168,7 +184,7 @@ void EspecieController::getById(const Pistache::Rest::Request& request,
 
 void EspecieController::create(const Pistache::Rest::Request& request,
                                Pistache::Http::ResponseWriter response) {
-  auto identity = requireModerador(request, response);
+  auto identity = requireSesion(request, response);
   if (!identity) return;
 
   try {
@@ -182,7 +198,21 @@ void EspecieController::create(const Pistache::Rest::Request& request,
     }
 
     auto requestJson = json::parse(body);
+
+    // El permiso se decide sobre la categoría que pide el cuerpo, así que hay
+    // que leerla antes; pero antes de validar la ficha entera, o quien no está
+    // autorizado recibiría un 400 de validación en vez de un 403.
+    std::optional<int> categoriaSolicitada;
+    if (requestJson.contains("categoria_id") &&
+        requestJson["categoria_id"].is_number_integer()) {
+      categoriaSolicitada = requestJson["categoria_id"].get<int>();
+    }
+    if (!requireCuradorDeCategoria(*identity, categoriaSolicitada, response)) {
+      return;
+    }
+
     Especie nuevaEspecie = Especie::fromJson(requestJson);
+
     // creado_por/revisado_por vienen de la identidad verificada, nunca del
     // cliente: nadie puede autoatribuirse como otro usuario ni auto-revisarse.
     nuevaEspecie.setCreadoPor(identity->userId);
@@ -229,7 +259,7 @@ void EspecieController::create(const Pistache::Rest::Request& request,
 
 void EspecieController::update(const Pistache::Rest::Request& request,
                                Pistache::Http::ResponseWriter response) {
-  auto identity = requireModerador(request, response);
+  auto identity = requireSesion(request, response);
   if (!identity) return;
 
   try {
@@ -255,9 +285,34 @@ void EspecieController::update(const Pistache::Rest::Request& request,
       return;
     }
 
+    const auto especieExistente = service->getEspecieById(id);
+    if (!especieExistente) {
+      json error = {{"error", "Especie no encontrada"}};
+      response.headers().add<Pistache::Http::Header::ContentType>(
+          MIME(Application, Json));
+      response.send(Pistache::Http::Code::Not_Found, error.dump());
+      return;
+    }
+
+    // Permiso sobre la categoría actual de la ficha, antes de validar el
+    // cuerpo: quien no cura esta ficha se lleva un 403, no un 400.
+    if (!requireCuradorDeCategoria(*identity, especieExistente->getCategoriaId(),
+                                   response)) {
+      return;
+    }
+
     auto requestJson = json::parse(body);
     Especie especieActualizada = Especie::fromJson(requestJson);
     especieActualizada.setId(id);
+
+    // Si el cuerpo mueve la ficha a otra categoría, también hace falta permiso
+    // sobre la de destino: si no, un curador podría sacarla de su ámbito.
+    if (especieActualizada.getCategoriaId() != especieExistente->getCategoriaId() &&
+        !requireCuradorDeCategoria(*identity, especieActualizada.getCategoriaId(),
+                                   response)) {
+      return;
+    }
+
     // Quien edita queda como revisor real; no se toma del body del cliente.
     especieActualizada.setRevisadoPor(identity->userId);
 
@@ -302,7 +357,8 @@ void EspecieController::update(const Pistache::Rest::Request& request,
 
 void EspecieController::updateFotos(const Pistache::Rest::Request& request,
                                     Pistache::Http::ResponseWriter response) {
-  if (!requireModerador(request, response)) return;
+  auto identity = requireSesion(request, response);
+  if (!identity) return;
 
   try {
     auto id_str = request.param(":id").as<std::string>();
@@ -315,6 +371,20 @@ void EspecieController::updateFotos(const Pistache::Rest::Request& request,
       response.headers().add<Pistache::Http::Header::ContentType>(
           MIME(Application, Json));
       response.send(Pistache::Http::Code::Bad_Request, error.dump());
+      return;
+    }
+
+    // Las fotos son contenido de la ficha: mismo permiso que editarla.
+    const auto especieExistente = service->getEspecieById(id);
+    if (!especieExistente) {
+      json error = {{"error", "Especie no encontrada"}};
+      response.headers().add<Pistache::Http::Header::ContentType>(
+          MIME(Application, Json));
+      response.send(Pistache::Http::Code::Not_Found, error.dump());
+      return;
+    }
+    if (!requireCuradorDeCategoria(*identity, especieExistente->getCategoriaId(),
+                                   response)) {
       return;
     }
 
@@ -387,7 +457,8 @@ void EspecieController::updateFotos(const Pistache::Rest::Request& request,
 
 void EspecieController::remove(const Pistache::Rest::Request& request,
                                Pistache::Http::ResponseWriter response) {
-  if (!requireModerador(request, response)) return;
+  auto identity = requireSesion(request, response);
+  if (!identity) return;
 
   try {
     auto id_str = request.param(":id").as<std::string>();
@@ -400,6 +471,19 @@ void EspecieController::remove(const Pistache::Rest::Request& request,
       response.headers().add<Pistache::Http::Header::ContentType>(
           MIME(Application, Json));
       response.send(Pistache::Http::Code::Bad_Request, error.dump());
+      return;
+    }
+
+    const auto especieExistente = service->getEspecieById(id);
+    if (!especieExistente) {
+      json error = {{"error", "Especie no encontrada"}};
+      response.headers().add<Pistache::Http::Header::ContentType>(
+          MIME(Application, Json));
+      response.send(Pistache::Http::Code::Not_Found, error.dump());
+      return;
+    }
+    if (!requireCuradorDeCategoria(*identity, especieExistente->getCategoriaId(),
+                                   response)) {
       return;
     }
 

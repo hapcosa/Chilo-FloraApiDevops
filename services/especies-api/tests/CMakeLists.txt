@@ -6,6 +6,8 @@
 #   - atributos_schema_validator.cpp: validación de atributos_especificos por
 #     reino contra los JSON Schemas reales de config/schemas/.
 #   - categoria_moderacion.cpp: formato de slug y (de)serialización JSON.
+#   - moderacion_service.cpp: quién puede editar qué categoría, con un
+#     repositorio en memoria.
 
 find_package(GTest REQUIRED)
 
@@ -14,10 +16,12 @@ add_executable(unit_tests
         test_atributos_schema_validator.cpp
         test_upload_presign_service.cpp
         test_categoria_moderacion.cpp
+        test_moderacion_service.cpp
         ${CMAKE_SOURCE_DIR}/src/models/reino.cpp
         ${CMAKE_SOURCE_DIR}/src/utils/atributos_schema_validator.cpp
         ${CMAKE_SOURCE_DIR}/src/services/upload_presign_service.cpp
         ${CMAKE_SOURCE_DIR}/src/models/categoria_moderacion.cpp
+        ${CMAKE_SOURCE_DIR}/src/services/moderacion_service.cpp
 )
 
 target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
