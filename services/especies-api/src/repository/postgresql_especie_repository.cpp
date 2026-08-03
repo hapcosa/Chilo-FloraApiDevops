@@ -14,7 +14,7 @@ constexpr const char* kSelectCols =
     "fuentes::text AS fuentes_text, geo_lat, geo_lng, "
     "atributos_especificos::text AS atributos_text, "
     "foto_portada_key, fotos_keys::text AS fotos_keys_text, "
-    "creado_por, revisado_por, "
+    "categoria_id, creado_por, revisado_por, "
     "fecha_revision, created_at, updated_at";
 
 nlohmann::json parseJsonbText(const pqxx::field& f,
@@ -68,6 +68,7 @@ Especie PostgreSQLEspecieRepository::mapRowToEspecie(const pqxx::row& row) {
         parseJsonbText(row["atributos_text"], nlohmann::json::object()));
     e.setFotoPortadaKey(optStr(row["foto_portada_key"]));
     e.setFotosKeys(parseJsonbText(row["fotos_keys_text"], nlohmann::json::array()));
+    e.setCategoriaId(optInt(row["categoria_id"]));
     e.setCreadoPor(optInt(row["creado_por"]));
     e.setRevisadoPor(optInt(row["revisado_por"]));
     e.setFechaRevision(optStr(row["fecha_revision"]));
@@ -177,7 +178,7 @@ EspecieSearchResult PostgreSQLEspecieRepository::find(
             "e.geo_lat, e.geo_lng, "
             "e.atributos_especificos::text AS atributos_text, "
             "e.foto_portada_key, e.fotos_keys::text AS fotos_keys_text, "
-            "e.creado_por, e.revisado_por, e.fecha_revision, "
+            "e.categoria_id, e.creado_por, e.revisado_por, e.fecha_revision, "
             "e.created_at, e.updated_at";
         dataSql += " FROM especies e" + joins + where + orderClause + limitClause;
 
@@ -255,10 +256,10 @@ Especie PostgreSQLEspecieRepository::create(const Especie& especie) {
                 + "autor_cientifico, descripcion, habitat, distribucion_chiloe, "
                 + "endemica, estado_conservacion, fuentes, geo_lat, geo_lng, "
                 + "atributos_especificos, foto_portada_key, fotos_keys, "
-                + "creado_por, revisado_por, fecha_revision"
+                + "categoria_id, creado_por, revisado_por, fecha_revision"
                 + ") VALUES ("
                 + "$1::reino_enum, $2, $3, $4, $5, $6, $7, $8, $9, $10, "
-                + "$11::jsonb, $12, $13, $14::jsonb, $15, $16::jsonb, $17, $18, $19"
+                + "$11::jsonb, $12, $13, $14::jsonb, $15, $16::jsonb, $17, $18, $19, $20"
                 + ") RETURNING " + kSelectCols,
             reinoToString(especie.getReino()),
             especie.getGeneroId(),
@@ -276,6 +277,7 @@ Especie PostgreSQLEspecieRepository::create(const Especie& especie) {
             especie.getAtributosEspecificos().dump(),
             especie.getFotoPortadaKey(),
             especie.getFotosKeys().dump(),
+            especie.getCategoriaId(),
             especie.getCreadoPor(),
             especie.getRevisadoPor(),
             especie.getFechaRevision());
@@ -316,8 +318,9 @@ Especie PostgreSQLEspecieRepository::update(const Especie& especie) {
                 + "estado_conservacion = $10, fuentes = $11::jsonb, geo_lat = $12, "
                 + "geo_lng = $13, atributos_especificos = $14::jsonb, "
                 + "foto_portada_key = $15, fotos_keys = $16::jsonb, "
-                + "creado_por = $17, revisado_por = $18, fecha_revision = $19 "
-                + "WHERE id = $20 RETURNING " + kSelectCols,
+                + "categoria_id = $17, creado_por = $18, revisado_por = $19, "
+                + "fecha_revision = $20 "
+                + "WHERE id = $21 RETURNING " + kSelectCols,
             reinoToString(especie.getReino()),
             especie.getGeneroId(),
             especie.getNombreCientifico(),
@@ -334,6 +337,7 @@ Especie PostgreSQLEspecieRepository::update(const Especie& especie) {
             especie.getAtributosEspecificos().dump(),
             especie.getFotoPortadaKey(),
             especie.getFotosKeys().dump(),
+            especie.getCategoriaId(),
             especie.getCreadoPor(),
             especie.getRevisadoPor(),
             especie.getFechaRevision(),
