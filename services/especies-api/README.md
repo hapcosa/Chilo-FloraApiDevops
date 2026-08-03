@@ -115,7 +115,17 @@ DELETE /api/v1/categorias/{id}       (solo admin; 409 si tiene especies)
 POST   /api/v1/categorias/{id}/moderadores/{usuarioId}   (solo admin)
 DELETE /api/v1/categorias/{id}/moderadores/{usuarioId}   (solo admin)
 GET    /api/v1/moderadores/{usuarioId}/categorias        (admin o el propio usuario)
+
+POST   /api/v1/postulaciones          (cualquier sesión; postula a nombre propio)
+GET    /api/v1/postulaciones          (admin: todas, ?estado=pendiente; resto: las suyas)
+GET    /api/v1/postulaciones/{id}     (admin o el postulante)
+PATCH  /api/v1/postulaciones/{id}     (solo admin; {"estado":"aprobada"} o
+                                       {"estado":"rechazada","motivo":"..."})
 ```
+
+Aprobar una postulación inserta la fila en `moderador_categorias` **en la misma
+transacción**, y no toca los roles del `auth-service`: el curador sigue siendo rol
+`user` con asignaciones.
 
 Las mutaciones de especies (`POST`, `PUT`, `PATCH .../fotos`, `DELETE`) ya no exigen rol
 `admin`/`moderator`: exigen **curaduría sobre la categoría de la ficha**. `admin` y
