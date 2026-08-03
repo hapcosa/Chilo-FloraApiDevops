@@ -111,7 +111,17 @@ GET    /api/v1/categorias/{id}
 POST   /api/v1/categorias            (solo admin)
 PUT    /api/v1/categorias/{id}       (solo admin)
 DELETE /api/v1/categorias/{id}       (solo admin; 409 si tiene especies)
+
+POST   /api/v1/categorias/{id}/moderadores/{usuarioId}   (solo admin)
+DELETE /api/v1/categorias/{id}/moderadores/{usuarioId}   (solo admin)
+GET    /api/v1/moderadores/{usuarioId}/categorias        (admin o el propio usuario)
 ```
+
+Las mutaciones de especies (`POST`, `PUT`, `PATCH .../fotos`, `DELETE`) ya no exigen rol
+`admin`/`moderator`: exigen **curaduría sobre la categoría de la ficha**. `admin` y
+`moderator` siguen siendo globales; un usuario con rol `user` y una fila en
+`moderador_categorias` puede editar solo lo de sus categorías. Ver
+[../../docs/PLAN_MAESTRO.md](../../docs/PLAN_MAESTRO.md) §3.
 
 Filtros soportados en `GET /api/v1/especies` y `GET /api/especies`:
 

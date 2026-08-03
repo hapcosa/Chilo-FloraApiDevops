@@ -203,6 +203,19 @@ Modelo de permisos resultante:
 Aprobar a un curador **no** escribe roles en la BD del `auth-service`: solo inserta la
 asignación. Es lo que evita acoplar las dos bases de datos.
 
+`ModeracionService::puedeEditarCategoria(usuarioId, rol, categoriaId)` es el único punto
+donde se decide esto, y `especie_controller.cpp` lo consulta con
+`requireCuradorDeCategoria()` al crear, editar, tocar fotos y borrar. Detalles que no se
+deducen de la tabla:
+
+- El permiso se comprueba **antes** de validar el cuerpo, para que quien no está autorizado
+  reciba 403 y no un 400 que le sirva de oráculo del esquema.
+- Al **mover** una ficha de categoría hacen falta ambas: la de origen y la de destino. Si no,
+  un curador podría sacar fichas de su ámbito hacia uno que no le corresponde.
+- Una ficha con `categoria_id` nulo (anterior a la migración `0004`) solo la tocan `admin` y
+  `moderator`: no hay categoría sobre la que un curador pueda demostrar permiso.
+- Un rol desconocido nunca es global: el default es negar.
+
 ### Campos sugeridos por reino (en `atributos_especificos`)
 
 Pensé en lo que un usuario de divulgación querría leer y lo que es taxonómicamente honesto:
@@ -541,10 +554,12 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
       `moderador_categorias` y `especies.categoria_id` (migración
       `0004_categorias_moderacion.sql`), con `GET /api/v1/categorias` para cualquier sesión
       y `POST`/`PUT`/`DELETE` solo para `admin`. ✅
-- [ ] Restringir edición/fotos de especies según la categoría asignada al moderador (no solo
-      el rol admin/moderator genérico): `puedeEditarCategoria()` y el guard
-      `requireCuradorDeCategoria()` en `especie_controller.cpp`, más los endpoints de
-      asignación de curadores.
+- [x] Restringir edición/fotos de especies según la categoría asignada al moderador (no solo
+      el rol admin/moderator genérico): `ModeracionService::puedeEditarCategoria()` y el guard
+      `requireCuradorDeCategoria()` en `especie_controller.cpp` (crear, editar, fotos y
+      borrar), más los endpoints de asignación de curadores
+      (`POST`/`DELETE /api/v1/categorias/{id}/moderadores/{usuarioId}` para `admin` y
+      `GET /api/v1/moderadores/{usuarioId}/categorias` para `admin` o el propio usuario). ✅
 - [ ] Postular a curador desde la app (`postulaciones_curador`); un admin aprueba o rechaza,
       y aprobar inserta la asignación en la misma transacción.
 - [ ] Especies con estado `borrador`/`publicada`: el curador publica dentro de su categoría y
