@@ -11,6 +11,7 @@ services/especies-api/
 │   ├── 0002_multi_reino.sql   # modelo multi-reino
 │   ├── 0003_avistamientos.sql # registros subidos por la app móvil
 │   ├── 0004_categorias_moderacion.sql # categorías de curaduría y sus moderadores
+│   ├── 0005_postulaciones_curador.sql  # postularse a curador; un admin resuelve
 │   └── README.md              # este archivo
 └── scripts/
     └── migrate.sh             # runner

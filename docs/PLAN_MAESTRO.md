@@ -216,6 +216,42 @@ deducen de la tabla:
   `moderator`: no hay categoría sobre la que un curador pueda demostrar permiso.
 - Un rol desconocido nunca es global: el default es negar.
 
+### Postulaciones a curador (ADR #14)
+
+Cómo se llena `moderador_categorias`: un usuario cualquiera pide la curaduría de una
+categoría y un admin resuelve.
+
+```sql
+CREATE TYPE postulacion_estado_enum AS ENUM ('pendiente', 'aprobada', 'rechazada');
+
+CREATE TABLE postulaciones_curador (
+    id SERIAL PRIMARY KEY,
+    usuario_id INTEGER NOT NULL,             -- referencia lógica al auth-service
+    categoria_id INTEGER NOT NULL REFERENCES categorias_moderacion(id) ON DELETE CASCADE,
+    texto TEXT NOT NULL,                     -- la evidencia que el admin lee
+    estado postulacion_estado_enum NOT NULL DEFAULT 'pendiente',
+    revisado_por INTEGER,
+    revisado_en TIMESTAMPTZ,
+    motivo TEXT,                             -- obligatorio al rechazar
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Se puede reintentar tras un rechazo, pero no acumular pendientes duplicadas.
+CREATE UNIQUE INDEX uq_postulaciones_curador_pendiente
+    ON postulaciones_curador (usuario_id, categoria_id) WHERE estado = 'pendiente';
+```
+
+**Aprobar inserta la fila en `moderador_categorias` dentro de la misma transacción** que
+marca la postulación como aprobada: un aprobado sin asignación dejaría al curador sin
+permisos y con la solicitud ya cerrada. El `UPDATE ... WHERE estado = 'pendiente'` es
+además el guard contra la doble resolución si dos admins actúan a la vez (la segunda
+recibe 409).
+
+Aprobar **no** escribe roles en la BD del `auth-service`, coherente con el resto del ADR
+#14. El postulante y el revisor salen siempre de la identidad verificada, nunca del
+cuerpo: mandar `{"estado":"aprobada","usuario_id":1}` en el `POST` no cambia nada.
+
 ### Campos sugeridos por reino (en `atributos_especificos`)
 
 Pensé en lo que un usuario de divulgación querría leer y lo que es taxonómicamente honesto:
@@ -560,8 +596,10 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
       borrar), más los endpoints de asignación de curadores
       (`POST`/`DELETE /api/v1/categorias/{id}/moderadores/{usuarioId}` para `admin` y
       `GET /api/v1/moderadores/{usuarioId}/categorias` para `admin` o el propio usuario). ✅
-- [ ] Postular a curador desde la app (`postulaciones_curador`); un admin aprueba o rechaza,
-      y aprobar inserta la asignación en la misma transacción.
+- [x] Postular a curador desde la app (`postulaciones_curador`, migración
+      `0005_postulaciones_curador.sql`); un admin aprueba o rechaza vía
+      `PATCH /api/v1/postulaciones/{id}`, y aprobar inserta la asignación en
+      `moderador_categorias` en la misma transacción. ✅
 - [ ] Especies con estado `borrador`/`publicada`: el curador publica dentro de su categoría y
       el `GET` público filtra los borradores (es lo que impide que lleguen al cache SQLite
       del móvil).

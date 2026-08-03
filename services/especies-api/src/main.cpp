@@ -11,6 +11,7 @@
 #include "../include/controllers/familia_controller.hpp"
 #include "../include/controllers/genero_controller.hpp"
 #include "../include/controllers/moderador_controller.hpp"
+#include "../include/controllers/postulacion_controller.hpp"
 #include "../include/controllers/upload_controller.hpp"
 #include "../include/repository/postgres_familia_repository.hpp"
 #include "../include/repository/postgres_genero_repository.hpp"
@@ -18,12 +19,14 @@
 #include "../include/repository/postgres_avistamiento_repository.hpp"
 #include "../include/repository/postgres_categoria_repository.hpp"
 #include "../include/repository/postgres_moderador_categoria_repository.hpp"
+#include "../include/repository/postgres_postulacion_repository.hpp"
 #include "../include/services/avistamiento_service.hpp"
 #include "../include/services/categoria_service.hpp"
 #include "../include/services/especie_service.hpp"
 #include "../include/services/familia_service.hpp"
 #include "../include/services/genero_service.hpp"
 #include "../include/services/moderacion_service.hpp"
+#include "../include/services/postulacion_service.hpp"
 #include "../include/services/upload_presign_service.hpp"
 #include "../include/utils/atributos_schema_validator.hpp"
 #include "../include/utils/database.hpp"
@@ -70,6 +73,8 @@ int main(int argc, char** argv) {
       std::make_shared<PostgresCategoriaRepository>(dataBase);
   auto moderadorCategoriaRepository =
       std::make_shared<PostgresModeradorCategoriaRepository>(dataBase);
+  auto postulacionRepository =
+      std::make_shared<PostgresPostulacionRepository>(dataBase);
 
   // El schema lo gestiona scripts/migrate.sh contra la BD antes de arrancar
   // el binario (ver services/especies-api/migrations/README.md).
@@ -97,6 +102,8 @@ int main(int argc, char** argv) {
       std::make_shared<AvistamientoService>(avistamientoRepository,
                                             uploadPresignService);
   auto categoriaService = std::make_shared<CategoriaService>(categoriaRepository);
+  auto postulacionService = std::make_shared<PostulacionService>(
+      postulacionRepository, categoriaRepository);
 
   // Initialize controllers
   auto familiaController = std::make_shared<FamiliaController>(familiaService);
@@ -109,6 +116,8 @@ int main(int argc, char** argv) {
       std::make_shared<CategoriaController>(categoriaService);
   auto moderadorController =
       std::make_shared<ModeradorController>(moderacionService);
+  auto postulacionController =
+      std::make_shared<PostulacionController>(postulacionService);
   auto uploadController =
       std::make_shared<UploadController>(uploadPresignService);
 
@@ -131,6 +140,7 @@ int main(int argc, char** argv) {
   AvistamientoController::setupRoutes(*router, avistamientoController);
   CategoriaController::setupRoutes(*router, categoriaController);
   ModeradorController::setupRoutes(*router, moderadorController);
+  PostulacionController::setupRoutes(*router, postulacionController);
   UploadController::setupRoutes(*router, uploadController);
 
   // Configure server - MEJORADO para red local
