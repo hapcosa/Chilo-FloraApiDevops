@@ -11,6 +11,7 @@ Ese documento manda sobre decisiones de arquitectura, fases y alcance.
 | Servicio | Tecnología | Puerto dev | Carpeta |
 | --- | --- | ---: | --- |
 | Gateway | Nginx | 8080 | `services/gateway/` |
+| Panel de curaduría | React + Vite + TypeScript (estático, servido por el gateway en `/curaduria/`) | 8080 | `services/panel-curaduria/` |
 | Especies API | C++17 + Pistache + libpqxx | 9081 | `services/especies-api/` |
 | Auth Service | Go + Gin + JWT | 8081 | `services/auth-service/` |
 | PostgreSQL | PostgreSQL 15 | 5432 | `infrastructure/docker/` |

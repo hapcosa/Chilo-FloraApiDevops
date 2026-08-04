@@ -123,7 +123,19 @@ GET    /api/v1/postulaciones          (admin: todas, ?estado=pendiente; resto: l
 GET    /api/v1/postulaciones/{id}     (admin o el postulante)
 PATCH  /api/v1/postulaciones/{id}     (solo admin; {"estado":"aprobada"} o
                                        {"estado":"rechazada","motivo":"..."})
+
+GET    /api/v1/schemas                (los cinco JSON Schemas de atributos)
+GET    /api/v1/schemas/{reino}        (uno solo; 404 si el reino no existe)
 ```
+
+`/api/v1/schemas` sirve los archivos de `config/schemas/` tal cual están en
+disco: es la misma fuente que valida `atributos_especificos` en las mutaciones.
+El panel de curaduría construye el formulario desde ahí, y así no puede ofrecer
+un campo que el servidor vaya a rechazar. No exige sesión —esos archivos ya están
+versionados en este repo público— pero sí pasa por el gateway.
+
+`GET /api/v1/especies` acepta `categoria_id` además de los filtros ya existentes,
+para que un curador vea solo las fichas de la categoría que le toca.
 
 Aprobar una postulación inserta la fila en `moderador_categorias` **en la misma
 transacción**, y no toca los roles del `auth-service`: el curador sigue siendo rol

@@ -27,6 +27,7 @@ struct EspecieFilters {
     std::optional<std::string> conservacion;  // IUCN: LC, NT, VU, EN, CR, EW, EX, DD, NE
     std::optional<bool>  endemica;
     std::optional<std::string> q;       // búsqueda en nombre_comun + nombre_cientifico (ILIKE)
+    std::optional<int>   categoria_id;  // categoría de curaduría de la ficha
 
     // Filtro explícito por estado editorial (?estado=borrador). Se aplica
     // *encima* de la visibilidad: pedir borradores no permite ver los ajenos.

@@ -75,6 +75,7 @@ set(REQUIRED_SOURCES
         src/controllers/categoria_controller.cpp
         src/controllers/moderador_controller.cpp
         src/controllers/postulacion_controller.cpp
+        src/controllers/schema_controller.cpp
         src/controllers/upload_controller.cpp
         src/models/familia.cpp
         src/models/genero.cpp
@@ -123,6 +124,7 @@ set(REQUIRED_HEADERS
         include/controllers/categoria_controller.hpp
         include/controllers/moderador_controller.hpp
         include/controllers/postulacion_controller.hpp
+        include/controllers/schema_controller.hpp
         include/controllers/upload_controller.hpp
         include/models/especie.hpp
         include/models/avistamiento.hpp
@@ -180,6 +182,7 @@ set(SOURCES
         src/controllers/categoria_controller.cpp
         src/controllers/moderador_controller.cpp
         src/controllers/postulacion_controller.cpp
+        src/controllers/schema_controller.cpp
         src/controllers/upload_controller.cpp
         src/models/familia.cpp
         src/models/genero.cpp

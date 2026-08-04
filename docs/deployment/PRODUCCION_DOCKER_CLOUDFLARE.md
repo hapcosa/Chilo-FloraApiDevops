@@ -226,6 +226,13 @@ por qué:
 - Sin `/nginx_status`.
 - `client_max_body_size 1m`: las fotos no pasan por aquí.
 
+Lo que **no** cambia: ambas sirven el panel de curaduría bajo `/curaduria/`. El
+gateway ya no usa `nginx:1.25-alpine` directo: se construye desde
+`services/gateway/Dockerfile`, que compila el panel y lo copia a
+`/etc/nginx/html/curaduria/`. Consecuencia operativa: `S3_PUBLIC_ENDPOINT` se
+hornea en el bundle en tiempo de build, así que cambiarla exige
+`chiloe-prod build gateway` y no basta con reiniciar el contenedor.
+
 ---
 
 ## 8. Operación

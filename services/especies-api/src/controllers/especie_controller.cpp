@@ -115,6 +115,7 @@ void EspecieController::getAll(const Pistache::Rest::Request& request,
     if (auto v = queryStr(query, "reino"))         filters.reino = reinoFromString(*v);
     if (auto v = queryInt(query, "genero_id"))     filters.genero_id = *v;
     if (auto v = queryInt(query, "familia_id"))    filters.familia_id = *v;
+    if (auto v = queryInt(query, "categoria_id"))  filters.categoria_id = *v;
     if (auto v = queryStr(query, "conservacion"))  filters.conservacion = *v;
     if (auto v = queryBool(query, "endemica"))     filters.endemica = *v;
     if (auto v = queryStr(query, "q"))             filters.q = *v;
