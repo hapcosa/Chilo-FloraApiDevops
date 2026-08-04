@@ -137,3 +137,11 @@ build-*/
 
 # Archivos específicos del proyecto
 chiloe_especies_api
+# Estado local de agentes de IA (worktrees, sesiones, caches por-máquina).
+# Las *instrucciones* sí se versionan: CLAUDE.md y sus symlinks.
+.claude/
+.agents/
+.codex/
+.gemini/
+.kimi/
+.idea/claudeCodeTabState.xml
