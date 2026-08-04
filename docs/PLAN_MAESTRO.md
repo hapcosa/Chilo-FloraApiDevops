@@ -288,6 +288,65 @@ Reglas de la capa de aplicación:
   convertir el endpoint en un oráculo de qué fichas se están redactando.
 - `admin` y `moderator` ven todo; un curador ve además los borradores de sus categorías.
 
+### Identificación comunitaria de avistamientos (ADR #14)
+
+Quién decide qué especie es un avistamiento. La migración `0007_identificaciones.sql` añade:
+
+```sql
+CREATE TYPE grado_identificacion_enum
+    AS ENUM ('sin_identificar', 'en_discusion', 'investigacion');
+
+CREATE TABLE avistamiento_identificaciones (
+    id SERIAL PRIMARY KEY,
+    avistamiento_id INTEGER NOT NULL REFERENCES avistamientos(id) ON DELETE CASCADE,
+    usuario_id INTEGER NOT NULL,             -- referencia lógica al auth-service
+    especie_id INTEGER NOT NULL REFERENCES especies(id) ON DELETE CASCADE,
+    comentario TEXT,
+    decisiva BOOLEAN NOT NULL DEFAULT false, -- la hizo un curador de esa categoría
+    retirada BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Una identificación vigente por persona y avistamiento; cambiar de opinión es
+-- retirar la anterior, no editarla, para que el historial quede.
+CREATE UNIQUE INDEX uq_avistamiento_identificaciones_vigente
+    ON avistamiento_identificaciones (avistamiento_id, usuario_id) WHERE NOT retirada;
+
+ALTER TABLE avistamientos
+    ADD COLUMN grado_identificacion grado_identificacion_enum
+        NOT NULL DEFAULT 'sin_identificar';
+```
+
+La regla vive en `calcularGrado()` (`src/models/identificacion.cpp`), función pura y
+testeable sin BD, **no en un trigger**: el umbral va a cambiar con el tamaño de la
+comunidad y las migraciones no se editan tras mergear.
+
+- Sin identificaciones vigentes: `sin_identificar`. Con una sola: `en_discusion`.
+- Con ≥ 2 vigentes y ≥ 2/3 coincidiendo en la misma especie: `investigacion`, y esa
+  especie se fija en `avistamientos.especie_id`. El quórum se evalúa como
+  `3 * votos >= 2 * total` para no perder el tercio en la división entera.
+- Una identificación **decisiva** cierra el avistamiento sola, sin esperar quórum. Si hay
+  varias manda la más reciente.
+
+`decisiva` se persiste en vez de recalcularse consultando `moderador_categorias`: quitarle
+la categoría a un curador reescribiría hacia atrás decisiones ya tomadas, y el grado dejaría
+de ser función de las filas que se ven. La marca la pone el servidor consultando
+`ModeracionService::puedeEditarCategoria()`; mandarla en el cuerpo no hace nada.
+
+El recálculo corre **dentro de la misma transacción** que acaba de insertar o retirar, con
+un `SELECT ... FOR UPDATE` sobre la fila del avistamiento: dos personas identificando a la
+vez se serializan ahí, y ninguna escribe el grado sobre un conteo viejo.
+
+`avistamientos.especie_id` se escribe al llegar a `investigacion` pero **nunca se limpia**
+al bajar de grado: pudo haberla puesto un moderador a mano antes de que existiera este
+flujo, y perder acuerdo no es lo mismo que contradecirlo.
+
+El grado es independiente de `estado` (`pendiente`/`aprobado`/`rechazado`), que sigue siendo
+moderación de contenido —ocultar una foto inapropiada— y se resuelve por
+`PATCH /avistamientos/{id}/moderacion`. Son dos decisiones distintas y las toma gente
+distinta.
+
 ### Campos sugeridos por reino (en `atributos_especificos`)
 
 Pensé en lo que un usuario de divulgación querría leer y lo que es taxonómicamente honesto:
@@ -647,9 +706,11 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
       formulario de especie con `atributos_especificos` generado desde el JSON Schema del
       reino (`GET /api/v1/schemas`), subida de fotos por presigned URL, bandeja de
       postulaciones (admin) y bandeja de avistamientos. La curaduría no vive en el móvil. ✅
-- [ ] Identificación comunitaria de avistamientos estilo iNaturalist
-      (`avistamiento_identificaciones`, grado de identificación por quórum) con voto decisivo
-      del curador de la categoría.
+- [x] Identificación comunitaria de avistamientos estilo iNaturalist (migración
+      `0007_identificaciones.sql`): `POST`/`GET /api/v1/avistamientos/{id}/identificaciones` y
+      `DELETE .../{idIdentificacion}` para retirarla. El grado
+      (`sin_identificar`/`en_discusion`/`investigacion`) se recalcula en la capa de servicio
+      tras cada cambio, con quórum de 2/3 y voto decisivo del curador de la categoría. ✅
 - [ ] Avistamientos privados por defecto ("mis encuentros"): visibilidad
       `privado`/`publico`, endpoint para que el dueño comparta un encuentro a la moderación
       pública, UI móvil completa (hoy la cola offline/sync existe pero no hay pantalla).

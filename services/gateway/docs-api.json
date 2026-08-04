@@ -20,6 +20,9 @@
       "GET /api/v1/avistamientos/{id}",
       "POST /api/v1/avistamientos",
       "PATCH /api/v1/avistamientos/{id}/moderacion",
+      "GET /api/v1/avistamientos/{id}/identificaciones",
+      "POST /api/v1/avistamientos/{id}/identificaciones",
+      "DELETE /api/v1/avistamientos/{id}/identificaciones/{idIdentificacion}",
       "GET /api/familias",
       "GET /api/generos",
       "POST /api/v1/uploads/presign"

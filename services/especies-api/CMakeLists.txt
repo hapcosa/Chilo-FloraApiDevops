@@ -74,6 +74,7 @@ set(REQUIRED_SOURCES
         src/controllers/avistamiento_controller.cpp
         src/controllers/categoria_controller.cpp
         src/controllers/moderador_controller.cpp
+        src/controllers/identificacion_controller.cpp
         src/controllers/postulacion_controller.cpp
         src/controllers/schema_controller.cpp
         src/controllers/upload_controller.cpp
@@ -82,6 +83,7 @@ set(REQUIRED_SOURCES
         src/models/especie.cpp
         src/models/avistamiento.cpp
         src/models/categoria_moderacion.cpp
+        src/models/identificacion.cpp
         src/models/postulacion_curador.cpp
         src/models/especie_estado.cpp
         src/models/reino.cpp
@@ -91,6 +93,7 @@ set(REQUIRED_SOURCES
         src/repository/postgres_avistamiento_repository.cpp
         src/repository/postgres_categoria_repository.cpp
         src/repository/postgres_moderador_categoria_repository.cpp
+        src/repository/postgres_identificacion_repository.cpp
         src/repository/postgres_postulacion_repository.cpp
         src/services/familia_service.cpp
         src/services/genero_service.cpp
@@ -98,6 +101,7 @@ set(REQUIRED_SOURCES
         src/services/avistamiento_service.cpp
         src/services/categoria_service.cpp
         src/services/moderacion_service.cpp
+        src/services/identificacion_service.cpp
         src/services/postulacion_service.cpp
         src/services/upload_presign_service.cpp
         src/utils/config.cpp
@@ -123,12 +127,14 @@ set(REQUIRED_HEADERS
         include/controllers/avistamiento_controller.hpp
         include/controllers/categoria_controller.hpp
         include/controllers/moderador_controller.hpp
+        include/controllers/identificacion_controller.hpp
         include/controllers/postulacion_controller.hpp
         include/controllers/schema_controller.hpp
         include/controllers/upload_controller.hpp
         include/models/especie.hpp
         include/models/avistamiento.hpp
         include/models/categoria_moderacion.hpp
+        include/models/identificacion.hpp
         include/models/postulacion_curador.hpp
         include/models/familia.hpp
         include/models/genero.hpp
@@ -143,6 +149,8 @@ set(REQUIRED_HEADERS
         include/repository/postgres_categoria_repository.hpp
         include/repository/moderador_categoria_repository.hpp
         include/repository/postgres_moderador_categoria_repository.hpp
+        include/repository/identificacion_repository.hpp
+        include/repository/postgres_identificacion_repository.hpp
         include/repository/postulacion_repository.hpp
         include/repository/postgres_postulacion_repository.hpp
         include/repository/familia_repository.hpp
@@ -154,6 +162,7 @@ set(REQUIRED_HEADERS
         include/services/avistamiento_service.hpp
         include/services/categoria_service.hpp
         include/services/moderacion_service.hpp
+        include/services/identificacion_service.hpp
         include/services/postulacion_service.hpp
         include/services/upload_presign_service.hpp
         include/utils/config.hpp
@@ -181,6 +190,7 @@ set(SOURCES
         src/controllers/avistamiento_controller.cpp
         src/controllers/categoria_controller.cpp
         src/controllers/moderador_controller.cpp
+        src/controllers/identificacion_controller.cpp
         src/controllers/postulacion_controller.cpp
         src/controllers/schema_controller.cpp
         src/controllers/upload_controller.cpp
@@ -189,6 +199,7 @@ set(SOURCES
         src/models/especie.cpp
         src/models/avistamiento.cpp
         src/models/categoria_moderacion.cpp
+        src/models/identificacion.cpp
         src/models/postulacion_curador.cpp
         src/models/especie_estado.cpp
         src/models/reino.cpp
@@ -198,6 +209,7 @@ set(SOURCES
         src/repository/postgres_avistamiento_repository.cpp
         src/repository/postgres_categoria_repository.cpp
         src/repository/postgres_moderador_categoria_repository.cpp
+        src/repository/postgres_identificacion_repository.cpp
         src/repository/postgres_postulacion_repository.cpp
         src/services/familia_service.cpp
         src/services/genero_service.cpp
@@ -205,6 +217,7 @@ set(SOURCES
         src/services/avistamiento_service.cpp
         src/services/categoria_service.cpp
         src/services/moderacion_service.cpp
+        src/services/identificacion_service.cpp
         src/services/postulacion_service.cpp
         src/services/upload_presign_service.cpp
         src/utils/config.cpp

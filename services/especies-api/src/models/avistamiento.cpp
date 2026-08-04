@@ -90,6 +90,7 @@ nlohmann::json Avistamiento::toJson() const {
     writeOpt(json, "observado_en", observado_en);
     writeOpt(json, "creado_por", creado_por);
     json["estado"] = avistamientoEstadoToString(estado);
+    json["grado_identificacion"] = gradoIdentificacionToString(grado_identificacion);
     writeOpt(json, "moderado_por", moderado_por);
     writeOpt(json, "moderado_en", moderado_en);
     writeOpt(json, "motivo_rechazo", motivo_rechazo);

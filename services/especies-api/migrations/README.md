@@ -13,6 +13,7 @@ services/especies-api/
 │   ├── 0004_categorias_moderacion.sql # categorías de curaduría y sus moderadores
 │   ├── 0005_postulaciones_curador.sql  # postularse a curador; un admin resuelve
 │   ├── 0006_especies_estado.sql # borrador/publicada + firma de publicación
+│   ├── 0007_identificaciones.sql # identificación comunitaria de avistamientos
 │   └── README.md              # este archivo
 └── scripts/
     └── migrate.sh             # runner
