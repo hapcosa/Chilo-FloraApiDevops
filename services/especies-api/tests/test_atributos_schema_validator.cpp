@@ -134,3 +134,24 @@ TEST(AtributosSchemaValidatorTest, MesFloracionFueraDeRangoFalla) {
     EXPECT_THROW(validator().validate(Reino::Plantae, atributos),
                  std::invalid_argument);
 }
+
+// ----- Schema crudo servido a los clientes -----
+
+TEST(AtributosSchemaValidatorTest, SchemaDeDevuelveElArchivoDelReino) {
+    // GET /api/v1/schemas/:reino sirve esto tal cual; el panel de curaduría
+    // arma el formulario con él, así que debe ser el schema real y no una copia.
+    const auto& fungi = validator().schemaDe(Reino::Fungi);
+
+    EXPECT_EQ(fungi["type"], "object");
+    EXPECT_EQ(fungi["additionalProperties"], false);
+    ASSERT_TRUE(fungi.contains("required"));
+    EXPECT_EQ(fungi["required"], json::array({"comestibilidad"}))
+        << "el disclaimer sanitario del panel depende de este required";
+    EXPECT_TRUE(fungi["properties"].contains("comestibilidad"));
+
+    // Los cinco reinos tienen schema; ninguno queda sin registrar.
+    for (const auto reino : {Reino::Animalia, Reino::Plantae, Reino::Fungi,
+                             Reino::Protista, Reino::Monera}) {
+        EXPECT_TRUE(validator().schemaDe(reino).contains("properties"));
+    }
+}

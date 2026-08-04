@@ -144,6 +144,9 @@ EspecieSearchResult PostgreSQLEspecieRepository::find(
             joins += " JOIN generos g ON e.genero_id = g.id";
             where += " AND g.familia_id = " + txn.quote(*filters.familia_id);
         }
+        if (filters.categoria_id) {
+            where += " AND e.categoria_id = " + txn.quote(*filters.categoria_id);
+        }
         if (filters.conservacion) {
             where += " AND e.estado_conservacion = "
                    + txn.quote(*filters.conservacion);

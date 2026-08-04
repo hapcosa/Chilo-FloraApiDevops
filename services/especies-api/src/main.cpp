@@ -12,6 +12,7 @@
 #include "../include/controllers/genero_controller.hpp"
 #include "../include/controllers/moderador_controller.hpp"
 #include "../include/controllers/postulacion_controller.hpp"
+#include "../include/controllers/schema_controller.hpp"
 #include "../include/controllers/upload_controller.hpp"
 #include "../include/repository/postgres_familia_repository.hpp"
 #include "../include/repository/postgres_genero_repository.hpp"
@@ -120,6 +121,7 @@ int main(int argc, char** argv) {
       std::make_shared<PostulacionController>(postulacionService);
   auto uploadController =
       std::make_shared<UploadController>(uploadPresignService);
+  auto schemaController = std::make_shared<SchemaController>(schemaValidator);
 
   // Setup router
   auto router = std::make_shared<Pistache::Rest::Router>();
@@ -142,6 +144,7 @@ int main(int argc, char** argv) {
   ModeradorController::setupRoutes(*router, moderadorController);
   PostulacionController::setupRoutes(*router, postulacionController);
   UploadController::setupRoutes(*router, uploadController);
+  SchemaController::setupRoutes(*router, schemaController);
 
   // Configure server - MEJORADO para red local
   Pistache::Http::Endpoint server(addr);

@@ -228,7 +228,14 @@ services:
       start_period: 20s
 
   gateway:
-    image: nginx:1.25-alpine
+    # Nginx + el panel de curaduría compilado dentro de la misma imagen.
+    build:
+      context: ../..
+      dockerfile: services/gateway/Dockerfile
+      args:
+        # El bundle es estático: la URL pública del storage se hornea aquí, así
+        # que cambiarla obliga a reconstruir la imagen del gateway.
+        VITE_S3_PUBLIC_BASE: ${S3_PUBLIC_ENDPOINT:?falta S3_PUBLIC_ENDPOINT}
     container_name: chiloe-gateway
     volumes:
       - ../../services/gateway/nginx.prod.conf:/etc/nginx/nginx.conf:ro

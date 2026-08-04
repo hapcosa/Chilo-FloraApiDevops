@@ -1,0 +1,19 @@
+# Aplica solo a builds cuyo contexto es la raíz del repo (hoy: el gateway, que
+# necesita ver services/panel-curaduria además de su propia configuración).
+.git
+.github
+.idea
+.agents
+.claude
+.codex
+.gemini
+.kimi
+mobile
+monitoring
+docs
+**/node_modules
+**/dist
+**/build
+.env
+.env.*
+!.env.example

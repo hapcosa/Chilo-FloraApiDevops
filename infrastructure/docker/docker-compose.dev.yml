@@ -224,7 +224,13 @@ services:
 
   # API Gateway (Nginx) - CONFIGURACIÓN CORREGIDA
   gateway:
-    image: nginx:1.25-alpine
+    # Nginx + el panel de curaduría compilado dentro de la misma imagen.
+    build:
+      context: ../..
+      dockerfile: services/gateway/Dockerfile
+      args:
+        # El bundle es estático: la URL de MinIO se hornea en tiempo de build.
+        VITE_S3_PUBLIC_BASE: http://localhost:${MINIO_API_PORT:-9000}
     container_name: chiloe-gateway-dev
     ports:
       - "${GATEWAY_PORT:-8080}:80"

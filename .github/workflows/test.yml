@@ -76,6 +76,36 @@ jobs:
             especies-api-ci \
             -c 'test -x /usr/local/bin/chiloe_especies_api && ls /etc/chiloe-especies-api/schemas/'
 
+  # Panel de curaduría (React + Vite + TypeScript)
+  test-panel-curaduria:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/panel-curaduria
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: services/panel-curaduria/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests (vitest)
+        run: npm test
+
+      # `npm run build` corre tsc --noEmit antes de vite build: si el tipado
+      # no cierra, el job falla aquí y no en el Dockerfile del gateway.
+      - name: Build
+        run: npm run build
+
   # Auth Service (Go)
   test-auth-service:
     runs-on: ubuntu-latest

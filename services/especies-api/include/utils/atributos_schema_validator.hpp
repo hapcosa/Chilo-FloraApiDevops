@@ -29,11 +29,17 @@ public:
     // validación falla. No lanza en caso normal.
     void validate(Reino reino, const nlohmann::json& atributos) const;
 
+    // Schema crudo tal como está en disco. Lo sirve GET /api/v1/schemas para
+    // que el panel de curaduría construya el formulario de
+    // `atributos_especificos` desde la misma fuente que valida el servidor.
+    const nlohmann::json& schemaDe(Reino reino) const;
+
 private:
     // Indexado por static_cast<size_t>(Reino). Tamaño 5 (los 5 reinos
     // del plan maestro; cualquier adición requiere ampliar este array
     // y los enum class de Reino simultáneamente).
     std::array<std::unique_ptr<nlohmann::json_schema::json_validator>, 5> validators_;
+    std::array<nlohmann::json, 5> schemas_;
 };
 
 #endif  // ATRIBUTOS_SCHEMA_VALIDATOR_HPP

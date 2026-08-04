@@ -59,7 +59,16 @@ AtributosSchemaValidator::AtributosSchemaValidator(
         }
         const auto idx = static_cast<size_t>(entry.reino);
         validators_[idx] = std::move(validator);
+        schemas_[idx] = std::move(schemaJson);
     }
+}
+
+const nlohmann::json& AtributosSchemaValidator::schemaDe(Reino reino) const {
+    const auto idx = static_cast<size_t>(reino);
+    if (idx >= schemas_.size() || schemas_[idx].is_null()) {
+        throw std::logic_error("Reino sin schema registrado");
+    }
+    return schemas_[idx];
 }
 
 void AtributosSchemaValidator::validate(Reino reino,
