@@ -108,6 +108,13 @@ GET    /api/v1/avistamientos/{id}
 POST   /api/v1/avistamientos
 PATCH  /api/v1/avistamientos/{id}/moderacion
 
+GET    /api/v1/avistamientos/{id}/identificaciones
+POST   /api/v1/avistamientos/{id}/identificaciones   (cualquier sesión; una vigente
+                                                      por persona, 409 si repite)
+DELETE /api/v1/avistamientos/{id}/identificaciones/{idIdentificacion}
+                                                     (el autor o un admin; la marca
+                                                      como retirada, no la borra)
+
 GET    /api/v1/categorias            (?reino=fungi para filtrar)
 GET    /api/v1/categorias/{id}
 POST   /api/v1/categorias            (solo admin)

@@ -10,6 +10,9 @@
 #     repositorio en memoria.
 #   - postulacion_curador.cpp: parseo del cuerpo del postulante y reglas que no
 #     delegamos en la BD.
+#   - identificacion.cpp: parseo del cuerpo del identificador y la regla que
+#     deriva el grado del avistamiento (quórum de 2/3 y voto decisivo del
+#     curador), aislada de la BD a propósito.
 #   - especie_estado.cpp + especie.cpp: estado editorial de la ficha y qué
 #     acepta fromJson (el cliente no publica mandando "estado" en el cuerpo).
 
@@ -23,6 +26,7 @@ add_executable(unit_tests
         test_moderacion_service.cpp
         test_postulacion_curador.cpp
         test_especie_estado.cpp
+        test_identificacion.cpp
         ${CMAKE_SOURCE_DIR}/src/models/reino.cpp
         ${CMAKE_SOURCE_DIR}/src/models/especie_estado.cpp
         ${CMAKE_SOURCE_DIR}/src/models/especie.cpp
@@ -31,6 +35,7 @@ add_executable(unit_tests
         ${CMAKE_SOURCE_DIR}/src/models/categoria_moderacion.cpp
         ${CMAKE_SOURCE_DIR}/src/services/moderacion_service.cpp
         ${CMAKE_SOURCE_DIR}/src/models/postulacion_curador.cpp
+        ${CMAKE_SOURCE_DIR}/src/models/identificacion.cpp
 )
 
 target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)

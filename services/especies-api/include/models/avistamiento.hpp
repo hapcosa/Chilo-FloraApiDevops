@@ -6,6 +6,7 @@
 #include <string>
 #include <utility>
 
+#include "identificacion.hpp"
 #include "reino.hpp"
 
 enum class AvistamientoEstado {
@@ -31,6 +32,9 @@ private:
     std::optional<std::string> observado_en;
     std::optional<int> creado_por;
     AvistamientoEstado estado = AvistamientoEstado::Pendiente;
+    // Derivado de las identificaciones vigentes; el cliente no lo envía nunca
+    // (ver identificacion.hpp).
+    GradoIdentificacion grado_identificacion = GradoIdentificacion::SinIdentificar;
     std::optional<int> moderado_por;
     std::optional<std::string> moderado_en;
     std::optional<std::string> motivo_rechazo;
@@ -50,6 +54,7 @@ public:
     const std::optional<std::string>& getObservadoEn() const { return observado_en; }
     const std::optional<int>& getCreadoPor() const { return creado_por; }
     AvistamientoEstado getEstado() const { return estado; }
+    GradoIdentificacion getGradoIdentificacion() const { return grado_identificacion; }
     const std::optional<int>& getModeradoPor() const { return moderado_por; }
     const std::optional<std::string>& getModeradoEn() const { return moderado_en; }
     const std::optional<std::string>& getMotivoRechazo() const { return motivo_rechazo; }
@@ -68,6 +73,7 @@ public:
     void setObservadoEn(std::optional<std::string> value) { observado_en = std::move(value); }
     void setCreadoPor(std::optional<int> value) { creado_por = value; }
     void setEstado(AvistamientoEstado value) { estado = value; }
+    void setGradoIdentificacion(GradoIdentificacion value) { grado_identificacion = value; }
     void setModeradoPor(std::optional<int> value) { moderado_por = value; }
     void setModeradoEn(std::optional<std::string> value) { moderado_en = std::move(value); }
     void setMotivoRechazo(std::optional<std::string> value) { motivo_rechazo = std::move(value); }

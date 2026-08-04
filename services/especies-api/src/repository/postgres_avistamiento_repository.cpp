@@ -9,7 +9,8 @@ namespace {
 constexpr const char* kSelectCols =
     "id, especie_id, reino, nombre_sugerido, descripcion, foto_key, "
     "geo_lat, geo_lng, precision_metros, observado_en, creado_por, estado, "
-    "moderado_por, moderado_en, motivo_rechazo, created_at, updated_at";
+    "moderado_por, moderado_en, motivo_rechazo, grado_identificacion, "
+    "created_at, updated_at";
 
 std::optional<int> optInt(const pqxx::field& field) {
     if (field.is_null()) return std::nullopt;
@@ -61,6 +62,8 @@ Avistamiento PostgresAvistamientoRepository::mapRowToAvistamiento(const pqxx::ro
     avistamiento.setModeradoPor(optInt(row["moderado_por"]));
     avistamiento.setModeradoEn(optStr(row["moderado_en"]));
     avistamiento.setMotivoRechazo(optStr(row["motivo_rechazo"]));
+    avistamiento.setGradoIdentificacion(
+        gradoIdentificacionFromString(row["grado_identificacion"].c_str()));
     avistamiento.setCreatedAt(optStr(row["created_at"]));
     avistamiento.setUpdatedAt(optStr(row["updated_at"]));
     return avistamiento;
