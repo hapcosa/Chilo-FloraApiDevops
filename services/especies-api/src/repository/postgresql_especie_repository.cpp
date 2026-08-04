@@ -14,7 +14,8 @@ constexpr const char* kSelectCols =
     "fuentes::text AS fuentes_text, geo_lat, geo_lng, "
     "atributos_especificos::text AS atributos_text, "
     "foto_portada_key, fotos_keys::text AS fotos_keys_text, "
-    "categoria_id, creado_por, revisado_por, "
+    "categoria_id, estado, publicado_por, fecha_publicacion, "
+    "creado_por, revisado_por, "
     "fecha_revision, created_at, updated_at";
 
 nlohmann::json parseJsonbText(const pqxx::field& f,
@@ -69,6 +70,9 @@ Especie PostgreSQLEspecieRepository::mapRowToEspecie(const pqxx::row& row) {
     e.setFotoPortadaKey(optStr(row["foto_portada_key"]));
     e.setFotosKeys(parseJsonbText(row["fotos_keys_text"], nlohmann::json::array()));
     e.setCategoriaId(optInt(row["categoria_id"]));
+    e.setEstado(especieEstadoFromString(row["estado"].c_str()));
+    e.setPublicadoPor(optInt(row["publicado_por"]));
+    e.setFechaPublicacion(optStr(row["fecha_publicacion"]));
     e.setCreadoPor(optInt(row["creado_por"]));
     e.setRevisadoPor(optInt(row["revisado_por"]));
     e.setFechaRevision(optStr(row["fecha_revision"]));
@@ -148,6 +152,25 @@ EspecieSearchResult PostgreSQLEspecieRepository::find(
             where += std::string(" AND e.endemica = ")
                    + (*filters.endemica ? "true" : "false");
         }
+        // Visibilidad primero: los borradores no son contenido público, y el
+        // resto de filtros nunca debe poder ensancharla.
+        if (!filters.visibilidad.verTodo) {
+            std::string visible = " AND (e.estado = 'publicada'";
+            if (!filters.visibilidad.categoriasCuradas.empty()) {
+                visible += " OR e.categoria_id IN (";
+                for (size_t i = 0; i < filters.visibilidad.categoriasCuradas.size(); ++i) {
+                    if (i > 0) visible += ", ";
+                    visible += txn.quote(filters.visibilidad.categoriasCuradas[i]);
+                }
+                visible += ")";
+            }
+            where += visible + ")";
+        }
+        if (filters.estado) {
+            where += " AND e.estado = "
+                   + txn.quote(especieEstadoToString(*filters.estado))
+                   + "::especie_estado_enum";
+        }
         if (filters.q) {
             // ILIKE en nombre_comun y nombre_cientifico. El índice GIN
             // pg_trgm acelera este patrón.
@@ -178,7 +201,8 @@ EspecieSearchResult PostgreSQLEspecieRepository::find(
             "e.geo_lat, e.geo_lng, "
             "e.atributos_especificos::text AS atributos_text, "
             "e.foto_portada_key, e.fotos_keys::text AS fotos_keys_text, "
-            "e.categoria_id, e.creado_por, e.revisado_por, e.fecha_revision, "
+            "e.categoria_id, e.estado, e.publicado_por, e.fecha_publicacion, "
+            "e.creado_por, e.revisado_por, e.fecha_revision, "
             "e.created_at, e.updated_at";
         dataSql += " FROM especies e" + joins + where + orderClause + limitClause;
 
@@ -256,10 +280,11 @@ Especie PostgreSQLEspecieRepository::create(const Especie& especie) {
                 + "autor_cientifico, descripcion, habitat, distribucion_chiloe, "
                 + "endemica, estado_conservacion, fuentes, geo_lat, geo_lng, "
                 + "atributos_especificos, foto_portada_key, fotos_keys, "
-                + "categoria_id, creado_por, revisado_por, fecha_revision"
+                + "categoria_id, creado_por, revisado_por, fecha_revision, estado"
                 + ") VALUES ("
                 + "$1::reino_enum, $2, $3, $4, $5, $6, $7, $8, $9, $10, "
-                + "$11::jsonb, $12, $13, $14::jsonb, $15, $16::jsonb, $17, $18, $19, $20"
+                + "$11::jsonb, $12, $13, $14::jsonb, $15, $16::jsonb, $17, $18, $19, $20, "
+                + "$21::especie_estado_enum"
                 + ") RETURNING " + kSelectCols,
             reinoToString(especie.getReino()),
             especie.getGeneroId(),
@@ -280,7 +305,8 @@ Especie PostgreSQLEspecieRepository::create(const Especie& especie) {
             especie.getCategoriaId(),
             especie.getCreadoPor(),
             especie.getRevisadoPor(),
-            especie.getFechaRevision());
+            especie.getFechaRevision(),
+            especieEstadoToString(especie.getEstado()));
 
         txn.commit();
         return mapRowToEspecie(result[0]);
@@ -310,6 +336,9 @@ Especie PostgreSQLEspecieRepository::update(const Especie& especie) {
                 "El nombre científico ya existe para otra especie");
         }
 
+        // `estado`, `publicado_por` y `fecha_publicacion` no aparecen en el
+        // SET a propósito: la transición editorial es de setEstado(), y así un
+        // PUT con un cuerpo viejo no puede despublicar una ficha sin querer.
         pqxx::result result = txn.exec_params(
             std::string("UPDATE especies SET ")
                 + "reino = $1::reino_enum, genero_id = $2, nombre_cientifico = $3, "
@@ -347,6 +376,42 @@ Especie PostgreSQLEspecieRepository::update(const Especie& especie) {
         return mapRowToEspecie(result[0]);
     } catch (const std::exception& e) {
         std::cerr << "Error al actualizar especie: " << e.what() << std::endl;
+        throw;
+    }
+}
+
+Especie PostgreSQLEspecieRepository::setEstado(int id,
+                                               EspecieEstado estado,
+                                               std::optional<int> publicadoPor) {
+    try {
+        auto conn = database->createConnection();
+        pqxx::work txn(*conn);
+
+        // Al despublicar se limpian firma y fecha (lo exige el CHECK
+        // especies_borrador_sin_publicacion); al publicar se sellan con NOW().
+        const bool publicando = estado == EspecieEstado::Publicada;
+
+        pqxx::result result = txn.exec_params(
+            std::string("UPDATE especies SET estado = $1::especie_estado_enum, ")
+                + "publicado_por = $2, "
+                + "fecha_publicacion = CASE WHEN $3::boolean THEN NOW() ELSE NULL END "
+                + "WHERE id = $4 RETURNING " + kSelectCols,
+            especieEstadoToString(estado),
+            publicando ? publicadoPor : std::optional<int>{},
+            publicando,
+            id);
+
+        if (result.empty()) {
+            throw std::out_of_range("Especie no encontrada");
+        }
+
+        txn.commit();
+        return mapRowToEspecie(result[0]);
+    } catch (const std::out_of_range&) {
+        throw;
+    } catch (const std::exception& e) {
+        std::cerr << "Error al cambiar el estado de la especie: " << e.what()
+                  << std::endl;
         throw;
     }
 }

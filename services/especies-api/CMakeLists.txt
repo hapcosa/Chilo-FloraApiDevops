@@ -82,6 +82,7 @@ set(REQUIRED_SOURCES
         src/models/avistamiento.cpp
         src/models/categoria_moderacion.cpp
         src/models/postulacion_curador.cpp
+        src/models/especie_estado.cpp
         src/models/reino.cpp
         src/repository/postgres_familia_repository.cpp
         src/repository/postgres_genero_repository.cpp
@@ -129,6 +130,7 @@ set(REQUIRED_HEADERS
         include/models/postulacion_curador.hpp
         include/models/familia.hpp
         include/models/genero.hpp
+        include/models/especie_estado.hpp
         include/models/reino.hpp
         include/repository/postgres_familia_repository.hpp
         include/repository/postgres_genero_repository.hpp
@@ -185,6 +187,7 @@ set(SOURCES
         src/models/avistamiento.cpp
         src/models/categoria_moderacion.cpp
         src/models/postulacion_curador.cpp
+        src/models/especie_estado.cpp
         src/models/reino.cpp
         src/repository/postgres_familia_repository.cpp
         src/repository/postgres_genero_repository.cpp

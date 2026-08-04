@@ -82,6 +82,24 @@ bool EspecieController::requireCuradorDeCategoria(
   return false;
 }
 
+EspecieVisibilidad EspecieController::visibilidadDe(
+    const std::optional<RequestIdentity>& identity) {
+  EspecieVisibilidad visibilidad;
+  if (!identity) return visibilidad;  // sin sesión: solo lo publicado
+
+  if (identity->canModerate()) {
+    visibilidad.verTodo = true;
+    return visibilidad;
+  }
+
+  // Un curador ve sus propios borradores. Se resuelve contra la BD porque la
+  // curaduría no viaja en las cabeceras del gateway (solo id y rol).
+  for (const auto& categoria : moderacion->categoriasDe(identity->userId)) {
+    visibilidad.categoriasCuradas.push_back(categoria.getId());
+  }
+  return visibilidad;
+}
+
 void EspecieController::validarEspecie(const Especie& especie) {
   if (!especie.esValida()) {
     throw std::invalid_argument("Los datos de la especie no son válidos");
@@ -104,6 +122,11 @@ void EspecieController::getAll(const Pistache::Rest::Request& request,
     if (auto v = queryInt(query, "offset"))        filters.offset = *v;
     if (auto v = queryStr(query, "orderby"))       filters.orderby = *v;
     if (auto v = queryStr(query, "orderdir"))      filters.orderdir = *v;
+    if (auto v = queryStr(query, "estado"))        filters.estado = especieEstadoFromString(*v);
+
+    // El listado es público (y alimenta el cache del móvil): quien no cura
+    // nada solo ve fichas publicadas, pida lo que pida en ?estado=.
+    filters.visibilidad = visibilidadDe(extractIdentity(request));
 
     auto result = service->searchEspecies(filters);
 
@@ -165,6 +188,23 @@ void EspecieController::getById(const Pistache::Rest::Request& request,
       return;
     }
 
+    // Un borrador ajeno no existe para quien lo pide: 404 y no 403, para no
+    // convertir el endpoint en un oráculo de qué fichas se están redactando.
+    if (especie->esBorrador()) {
+      const auto identity = extractIdentity(request);
+      const bool puedeVerlo =
+          identity && moderacion->puedeEditarCategoria(
+                          identity->userId, identity->role,
+                          especie->getCategoriaId());
+      if (!puedeVerlo) {
+        json error = {{"error", "Especie no encontrada"}};
+        response.headers().add<Pistache::Http::Header::ContentType>(
+            MIME(Application, Json));
+        response.send(Pistache::Http::Code::Not_Found, error.dump());
+        return;
+      }
+    }
+
     response.headers().add<Pistache::Http::Header::ContentType>(
         MIME(Application, Json));
     response.send(Pistache::Http::Code::Ok, especie->toJson().dump());
@@ -218,6 +258,12 @@ void EspecieController::create(const Pistache::Rest::Request& request,
     nuevaEspecie.setCreadoPor(identity->userId);
     nuevaEspecie.setRevisadoPor(std::nullopt);
     nuevaEspecie.setFechaRevision(std::nullopt);
+
+    // Toda ficha nueva nace borrador: se publica con POST /:id/publicar
+    // cuando su autor la da por terminada.
+    nuevaEspecie.setEstado(EspecieEstado::Borrador);
+    nuevaEspecie.setPublicadoPor(std::nullopt);
+    nuevaEspecie.setFechaPublicacion(std::nullopt);
 
     try {
       validarEspecie(nuevaEspecie);
@@ -519,6 +565,99 @@ void EspecieController::remove(const Pistache::Rest::Request& request,
   }
 }
 
+void EspecieController::cambiarEstado(const Pistache::Rest::Request& request,
+                                      Pistache::Http::ResponseWriter& response,
+                                      EspecieEstado destino) {
+  auto identity = requireSesion(request, response);
+  if (!identity) return;
+
+  try {
+    int id = 0;
+    try {
+      id = std::stoi(request.param(":id").as<std::string>());
+    } catch (const std::exception&) {
+      id = 0;
+    }
+    if (id <= 0) {
+      json error = {{"error", "ID debe ser un número válido"}};
+      response.headers().add<Pistache::Http::Header::ContentType>(
+          MIME(Application, Json));
+      response.send(Pistache::Http::Code::Bad_Request, error.dump());
+      return;
+    }
+
+    // Publicar es una edición más de la ficha: mismo permiso por categoría.
+    const auto especieExistente = service->getEspecieById(id);
+    if (!especieExistente) {
+      json error = {{"error", "Especie no encontrada"}};
+      response.headers().add<Pistache::Http::Header::ContentType>(
+          MIME(Application, Json));
+      response.send(Pistache::Http::Code::Not_Found, error.dump());
+      return;
+    }
+    if (!requireCuradorDeCategoria(*identity, especieExistente->getCategoriaId(),
+                                   response)) {
+      return;
+    }
+
+    // El conflicto de estado se decide aquí para que el 409 no se confunda
+    // con un 400 de validación de la ficha al publicar.
+    const bool yaEnDestino =
+        (destino == EspecieEstado::Publicada) != especieExistente->esBorrador();
+    if (yaEnDestino) {
+      json error = {{"error", destino == EspecieEstado::Publicada
+                                  ? "La especie ya está publicada"
+                                  : "La especie ya es un borrador"}};
+      response.headers().add<Pistache::Http::Header::ContentType>(
+          MIME(Application, Json));
+      response.send(Pistache::Http::Code::Conflict, error.dump());
+      return;
+    }
+
+    const Especie resultado =
+        destino == EspecieEstado::Publicada
+            ? service->publicarEspecie(id, identity->userId)
+            : service->despublicarEspecie(id);
+
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Ok, resultado.toJson().dump());
+
+  } catch (const std::invalid_argument& e) {
+    // Publicar revalida los atributos por reino: una ficha que no cumple el
+    // schema no se hace pública, y eso es un 400.
+    json error = {{"error", e.what()}};
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Bad_Request, error.dump());
+  } catch (const std::out_of_range& e) {
+    json error = {{"error", e.what()}};
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Not_Found, error.dump());
+  } catch (const std::runtime_error& e) {
+    json error = {{"error", e.what()}};
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Not_Found, error.dump());
+  } catch (const std::exception& e) {
+    json error = {{"error", e.what()}};
+    response.headers().add<Pistache::Http::Header::ContentType>(
+        MIME(Application, Json));
+    response.send(Pistache::Http::Code::Internal_Server_Error, error.dump());
+  }
+}
+
+void EspecieController::publicar(const Pistache::Rest::Request& request,
+                                 Pistache::Http::ResponseWriter response) {
+  cambiarEstado(request, response, EspecieEstado::Publicada);
+}
+
+void EspecieController::despublicar(const Pistache::Rest::Request& request,
+                                    Pistache::Http::ResponseWriter response) {
+  cambiarEstado(request, response, EspecieEstado::Borrador);
+}
+
 void EspecieController::searchByNombreCientifico(
     const Pistache::Rest::Request& request,
     Pistache::Http::ResponseWriter response) {
@@ -544,6 +683,16 @@ void EspecieController::searchByNombreCientifico(
     }
 
     auto especie = service->searchByNombreCientifico(nombre);
+
+    // Misma regla que getById: un borrador ajeno no aparece por búsqueda.
+    if (especie && especie->esBorrador()) {
+      const auto identity = extractIdentity(request);
+      const bool puedeVerlo =
+          identity && moderacion->puedeEditarCategoria(
+                          identity->userId, identity->role,
+                          especie->getCategoriaId());
+      if (!puedeVerlo) especie = std::nullopt;
+    }
 
     if (!especie) {
       json error = {{"success", false}, {"error", "Especie no encontrada"}};

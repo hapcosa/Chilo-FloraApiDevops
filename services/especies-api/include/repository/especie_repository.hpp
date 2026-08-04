@@ -21,6 +21,15 @@ public:
     virtual std::optional<Especie> getByNombreCientifico(const std::string& nombre) = 0;
     virtual Especie create(const Especie& especie) = 0;
     virtual Especie update(const Especie& especie) = 0;
+
+    // Transición editorial aislada del update completo: cambiar de estado no
+    // debe arrastrar el resto de la ficha (ni pisarla con un cuerpo viejo).
+    // `publicadoPor` es nullopt al despublicar. Lanza std::out_of_range si la
+    // especie no existe.
+    virtual Especie setEstado(int id,
+                              EspecieEstado estado,
+                              std::optional<int> publicadoPor) = 0;
+
     virtual bool remove(int id) = 0;
     virtual bool agregarImagen(int especie_id, const std::string& imagen_url, bool es_principal = false) = 0;
     virtual bool eliminarImagen(int especie_id, const std::string& imagen_url) = 0;

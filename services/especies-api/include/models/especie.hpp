@@ -6,6 +6,7 @@
 #include <optional>
 #include <nlohmann/json.hpp>
 
+#include "especie_estado.hpp"
 #include "reino.hpp"
 
 // Modelo de especie post Fase 1 multi-reino. Mapea 1:1 con la tabla
@@ -52,6 +53,12 @@ private:
     // mientras queden fichas anteriores a la migración sin clasificar.
     std::optional<int> categoria_id;
 
+    // Estado editorial (ver migrations/0006_especies_estado.sql). Solo lo
+    // cambian los endpoints publicar/despublicar, nunca un PUT de la ficha.
+    EspecieEstado estado;
+    std::optional<int> publicado_por;
+    std::optional<std::string> fecha_publicacion;  // ISO 8601
+
     // Auditoría y revisión curatorial
     std::optional<int> creado_por;
     std::optional<int> revisado_por;
@@ -87,6 +94,10 @@ public:
     const std::optional<std::string>&  getFotoPortadaKey()      const { return foto_portada_key; }
     const nlohmann::json&              getFotosKeys()           const { return fotos_keys; }
     const std::optional<int>&          getCategoriaId()         const { return categoria_id; }
+    EspecieEstado                      getEstado()              const { return estado; }
+    bool                               esBorrador()             const { return estado == EspecieEstado::Borrador; }
+    const std::optional<int>&          getPublicadoPor()        const { return publicado_por; }
+    const std::optional<std::string>&  getFechaPublicacion()    const { return fecha_publicacion; }
     const std::optional<int>&          getCreadoPor()           const { return creado_por; }
     const std::optional<int>&          getRevisadoPor()         const { return revisado_por; }
     const std::optional<std::string>&  getFechaRevision()       const { return fecha_revision; }
@@ -114,6 +125,9 @@ public:
     void setFotoPortadaKey(std::optional<std::string> v)        { foto_portada_key = std::move(v); }
     void setFotosKeys(const nlohmann::json& v)                  { fotos_keys = v; }
     void setCategoriaId(std::optional<int> v)                   { categoria_id = v; }
+    void setEstado(EspecieEstado v)                             { estado = v; }
+    void setPublicadoPor(std::optional<int> v)                  { publicado_por = v; }
+    void setFechaPublicacion(std::optional<std::string> v)      { fecha_publicacion = std::move(v); }
     void setCreadoPor(std::optional<int> v)                     { creado_por = v; }
     void setRevisadoPor(std::optional<int> v)                   { revisado_por = v; }
     void setFechaRevision(std::optional<std::string> v)         { fecha_revision = std::move(v); }

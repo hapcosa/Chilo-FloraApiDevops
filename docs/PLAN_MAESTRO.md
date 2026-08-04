@@ -252,6 +252,42 @@ Aprobar **no** escribe roles en la BD del `auth-service`, coherente con el resto
 #14. El postulante y el revisor salen siempre de la identidad verificada, nunca del
 cuerpo: mandar `{"estado":"aprobada","usuario_id":1}` en el `POST` no cambia nada.
 
+### Borrador / publicada (ADR #14)
+
+Una ficha a medio escribir no es contenido público. La migración
+`0006_especies_estado.sql` añade a `especies`:
+
+```sql
+CREATE TYPE especie_estado_enum AS ENUM ('borrador', 'publicada');
+
+ALTER TABLE especies
+    ADD COLUMN estado especie_estado_enum NOT NULL DEFAULT 'publicada',
+    ADD COLUMN publicado_por INTEGER,        -- referencia lógica al auth-service
+    ADD COLUMN fecha_publicacion TIMESTAMPTZ;
+
+-- Un borrador no arrastra la firma de una publicación anterior.
+ALTER TABLE especies ADD CONSTRAINT especies_borrador_sin_publicacion
+    CHECK (estado <> 'borrador'
+           OR (publicado_por IS NULL AND fecha_publicacion IS NULL));
+```
+
+El `DEFAULT 'publicada'` es solo para el backfill: las fichas que ya existían estaban
+visibles y esconderlas sería una regresión para las apps instaladas. La API, en cambio,
+crea **toda ficha nueva como borrador**.
+
+Reglas de la capa de aplicación:
+
+- El estado solo cambia por `POST /api/v1/especies/{id}/publicar` y `/despublicar`, con el
+  mismo permiso por categoría que editar la ficha. `estado` en el cuerpo de un `POST` o
+  `PUT` se ignora, y el `UPDATE` del repositorio ni siquiera toca esas tres columnas: un
+  cuerpo viejo no puede despublicar sin querer.
+- Publicar revalida los `atributos_especificos` contra el JSON Schema del reino: es el
+  último punto donde se puede parar una ficha que no cumple.
+- El listado y `GET /{id}` filtran por visibilidad **antes** que por cualquier `?estado=`:
+  pedir borradores no muestra los ajenos. Un borrador ajeno responde 404 y no 403, para no
+  convertir el endpoint en un oráculo de qué fichas se están redactando.
+- `admin` y `moderator` ven todo; un curador ve además los borradores de sus categorías.
+
 ### Campos sugeridos por reino (en `atributos_especificos`)
 
 Pensé en lo que un usuario de divulgación querría leer y lo que es taxonómicamente honesto:
@@ -600,9 +636,11 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
       `0005_postulaciones_curador.sql`); un admin aprueba o rechaza vía
       `PATCH /api/v1/postulaciones/{id}`, y aprobar inserta la asignación en
       `moderador_categorias` en la misma transacción. ✅
-- [ ] Especies con estado `borrador`/`publicada`: el curador publica dentro de su categoría y
-      el `GET` público filtra los borradores (es lo que impide que lleguen al cache SQLite
-      del móvil).
+- [x] Especies con estado `borrador`/`publicada` (migración `0006_especies_estado.sql`): toda
+      ficha nueva nace borrador y se publica con `POST /api/v1/especies/{id}/publicar`
+      (`/despublicar` para el camino inverso), con el mismo permiso por categoría que
+      editarla. El `GET` público filtra los borradores —es lo que impide que lleguen al cache
+      SQLite del móvil— y el curador ve los de sus categorías. ✅
 - [ ] Panel web de curaduría (`services/panel-curaduria/`), servido por el gateway bajo
       `/curaduria/` con el mismo JWT. La curaduría no vive en el móvil.
 - [ ] Identificación comunitaria de avistamientos estilo iNaturalist

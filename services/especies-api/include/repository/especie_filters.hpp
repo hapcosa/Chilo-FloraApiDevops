@@ -6,7 +6,16 @@
 #include <vector>
 
 #include "../models/especie.hpp"
+#include "../models/especie_estado.hpp"
 #include "../models/reino.hpp"
+
+// Alcance de lectura de quien consulta. Los borradores no son contenido
+// público: solo los ven los roles globales y el curador de la categoría a la
+// que pertenece la ficha (ADR #14).
+struct EspecieVisibilidad {
+    bool verTodo = false;                     // admin / moderator
+    std::vector<int> categoriasCuradas;       // borradores visibles además
+};
 
 // Filtros para listar especies. Todos opcionales: si no se setea, no se
 // añade restricción. limit/offset gobiernan la paginación. Validación
@@ -18,6 +27,15 @@ struct EspecieFilters {
     std::optional<std::string> conservacion;  // IUCN: LC, NT, VU, EN, CR, EW, EX, DD, NE
     std::optional<bool>  endemica;
     std::optional<std::string> q;       // búsqueda en nombre_comun + nombre_cientifico (ILIKE)
+
+    // Filtro explícito por estado editorial (?estado=borrador). Se aplica
+    // *encima* de la visibilidad: pedir borradores no permite ver los ajenos.
+    std::optional<EspecieEstado> estado;
+
+    // Qué borradores puede ver quien consulta. Por defecto ninguno: el
+    // listado es la fuente del cache SQLite del móvil, así que el default
+    // seguro es "solo publicadas".
+    EspecieVisibilidad visibilidad;
 
     // Paginación. Defaults razonables.
     int limit  = 50;

@@ -27,6 +27,12 @@ private:
     bool requireCuradorDeCategoria(const RequestIdentity& identity,
                                    std::optional<int> categoriaId,
                                    Pistache::Http::ResponseWriter& response);
+    // Qué borradores puede ver quien hace la petición. Sin sesión, ninguno.
+    EspecieVisibilidad visibilidadDe(const std::optional<RequestIdentity>& identity);
+    // Cuerpo común de publicar/despublicar: mismo permiso, mismos errores.
+    void cambiarEstado(const Pistache::Rest::Request& request,
+                       Pistache::Http::ResponseWriter& response,
+                       EspecieEstado destino);
 
 public:
     EspecieController(std::shared_ptr<EspecieService> svc,
@@ -41,6 +47,8 @@ public:
     void update(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void updateFotos(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void remove(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
+    void publicar(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
+    void despublicar(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void uploadImagen(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void setImagenPrincipal(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void removeImagen(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
@@ -62,6 +70,8 @@ public:
         Routes::Patch(router, "/api/v1/especies/:id/fotos", Routes::bind(&EspecieController::updateFotos, controller));
         Routes::Delete(router, "/api/especies/:id", Routes::bind(&EspecieController::remove, controller));
         Routes::Delete(router, "/api/v1/especies/:id", Routes::bind(&EspecieController::remove, controller));
+        Routes::Post(router, "/api/v1/especies/:id/publicar", Routes::bind(&EspecieController::publicar, controller));
+        Routes::Post(router, "/api/v1/especies/:id/despublicar", Routes::bind(&EspecieController::despublicar, controller));
         Routes::Post(router, "/api/especies/:id/images", Routes::bind(&EspecieController::uploadImagen, controller));
         Routes::Get(router, "/api/especies/search/nombre", Routes::bind(&EspecieController::searchByNombreCientifico, controller));
         Routes::Post(router, "/api/especies/:id/images/:principal", Routes::bind(&EspecieController::uploadImagen, controller));

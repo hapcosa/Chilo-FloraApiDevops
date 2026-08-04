@@ -10,6 +10,8 @@
 #     repositorio en memoria.
 #   - postulacion_curador.cpp: parseo del cuerpo del postulante y reglas que no
 #     delegamos en la BD.
+#   - especie_estado.cpp + especie.cpp: estado editorial de la ficha y qué
+#     acepta fromJson (el cliente no publica mandando "estado" en el cuerpo).
 
 find_package(GTest REQUIRED)
 
@@ -20,7 +22,10 @@ add_executable(unit_tests
         test_categoria_moderacion.cpp
         test_moderacion_service.cpp
         test_postulacion_curador.cpp
+        test_especie_estado.cpp
         ${CMAKE_SOURCE_DIR}/src/models/reino.cpp
+        ${CMAKE_SOURCE_DIR}/src/models/especie_estado.cpp
+        ${CMAKE_SOURCE_DIR}/src/models/especie.cpp
         ${CMAKE_SOURCE_DIR}/src/utils/atributos_schema_validator.cpp
         ${CMAKE_SOURCE_DIR}/src/services/upload_presign_service.cpp
         ${CMAKE_SOURCE_DIR}/src/models/categoria_moderacion.cpp
