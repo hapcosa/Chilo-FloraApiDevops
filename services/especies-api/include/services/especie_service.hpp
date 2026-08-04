@@ -43,6 +43,13 @@ public:
     Especie createEspecie(const Especie& especie);
     Especie updateEspecie(const Especie& especie);
     Especie updateFotoKeys(int id, const FotoKeysUpdate& update);
+
+    // Transiciones editoriales. Lanzan std::runtime_error si la especie no
+    // existe y std::invalid_argument si ya está en ese estado (la operación
+    // no es un no-op silencioso: el cliente pidió algo que no aplica).
+    Especie publicarEspecie(int id, int publicadoPor);
+    Especie despublicarEspecie(int id);
+
     bool deleteEspecie(int id);
 
     // Métodos para manejo de imágenes

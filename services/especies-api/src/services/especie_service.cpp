@@ -122,6 +122,42 @@ Especie EspecieService::updateFotoKeys(int id, const FotoKeysUpdate& update) {
     return repository->update(updated);
 }
 
+Especie EspecieService::publicarEspecie(int id, int publicadoPor) {
+    if (id <= 0) {
+        throw std::invalid_argument("ID debe ser mayor que 0");
+    }
+
+    auto existing = repository->findById(id);
+    if (!existing) {
+        throw std::runtime_error("Especie no encontrada");
+    }
+    if (!existing->esBorrador()) {
+        throw std::invalid_argument("La especie ya está publicada");
+    }
+
+    // Publicar es hacer pública la ficha: si sus atributos por reino no
+    // cumplen el schema, este es el último punto donde se puede parar.
+    validateEspecie(*existing);
+
+    return repository->setEstado(id, EspecieEstado::Publicada, publicadoPor);
+}
+
+Especie EspecieService::despublicarEspecie(int id) {
+    if (id <= 0) {
+        throw std::invalid_argument("ID debe ser mayor que 0");
+    }
+
+    auto existing = repository->findById(id);
+    if (!existing) {
+        throw std::runtime_error("Especie no encontrada");
+    }
+    if (existing->esBorrador()) {
+        throw std::invalid_argument("La especie ya es un borrador");
+    }
+
+    return repository->setEstado(id, EspecieEstado::Borrador, std::nullopt);
+}
+
 bool EspecieService::deleteEspecie(int id) {
     if (id <= 0) {
         throw std::invalid_argument("ID debe ser mayor que 0");

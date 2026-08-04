@@ -23,6 +23,9 @@ public:
     std::optional<Especie> getByNombreCientifico(const std::string& nombre) override;
     Especie create(const Especie& especie) override;
     Especie update(const Especie& especie) override;
+    Especie setEstado(int id,
+                      EspecieEstado estado,
+                      std::optional<int> publicadoPor) override;
     bool remove(int id) override;
     std::vector<std::string> getImagenes(int especie_id) override;
     bool setImagenPrincipal(int especie_id, const std::string& imagen_url) override;

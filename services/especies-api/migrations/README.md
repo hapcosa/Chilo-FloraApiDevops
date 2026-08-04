@@ -12,6 +12,7 @@ services/especies-api/
 │   ├── 0003_avistamientos.sql # registros subidos por la app móvil
 │   ├── 0004_categorias_moderacion.sql # categorías de curaduría y sus moderadores
 │   ├── 0005_postulaciones_curador.sql  # postularse a curador; un admin resuelve
+│   ├── 0006_especies_estado.sql # borrador/publicada + firma de publicación
 │   └── README.md              # este archivo
 └── scripts/
     └── migrate.sh             # runner

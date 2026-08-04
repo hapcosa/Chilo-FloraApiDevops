@@ -100,6 +100,8 @@ POST   /api/v1/especies
 PUT    /api/v1/especies/{id}
 DELETE /api/v1/especies/{id}
 PATCH  /api/v1/especies/{id}/fotos
+POST   /api/v1/especies/{id}/publicar      (curaduría sobre la categoría de la ficha)
+POST   /api/v1/especies/{id}/despublicar   (idem)
 
 GET    /api/v1/avistamientos
 GET    /api/v1/avistamientos/{id}
@@ -133,6 +135,13 @@ Las mutaciones de especies (`POST`, `PUT`, `PATCH .../fotos`, `DELETE`) ya no ex
 `moderador_categorias` puede editar solo lo de sus categorías. Ver
 [../../docs/PLAN_MAESTRO.md](../../docs/PLAN_MAESTRO.md) §3.
 
+Toda ficha nueva nace en estado **`borrador`** y solo se vuelve pública con
+`POST /api/v1/especies/{id}/publicar`, que además revalida `atributos_especificos`
+contra el JSON Schema del reino y guarda `publicado_por`/`fecha_publicacion`.
+`estado` en el cuerpo de un `POST`/`PUT` se ignora: un `PUT` con datos viejos no
+despublica. Los `GET` solo muestran borradores a quien tiene curaduría sobre esa
+categoría (y a `admin`/`moderator`); a cualquier otro le responden **404**, no 403.
+
 Filtros soportados en `GET /api/v1/especies` y `GET /api/especies`:
 
 ```text
@@ -141,6 +150,7 @@ genero_id
 familia_id
 conservacion
 endemica
+estado          (borrador|publicada; se aplica dentro de lo que ya se puede ver)
 q
 limit
 offset
