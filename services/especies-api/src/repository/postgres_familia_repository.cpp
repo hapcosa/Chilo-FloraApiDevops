@@ -3,6 +3,8 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "../../include/utils/timestamps.hpp"
+
 namespace {
 
 constexpr const char* kSelectCols =
@@ -25,7 +27,7 @@ Familia PostgresFamiliaRepository::mapRowToFamilia(const pqxx::row& row) {
     f.setReino(reinoFromString(row["reino"].c_str()));
     f.setNombre(row["nombre"].c_str());
     f.setDescripcion(row["descripcion"].is_null() ? "" : row["descripcion"].c_str());
-    f.setCreatedAt(optStr(row["created_at"]));
+    f.setCreatedAt(utils::toIso8601Opt(optStr(row["created_at"])));
 
     auto imagenes = getImagenes(f.getId());
     for (const auto& imagen : imagenes) {

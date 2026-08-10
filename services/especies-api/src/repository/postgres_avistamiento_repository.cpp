@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include "../../include/utils/timestamps.hpp"
+
 namespace {
 
 constexpr const char* kSelectCols =
@@ -56,16 +58,16 @@ Avistamiento PostgresAvistamientoRepository::mapRowToAvistamiento(const pqxx::ro
     avistamiento.setGeoLat(row["geo_lat"].as<double>());
     avistamiento.setGeoLng(row["geo_lng"].as<double>());
     avistamiento.setPrecisionMetros(optDouble(row["precision_metros"]));
-    avistamiento.setObservadoEn(optStr(row["observado_en"]));
+    avistamiento.setObservadoEn(utils::toIso8601Opt(optStr(row["observado_en"])));
     avistamiento.setCreadoPor(optInt(row["creado_por"]));
     avistamiento.setEstado(avistamientoEstadoFromString(row["estado"].c_str()));
     avistamiento.setModeradoPor(optInt(row["moderado_por"]));
-    avistamiento.setModeradoEn(optStr(row["moderado_en"]));
+    avistamiento.setModeradoEn(utils::toIso8601Opt(optStr(row["moderado_en"])));
     avistamiento.setMotivoRechazo(optStr(row["motivo_rechazo"]));
     avistamiento.setGradoIdentificacion(
         gradoIdentificacionFromString(row["grado_identificacion"].c_str()));
-    avistamiento.setCreatedAt(optStr(row["created_at"]));
-    avistamiento.setUpdatedAt(optStr(row["updated_at"]));
+    avistamiento.setCreatedAt(utils::toIso8601Opt(optStr(row["created_at"])));
+    avistamiento.setUpdatedAt(utils::toIso8601Opt(optStr(row["updated_at"])));
     return avistamiento;
 }
 

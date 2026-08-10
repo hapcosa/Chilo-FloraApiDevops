@@ -3,6 +3,8 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "../../include/utils/timestamps.hpp"
+
 namespace {
 
 // Columnas seleccionadas en orden estable para reutilizar en SELECT,
@@ -72,12 +74,12 @@ Especie PostgreSQLEspecieRepository::mapRowToEspecie(const pqxx::row& row) {
     e.setCategoriaId(optInt(row["categoria_id"]));
     e.setEstado(especieEstadoFromString(row["estado"].c_str()));
     e.setPublicadoPor(optInt(row["publicado_por"]));
-    e.setFechaPublicacion(optStr(row["fecha_publicacion"]));
+    e.setFechaPublicacion(utils::toIso8601Opt(optStr(row["fecha_publicacion"])));
     e.setCreadoPor(optInt(row["creado_por"]));
     e.setRevisadoPor(optInt(row["revisado_por"]));
-    e.setFechaRevision(optStr(row["fecha_revision"]));
-    e.setCreatedAt(optStr(row["created_at"]));
-    e.setUpdatedAt(optStr(row["updated_at"]));
+    e.setFechaRevision(utils::toIso8601Opt(optStr(row["fecha_revision"])));
+    e.setCreatedAt(utils::toIso8601Opt(optStr(row["created_at"])));
+    e.setUpdatedAt(utils::toIso8601Opt(optStr(row["updated_at"])));
 
     // Imágenes legacy: tabla especies_imagenes. Se mantiene este PR.
     auto imagenes = getImagenes(e.getId());

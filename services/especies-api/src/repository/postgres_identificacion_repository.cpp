@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include "../../include/utils/timestamps.hpp"
+
 namespace {
 
 constexpr const char* kSelectCols =
@@ -31,8 +33,8 @@ Identificacion PostgresIdentificacionRepository::mapRowToIdentificacion(
     identificacion.setComentario(optStr(row["comentario"]));
     identificacion.setDecisiva(row["decisiva"].as<bool>());
     identificacion.setRetirada(row["retirada"].as<bool>());
-    identificacion.setCreatedAt(optStr(row["created_at"]));
-    identificacion.setUpdatedAt(optStr(row["updated_at"]));
+    identificacion.setCreatedAt(utils::toIso8601Opt(optStr(row["created_at"])));
+    identificacion.setUpdatedAt(utils::toIso8601Opt(optStr(row["updated_at"])));
     return identificacion;
 }
 
