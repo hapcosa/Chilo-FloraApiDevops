@@ -107,6 +107,7 @@ set(REQUIRED_SOURCES
         src/utils/config.cpp
         src/utils/atributos_schema_validator.cpp
         src/utils/request_identity.cpp
+        src/utils/timestamps.cpp
         src/models/imagen.cpp
 )
 
@@ -168,6 +169,7 @@ set(REQUIRED_HEADERS
         include/utils/config.hpp
         include/utils/atributos_schema_validator.hpp
         include/utils/request_identity.hpp
+        include/utils/timestamps.hpp
         include/models/imagen.hpp
         include/utils/constants.hpp
 )
@@ -223,6 +225,7 @@ set(SOURCES
         src/utils/config.cpp
         src/utils/atributos_schema_validator.cpp
         src/utils/request_identity.cpp
+        src/utils/timestamps.cpp
         src/models/imagen.cpp
 )
 

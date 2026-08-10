@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include "../../include/utils/timestamps.hpp"
+
 namespace {
 
 constexpr const char* kSelectCols =
@@ -30,8 +32,8 @@ CategoriaModeracion PostgresCategoriaRepository::mapRowToCategoria(const pqxx::r
     categoria.setNombre(row["nombre"].c_str());
     categoria.setReino(reinoFromString(row["reino"].c_str()));
     categoria.setDescripcion(optStr(row["descripcion"]));
-    categoria.setCreatedAt(optStr(row["created_at"]));
-    categoria.setUpdatedAt(optStr(row["updated_at"]));
+    categoria.setCreatedAt(utils::toIso8601Opt(optStr(row["created_at"])));
+    categoria.setUpdatedAt(utils::toIso8601Opt(optStr(row["updated_at"])));
     return categoria;
 }
 

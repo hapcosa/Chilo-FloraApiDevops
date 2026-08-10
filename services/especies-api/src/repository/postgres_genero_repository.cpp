@@ -3,6 +3,8 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "../../include/utils/timestamps.hpp"
+
 namespace {
 
 constexpr const char* kSelectCols =
@@ -25,7 +27,7 @@ Genero PostgresGeneroRepository::mapRowToGenero(const pqxx::row& row) {
     g.setFamiliaId(row["familia_id"].as<int>());
     g.setNombre(row["nombre"].c_str());
     g.setDescripcion(row["descripcion"].is_null() ? "" : row["descripcion"].c_str());
-    g.setCreatedAt(optStr(row["created_at"]));
+    g.setCreatedAt(utils::toIso8601Opt(optStr(row["created_at"])));
 
     auto imagenes = getImagenes(g.getId());
     for (const auto& imagen : imagenes) {

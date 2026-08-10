@@ -15,6 +15,8 @@
 #     curador), aislada de la BD a propósito.
 #   - especie_estado.cpp + especie.cpp: estado editorial de la ficha y qué
 #     acepta fromJson (el cliente no publica mandando "estado" en el cuerpo).
+#   - timestamps.cpp: normalización a ISO 8601 de lo que devuelve libpqxx,
+#     con los formatos reales de Postgres como entrada.
 
 find_package(GTest REQUIRED)
 
@@ -27,6 +29,7 @@ add_executable(unit_tests
         test_postulacion_curador.cpp
         test_especie_estado.cpp
         test_identificacion.cpp
+        test_timestamps.cpp
         ${CMAKE_SOURCE_DIR}/src/models/reino.cpp
         ${CMAKE_SOURCE_DIR}/src/models/especie_estado.cpp
         ${CMAKE_SOURCE_DIR}/src/models/especie.cpp
@@ -36,6 +39,7 @@ add_executable(unit_tests
         ${CMAKE_SOURCE_DIR}/src/services/moderacion_service.cpp
         ${CMAKE_SOURCE_DIR}/src/models/postulacion_curador.cpp
         ${CMAKE_SOURCE_DIR}/src/models/identificacion.cpp
+        ${CMAKE_SOURCE_DIR}/src/utils/timestamps.cpp
 )
 
 target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)

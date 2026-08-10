@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <utility>
 
+#include "../../include/utils/timestamps.hpp"
+
 namespace {
 
 constexpr const char* kSelectCols =
@@ -35,10 +37,10 @@ PostulacionCurador PostgresPostulacionRepository::mapRowToPostulacion(
     postulacion.setTexto(row["texto"].c_str());
     postulacion.setEstado(postulacionEstadoFromString(row["estado"].c_str()));
     postulacion.setRevisadoPor(optInt(row["revisado_por"]));
-    postulacion.setRevisadoEn(optStr(row["revisado_en"]));
+    postulacion.setRevisadoEn(utils::toIso8601Opt(optStr(row["revisado_en"])));
     postulacion.setMotivo(optStr(row["motivo"]));
-    postulacion.setCreatedAt(optStr(row["created_at"]));
-    postulacion.setUpdatedAt(optStr(row["updated_at"]));
+    postulacion.setCreatedAt(utils::toIso8601Opt(optStr(row["created_at"])));
+    postulacion.setUpdatedAt(utils::toIso8601Opt(optStr(row["updated_at"])));
     return postulacion;
 }
 
