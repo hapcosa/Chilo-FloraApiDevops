@@ -130,3 +130,38 @@ URLs locales:
 ## Idioma
 
 Documentación, mensajes de UI y comentarios públicos en **español**. Código (identificadores) y mensajes de error técnicos en **inglés** salvo nombres del dominio biológico (que son universales: `genero`, `familia`, `especie`, `reino`).
+
+## Infraestructura: dónde corre esto
+
+**Producción = `10.244.117.161`** (migrado el 2026-08-14). El host anterior
+`10.244.19.205` (`traderbot`) pasó a ser el entorno de **test**.
+
+El despliegue tiene tres piezas que **no viven en el repo** y hay que llevar a
+mano al cambiar de máquina. Se descubrieron migrando; si faltan, el stack no
+arranca:
+
+1. **El env de producción**: `~/.config/chiloe-prod/chiloe.env`, que se pasa con
+   `--env-file`. No es el `.env` del repo.
+2. **Las credenciales del túnel**: `~/.cloudflared/<tunnel-uuid>.json` (y
+   `cert.pem`). El compose las monta vía `CLOUDFLARED_CREDENTIALS_FILE`, que es
+   una **ruta absoluta** dentro de ese env — al cambiar de usuario/host hay que
+   reescribirla.
+3. **`CLOUDFLARED_UID`/`GID`**: la imagen corre como uid 65532 y el JSON es 0600
+   del usuario del host, así que el contenedor adopta el uid del dueño en vez de
+   aflojar permisos del secreto.
+
+Comando de despliegue:
+
+```bash
+cd infrastructure/docker
+docker compose --env-file ~/.config/chiloe-prod/chiloe.env \
+  -f docker-compose.prod.yml -p chiloe-prod up -d
+```
+
+Los datos viven en **volúmenes Docker con nombre** (`chiloe-prod_postgres_data`,
+`chiloe-prod_minio_data`, `chiloe-prod_redis_data`): migrarlos requiere
+`pg_dump` y un `tar` del volumen, no copiar un directorio.
+
+⚠️ **Nunca correr dos `cloudflared` del mismo túnel a la vez** — Cloudflare ve
+dos conectores y reparte el tráfico entre ambas máquinas. El cutover es parar el
+viejo y luego levantar el nuevo.
