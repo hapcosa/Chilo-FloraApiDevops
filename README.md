@@ -120,10 +120,15 @@ Rutas de catálogo:
 - `GET /api/generos`
 - `POST /api/v1/uploads/presign`
 - `PATCH /api/v1/especies/{id}/fotos`
-- `GET /api/v1/avistamientos`
+- `GET /api/v1/avistamientos?reino=fungi&grado_identificacion=en_discusion&limit=20&offset=0`
 - `GET /api/v1/avistamientos/{id}`
 - `POST /api/v1/avistamientos`
 - `PATCH /api/v1/avistamientos/{id}/moderacion`
+
+El listado de avistamientos ordena por `observado_en` descendente y devuelve solo los
+`estado = 'aprobado'`, salvo que quien pregunte modere o esté filtrando por sus propios
+avistamientos (`creado_por` = su id). Cada fila trae `identificaciones_count`, las
+identificaciones vigentes de ese avistamiento.
 
 Rutas de auth:
 

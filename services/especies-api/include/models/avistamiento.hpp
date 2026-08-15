@@ -35,6 +35,10 @@ private:
     // Derivado de las identificaciones vigentes; el cliente no lo envía nunca
     // (ver identificacion.hpp).
     GradoIdentificacion grado_identificacion = GradoIdentificacion::SinIdentificar;
+    // Cuántas identificaciones vigentes (no retiradas) tiene. Es la misma
+    // evidencia de la que sale el grado, pero contada: el feed la muestra en la
+    // tarjeta y sin esto haría una petición por fila.
+    int identificaciones_count = 0;
     std::optional<int> moderado_por;
     std::optional<std::string> moderado_en;
     std::optional<std::string> motivo_rechazo;
@@ -55,6 +59,7 @@ public:
     const std::optional<int>& getCreadoPor() const { return creado_por; }
     AvistamientoEstado getEstado() const { return estado; }
     GradoIdentificacion getGradoIdentificacion() const { return grado_identificacion; }
+    int getIdentificacionesCount() const { return identificaciones_count; }
     const std::optional<int>& getModeradoPor() const { return moderado_por; }
     const std::optional<std::string>& getModeradoEn() const { return moderado_en; }
     const std::optional<std::string>& getMotivoRechazo() const { return motivo_rechazo; }
@@ -74,6 +79,7 @@ public:
     void setCreadoPor(std::optional<int> value) { creado_por = value; }
     void setEstado(AvistamientoEstado value) { estado = value; }
     void setGradoIdentificacion(GradoIdentificacion value) { grado_identificacion = value; }
+    void setIdentificacionesCount(int value) { identificaciones_count = value; }
     void setModeradoPor(std::optional<int> value) { moderado_por = value; }
     void setModeradoEn(std::optional<std::string> value) { moderado_en = std::move(value); }
     void setMotivoRechazo(std::optional<std::string> value) { motivo_rechazo = std::move(value); }

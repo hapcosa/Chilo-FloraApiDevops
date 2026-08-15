@@ -11,6 +11,7 @@ struct AvistamientoFilters {
     std::optional<Reino> reino;
     std::optional<int> especie_id;
     std::optional<int> creado_por;
+    std::optional<GradoIdentificacion> grado_identificacion;
     int limit = 50;
     int offset = 0;
 };
