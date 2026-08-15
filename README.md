@@ -139,6 +139,12 @@ Quien filtra por sus propios avistamientos (`creado_por` = su id) los ve enteros
 y sin aprobar incluidos: es la pantalla "Mis encuentros". Cada fila trae
 `identificaciones_count`, las identificaciones vigentes de ese avistamiento.
 
+Cada avistamiento incluye además **`foto_url`**: una URL GET presignada contra
+`S3_PUBLIC_ENDPOINT`, válida `S3_PRESIGN_EXPIRES_SECONDS` (900 s por defecto). El bucket
+`avistamientos-fotos` es privado, así que `foto_key` por sí sola no es visualizable. La URL
+se firma al responder y no se guarda: caduca. Si firmarla falla, `foto_url` viene `null` y
+el resto de la respuesta no se ve afectada.
+
 Rutas de auth:
 
 - `POST /api/v1/auth/register`

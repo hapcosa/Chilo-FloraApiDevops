@@ -380,6 +380,29 @@ PresignedUpload UploadPresignService::createPresignedPut(
     return upload;
 }
 
+std::string UploadPresignService::createPresignedGet(
+    const std::string& bucket,
+    const std::string& key,
+    std::optional<int> expiresIn) const {
+    validateAllowedBucket(storageConfig, bucket);
+    validateObjectKeyFormat(key);
+    if (storageConfig.accessKeyId.empty() ||
+        storageConfig.secretAccessKey.empty()) {
+        throw std::runtime_error("Credenciales S3 no configuradas");
+    }
+
+    const int effectiveExpiresIn =
+        expiresIn.value_or(storageConfig.defaultExpiresIn);
+    if (effectiveExpiresIn < 60 || effectiveExpiresIn > 3600) {
+        throw std::invalid_argument("'expires_in' debe estar entre 60 y 3600 segundos");
+    }
+
+    return createSignedUrl(storageConfig, "GET", bucket, key,
+                           storageConfig.publicEndpoint, {},
+                           effectiveExpiresIn)
+        .url;
+}
+
 bool UploadPresignService::objectExists(const std::string& bucket,
                                         const std::string& key) const {
     validateAllowedBucket(storageConfig, bucket);
