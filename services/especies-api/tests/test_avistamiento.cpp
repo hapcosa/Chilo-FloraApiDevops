@@ -4,6 +4,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <stdexcept>
+
 #include "models/avistamiento.hpp"
 
 namespace {
@@ -32,6 +34,26 @@ TEST(AvistamientoTest, FromJsonIgnoraElConteo) {
         {"identificaciones_count", 99}});
 
     EXPECT_EQ(avistamiento.getIdentificacionesCount(), 0);
+}
+
+// Un encuentro nace privado y solo se publica por PATCH /compartir, así que
+// tampoco puede llegar en el cuerpo del POST.
+TEST(AvistamientoTest, NaceEnPrivadoYFromJsonNoLoCambia) {
+    const auto avistamiento = Avistamiento::fromJson(nlohmann::json{
+        {"reino", "fungi"},
+        {"foto_key", "avistamientos/1.jpg"},
+        {"geo_lat", -42.5},
+        {"geo_lng", -73.8},
+        {"visibilidad", "publico"}});
+
+    EXPECT_EQ(avistamiento.getVisibilidad(), AvistamientoVisibilidad::Privado);
+    EXPECT_EQ(avistamiento.toJson()["visibilidad"], "privado");
+}
+
+TEST(AvistamientoTest, VisibilidadRoundTripDeString) {
+    EXPECT_EQ(avistamientoVisibilidadToString(AvistamientoVisibilidad::Publico), "publico");
+    EXPECT_EQ(avistamientoVisibilidadFromString("privado"), AvistamientoVisibilidad::Privado);
+    EXPECT_THROW(avistamientoVisibilidadFromString("oculto"), std::invalid_argument);
 }
 
 } // namespace

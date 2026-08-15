@@ -13,16 +13,20 @@ struct VisibilidadSolicitante {
     bool puede_moderar = false;
 };
 
-// `estado` es moderación de contenido: un avistamiento pendiente o rechazado
-// puede tener una foto que no debe circular. El listado es público para
-// cualquier sesión, así que el estado pedido por el cliente no se respeta salvo
-// que quien pregunte tenga derecho a verlo:
+// Dos ejes, decididos por gente distinta: `visibilidad` la elige el autor
+// (ADR #12) y `estado` la moderación. El listado responde a cualquier sesión,
+// así que ninguno de los dos se toma del cliente tal cual:
 //
-//   - admin/moderator ven lo que pidan (la cola de moderación es su trabajo);
-//   - un usuario que filtra por sus propios avistamientos ve los suyos en
-//     cualquier estado (es lo que usa "Mis encuentros");
-//   - cualquier otro caso se fuerza a `aprobado`, sin error: el feed no tiene
-//     por qué saber que pidió de más.
+//   - quien filtra por sus propios avistamientos (`creado_por` = su id) ve los
+//     suyos enteros, privados y sin aprobar incluidos: es "Mis encuentros";
+//   - los privados ajenos no los ve nadie más, **tampoco la moderación**: no se
+//     ofrecieron a nadie, así que no hay nada que moderar hasta que su dueño
+//     los comparta;
+//   - dentro de lo público, admin/moderator ven cualquier estado (la cola de
+//     moderación es su trabajo) y el resto solo lo `aprobado`.
+//
+// Lo que sobra se acota en silencio, sin error: el feed no tiene por qué saber
+// que pidió de más.
 AvistamientoFilters restringirVisibilidad(const AvistamientoFilters& filters,
                                           const VisibilidadSolicitante& solicitante);
 

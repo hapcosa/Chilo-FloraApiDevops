@@ -89,6 +89,9 @@ void AvistamientoController::getAll(
         if (auto value = queryInt(query, "creado_por")) {
             filters.creado_por = *value;
         }
+        if (auto value = queryStr(query, "visibilidad")) {
+            filters.visibilidad = avistamientoVisibilidadFromString(*value);
+        }
         if (auto value = queryStr(query, "grado_identificacion")) {
             filters.grado_identificacion = gradoIdentificacionFromString(*value);
         }
@@ -175,6 +178,34 @@ void AvistamientoController::create(
     } catch (const std::invalid_argument& error) {
         sendJson(response, Pistache::Http::Code::Bad_Request,
                  {{"success", false}, {"error", error.what()}});
+    } catch (const std::exception& error) {
+        sendJson(response, Pistache::Http::Code::Internal_Server_Error,
+                 {{"success", false}, {"error", error.what()}});
+    }
+}
+
+void AvistamientoController::compartir(
+    const Pistache::Rest::Request& request,
+    Pistache::Http::ResponseWriter response) {
+    auto identity = extractIdentity(request);
+    if (!identity) {
+        sendJson(response, Pistache::Http::Code::Unauthorized,
+                 {{"success", false}, {"error", "No se pudo verificar la sesión del usuario"}});
+        return;
+    }
+
+    try {
+        const int id = request.param(":id").as<int>();
+        // Solo el autor publica lo suyo. 404 y no 403 si es de otro: confirmar
+        // que existe ya diría algo de un encuentro privado ajeno.
+        const auto avistamiento = service->compartirAvistamiento(id, identity->userId);
+        if (!avistamiento) {
+            sendJson(response, Pistache::Http::Code::Not_Found,
+                     {{"success", false}, {"error", "avistamiento no encontrado"}});
+            return;
+        }
+
+        sendJson(response, Pistache::Http::Code::Ok, avistamiento->toJson());
     } catch (const std::exception& error) {
         sendJson(response, Pistache::Http::Code::Internal_Server_Error,
                  {{"success", false}, {"error", error.what()}});

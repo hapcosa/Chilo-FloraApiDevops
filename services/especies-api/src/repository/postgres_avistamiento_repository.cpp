@@ -11,8 +11,8 @@ namespace {
 constexpr const char* kSelectCols =
     "id, especie_id, reino, nombre_sugerido, descripcion, foto_key, "
     "geo_lat, geo_lng, precision_metros, observado_en, creado_por, estado, "
-    "moderado_por, moderado_en, motivo_rechazo, grado_identificacion, "
-    "created_at, updated_at";
+    "visibilidad, moderado_por, moderado_en, motivo_rechazo, "
+    "grado_identificacion, created_at, updated_at";
 
 // Conteo de identificaciones vigentes, resuelto en la misma consulta que trae
 // las filas: el feed lo necesita por tarjeta y una petición por fila no escala.
@@ -71,6 +71,8 @@ Avistamiento PostgresAvistamientoRepository::mapRowToAvistamiento(const pqxx::ro
     avistamiento.setObservadoEn(utils::toIso8601Opt(optStr(row["observado_en"])));
     avistamiento.setCreadoPor(optInt(row["creado_por"]));
     avistamiento.setEstado(avistamientoEstadoFromString(row["estado"].c_str()));
+    avistamiento.setVisibilidad(
+        avistamientoVisibilidadFromString(row["visibilidad"].c_str()));
     avistamiento.setModeradoPor(optInt(row["moderado_por"]));
     avistamiento.setModeradoEn(utils::toIso8601Opt(optStr(row["moderado_en"])));
     avistamiento.setMotivoRechazo(optStr(row["motivo_rechazo"]));
@@ -146,6 +148,11 @@ AvistamientoSearchResult PostgresAvistamientoRepository::find(
         if (filters.creado_por) {
             where += " AND creado_por = " + txn.quote(*filters.creado_por);
         }
+        if (filters.visibilidad) {
+            where += " AND visibilidad = "
+                + txn.quote(avistamientoVisibilidadToString(*filters.visibilidad))
+                + "::avistamiento_visibilidad_enum";
+        }
         if (filters.grado_identificacion) {
             where += " AND grado_identificacion = "
                 + txn.quote(gradoIdentificacionToString(*filters.grado_identificacion))
@@ -190,6 +197,35 @@ std::optional<Avistamiento> PostgresAvistamientoRepository::findById(int id) {
         return mapRowToAvistamiento(result[0], true);
     } catch (const std::exception& error) {
         std::cerr << "Error al obtener avistamiento: " << error.what() << std::endl;
+        throw;
+    }
+}
+
+std::optional<Avistamiento> PostgresAvistamientoRepository::compartir(int id, int usuarioId) {
+    try {
+        auto conn = database->createConnection();
+        pqxx::work txn(*conn);
+
+        // Idempotente: volver a compartir algo ya público devuelve la fila igual.
+        const auto result = txn.exec_params(
+            std::string("UPDATE avistamientos SET visibilidad = 'publico'")
+                + " WHERE id = $1 AND creado_por = $2"
+                + " RETURNING " + kSelectCols,
+            id, usuarioId);
+
+        if (result.empty()) return std::nullopt;
+
+        const auto count = txn.exec_params(
+            "SELECT COUNT(*) FROM avistamiento_identificaciones"
+            " WHERE avistamiento_id = $1 AND NOT retirada",
+            id);
+
+        txn.commit();
+        auto avistamiento = mapRowToAvistamiento(result[0]);
+        avistamiento.setIdentificacionesCount(count[0][0].as<int>());
+        return avistamiento;
+    } catch (const std::exception& error) {
+        std::cerr << "Error al compartir avistamiento: " << error.what() << std::endl;
         throw;
     }
 }

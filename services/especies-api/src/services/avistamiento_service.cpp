@@ -42,6 +42,10 @@ std::optional<Avistamiento> AvistamientoService::getAvistamientoById(int id) {
     return repository->findById(id);
 }
 
+std::optional<Avistamiento> AvistamientoService::compartirAvistamiento(int id, int usuarioId) {
+    return repository->compartir(id, usuarioId);
+}
+
 Avistamiento AvistamientoService::moderateAvistamiento(
     int id,
     const ModeracionAvistamiento& moderacion) {
