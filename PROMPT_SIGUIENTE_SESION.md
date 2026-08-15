@@ -8,77 +8,76 @@ Contexto: repo `Chilo-FloraApiDevops` (backend microservicios C++/Go/Nginx) con 
 `mobile/` (React Native bare CLI). Leé `CLAUDE.md` (raíz y `mobile/`) y `docs/PLAN_MAESTRO.md`
 antes de tocar nada.
 
-La **Fase 8b (identificación comunitaria)** está cerrada. En la sesión anterior se saldaron
-dos de las cuatro deudas técnicas que quedaron de esa fase.
+La **Fase 8b (identificación comunitaria)** está cerrada y sus cuatro deudas técnicas también:
+la última era el **feed comunitario**, que se construyó en la sesión anterior. Hasta entonces
+la única entrada a `AvistamientoDetailScreen` era Perfil → "Mis encuentros", así que nadie
+podía identificar encuentros ajenos — la identificación comunitaria estaba implementada pero
+era inalcanzable.
 
-## Qué se hizo en la sesión anterior (todo mergeado)
+## Qué se hizo en la sesión anterior
 
-| PR | Repo | Qué |
-|----|------|-----|
-| #41 | backend | bump del submódulo `mobile` |
-| #42 | backend | `fix(especies-api)`: serializar `TIMESTAMPTZ` en ISO 8601 |
-| #43 | backend | bump del submódulo `mobile` |
-| #22 | móvil | `fix(sync)`: reconciliar el cache SQLite de especies |
-| #23 | móvil | `feat(sync)`: retirar una identificación sin red |
-| #45 | backend | bump del submódulo `mobile` |
+| PR | Repo | Estado | Qué |
+|----|------|--------|-----|
+| #47 | backend | mergeado | `GET /api/v1/avistamientos`: feed de ajenos + `identificaciones_count` |
+| #48 | backend | mergeado | `visibilidad` privado/público + `PATCH /{id}/compartir` |
+| #49 | backend | mergeado | `foto_url` firmada en cada avistamiento |
+| #24 | móvil | **abierto, checks verdes** | `FeedScreen` + pestaña "Comunidad" |
 
-Detalle de lo que cambió:
+Detalle:
 
-- **ISO 8601 (deuda 1, cerrada).** `services/especies-api/include/utils/timestamps.hpp` +
-  `src/utils/timestamps.cpp`: `utils::toIso8601` / `toIso8601Opt` normalizan lo que devuelve
-  libpqxx (`2026-08-04 18:55:08.259598+00`) a `2026-08-04T18:55:08.259Z`. Se aplica en el
-  mapeo de filas de los 8 repositorios, sin tocar el SQL. 12 tests en
-  `tests/test_timestamps.cpp`. ADR #16 en `docs/PLAN_MAESTRO.md §10`.
-  El parche del cliente (`mobile/src/utils/fechas.ts`) se dejó a propósito: sigue haciendo
-  falta para respuestas viejas cacheadas en SQLite.
-- **Cache SQLite (deuda 4, cerrada).** `pruneSpeciesNotIn` en `mobile/src/db/speciesCache.ts`,
-  llamado desde `initialSync` solo si el barrido cubrió el total. Ojo: el diagnóstico original
-  ("especies duplicadas") era incorrecto — `upsertSpecies` usa `ON CONFLICT(id) DO UPDATE`, así
-  que un id nunca se duplica. Lo que pasaba es que el sync **nunca borraba**, así que
-  sobrevivían especies de un seed anterior con otros ids.
-- **Retiro offline (deuda 2, cerrada).** Tipo `retirar_identificacion` en `mutation_queue`,
-  id de fila derivado del id remoto (`retiro-identificacion-<id>`) con `ON CONFLICT DO UPDATE`
-  para no encolar dos DELETE. 404 y 409 del servidor cuentan como retiro cumplido; 403 es
-  rechazo definitivo. La tarjeta se tacha apenas se encola.
+- **Feed de la API (#47).** Listado paginado, filtros `reino` y `grado_identificacion`, orden
+  por `observado_en` descendente. `identificaciones_count` viene en cada fila para que la
+  tarjeta no dispare una petición por encuentro.
+- **Visibilidad (#48).** ADR #12 estaba decidido desde julio pero **nunca implementado**: el
+  móvil ya llamaba a `/compartir`, un endpoint que no existía. Migración `0008`, enum
+  `avistamiento_visibilidad_enum`, columna con default `privado` y backfill a `publico` de lo
+  ya aprobado. Son **dos ejes distintos, decididos por gente distinta**: `visibilidad` la
+  elige el autor, `estado` la moderación. Un privado ajeno no lo ve nadie, tampoco un
+  moderador — nunca se ofreció a nadie. ADR #19.
+- **`foto_url` (#49).** `avistamientos-fotos` es un bucket privado, así que `foto_key` sola
+  no es mostrable desde el móvil. La API firma una URL GET al responder (SigV4 local, sin
+  llamar a MinIO), válida `S3_PRESIGN_EXPIRES_SECONDS` (900 s). No se guarda: caduca. Si
+  firmar falla, `foto_url` viene `null` y el resto de la respuesta sigue igual. ADR #20.
+  Verificado contra un MinIO real: sin firma 403, firmada 200, firma manipulada 403.
+- **Feed móvil (#24, pendiente de merge).** `FeedScreen` con filtros de reino y grado,
+  pull-to-refresh, paginación por offset, foto desde `foto_url` con emoji de reino como
+  placeholder. `ComunidadStackNavigator` y pestaña 👥 Comunidad entre Explorar y Guardados.
+
+### Desviación consciente del feed móvil
+
+**El feed no se cachea en SQLite**, saltándose la regla offline-first de `mobile/CLAUDE.md`.
+Razón: `foto_url` caduca a los ~15 minutos, así que un feed guardado se vería sin imágenes —
+justo lo que se viene a mirar. Sin red muestra error con botón de reintento. Las mutaciones
+(identificar, retirar) se siguen encolando como siempre; esto solo afecta a la lectura.
 
 ## Qué hacer en esta sesión
 
-**El servidor de producción está caído.** Avanzá todo lo que no dependa de él: código del
-móvil y de la API, con sus tests. El deploy queda para cuando vuelva.
-
-La única deuda grande que sobra es el **feed comunitario**: la única entrada a
-`AvistamientoDetailScreen` es Perfil → "Mis encuentros", así que un usuario no puede
-identificar avistamientos ajenos — que es justo el sentido de la identificación comunitaria.
-
-Propuesta de troceo (un PR por paso, **confirmá el alcance conmigo antes de arrancar el 1**):
-
-1. **API — listado de avistamientos ajenos.** `GET /api/v1/avistamientos` con paginación y
-   filtros por `reino` y `grado_identificacion`, ordenado por `observado_en` descendente,
-   devolviendo solo los `estado = 'aprobado'`. Mirá si ya existe algo parcial en
-   `services/especies-api/src/controllers/avistamiento_controller.cpp` antes de añadir.
-   Probablemente haga falta un índice por migración numerada nueva (**no** editar las
-   existentes). Tests en `services/especies-api/tests/`.
-2. **API — conteo de identificaciones en el listado.** Para que la tarjeta del feed muestre
-   "3 identificaciones" sin una petición por fila.
-3. **Móvil — pantalla de feed** con navegación a `AvistamientoDetailScreen`, tirando del
-   cache SQLite cuando no hay red.
-4. **Móvil — entrada al feed** desde la navegación principal.
-
-Nota: se auditó `auth-service` (Go) buscando el bug de timestamps del PR #42: **no lo tiene**.
-Usa `time.Time` plano y `encoding/json` lo serializa en RFC 3339. Nada que hacer ahí.
+1. **Mergear el PR #24 del móvil** (lo hace el humano) y después **bumpear el submódulo**
+   `mobile` en el backend, en su propio PR.
+2. **Desplegar.** Producción quedó sin actualizar con todo lo anterior: `especies-api` arrastra
+   el fix de ISO 8601 (#42), el feed (#47), la visibilidad (#48) y `foto_url` (#49). El #48
+   trae migración `0008`, así que hay que correr `especies-api-migrate` **antes** de levantar
+   la API.
+3. **Verificar en el dispositivo** todo lo acumulado (lista abajo).
 
 ## Pendiente de verificación
 
-Nada de lo de la sesión anterior se probó en el dispositivo ni en producción. El A53 está
-conectado por `adb`, así que esto se puede verificar contra el entorno local (`make dev`):
+Nada de las dos últimas sesiones se probó en el dispositivo ni en producción:
 
-1. **Cache de especies**: Perfil → "Sincronizar" y comprobar que el contador de la biblioteca
+1. **Feed de comunidad**: entrar en la pestaña Comunidad con el usuario de prueba y comprobar
+   que aparecen encuentros ajenos con foto, que los filtros de reino y grado acotan, que el
+   scroll pagina y que tocar una tarjeta abre el detalle y deja identificar.
+2. **Visibilidad**: un encuentro recién creado **no** debe aparecer en el feed hasta que su
+   autor lo comparta. Verificar también que el autor sí lo ve en "Mis encuentros".
+3. **`foto_url`**: que las fotos del feed carguen de verdad desde el móvil (es una URL contra
+   `S3_PUBLIC_ENDPOINT`; si ese endpoint no es alcanzable desde el teléfono, salen todas con
+   placeholder).
+4. **Cache de especies**: Perfil → "Sincronizar" y comprobar que el contador de la biblioteca
    baja de 17 a 13 (los del seed).
-2. **Retiro offline**: poner el teléfono en modo avión, retirar una identificación propia
-   (debe tacharse con "retirada, pendiente de enviar"), sacar el modo avión y comprobar que
-   se envía sola y el listado del servidor la muestra retirada.
-3. **ISO 8601**: que las fechas de los avistamientos e identificaciones se vean bien **sin**
-   depender del parche de `fechas.ts` (mirar la respuesta cruda de la API).
+5. **Retiro offline**: modo avión, retirar una identificación propia (debe tacharse con
+   "retirada, pendiente de enviar"), quitar el modo avión y comprobar que se envía sola.
+6. **ISO 8601**: que las fechas se vean bien **sin** depender del parche de `fechas.ts`
+   (mirar la respuesta cruda de la API).
 
 ## Cómo levantar los servicios
 
@@ -102,48 +101,58 @@ Ojo, el `Makefile` **no tiene** los targets `test`, `health-check`, `minikube-de
 `db-shell` que menciona `CLAUDE.md`. Los reales son `api-test`, `go-test`, `cpp-test`,
 `exec-db`. `CLAUDE.md` está desactualizado en esa sección.
 
-### Producción (host `trader@10.244.19.205`, por VPN)
+### Producción (host `10.244.117.161`, por VPN)
+
+Producción **se migró el 2026-08-14**: el host viejo `trader@10.244.19.205` (`traderbot`) es
+ahora el entorno de **test**. Las tres piezas que no viven en el repo (env de prod,
+credenciales del túnel, `CLOUDFLARED_UID/GID`) están documentadas en `CLAUDE.md`; sin ellas el
+stack no arranca.
 
 Mergear a `master` **no** despliega nada. Hay que reconstruir a mano:
 
 ```bash
-ssh trader@10.244.19.205
-cd /home/trader/Proyectos/chiloe-biodiversidad-api
-git pull --ff-only
 cd infrastructure/docker
 
-# Reconstruir y levantar SOLO el servicio que cambió:
-docker compose -p chiloe-prod \
-  --env-file /home/trader/.config/chiloe-prod/chiloe.env \
-  -f docker-compose.prod.yml build especies-api
+# Migraciones primero si el PR trae una (el #48 trae la 0008):
+docker compose -p chiloe-prod --env-file ~/.config/chiloe-prod/chiloe.env \
+  -f docker-compose.prod.yml up especies-api-migrate
 
-docker compose -p chiloe-prod \
-  --env-file /home/trader/.config/chiloe-prod/chiloe.env \
+# Reconstruir y levantar SOLO el servicio que cambió:
+docker compose -p chiloe-prod --env-file ~/.config/chiloe-prod/chiloe.env \
+  -f docker-compose.prod.yml build especies-api
+docker compose -p chiloe-prod --env-file ~/.config/chiloe-prod/chiloe.env \
   -f docker-compose.prod.yml up -d especies-api
 
-# Estado y logs:
 docker compose -p chiloe-prod -f docker-compose.prod.yml ps
 docker logs -f chiloe-especies-api
 ```
 
-**Nombrá siempre el servicio concreto.** En ese host conviven ~21 contenedores de otro negocio
-(prefijos `budai_`, `wt-`); los nuestros llevan prefijo `chiloe-`. Un `up -d` a secas es
-peligroso ahí.
+**Nombrá siempre el servicio concreto.** En el host de test conviven ~21 contenedores de otro
+negocio (prefijos `budai_`, `wt-`); los nuestros llevan prefijo `chiloe-`. Un `up -d` a secas
+es peligroso ahí.
 
 Servicios del compose de prod: `postgres`, `redis`, `minio`, `minio-create-buckets`,
 `especies-api-migrate`, `especies-api`, `auth-service`, `gateway`, `cloudflared`.
 
-El despliegue que falta es el de **`especies-api`** (por el PR #42, ISO 8601). Prod sale a
-internet por Cloudflare Tunnel saliente, no por A-record.
+⚠️ **Nunca dos `cloudflared` del mismo túnel a la vez**: Cloudflare ve dos conectores y
+reparte el tráfico entre ambas máquinas.
 
 ## Estado del entorno dev (ahorra media hora)
 
-- **MinIO dev puede no levantar**: el contenedor `dvu-minio-1` de otro proyecto ocupa el
-  puerto 9000. Si pasa, el alta de avistamientos vía API falla con "No se pudo consultar
-  object storage".
+- **Cuidado con los contenedores de otros proyectos en este host.** No basta con que un puerto
+  responda: lanzando un MinIO de prueba en el 59000, el `docker run` falló en silencio
+  ("port is already allocated") y el `curl` de health devolvió 200 **desde el MinIO de otro
+  proyecto**. Los `mc alias set` iban a la instancia ajena y solo fallaron porque las
+  credenciales no coincidían. Antes de usar un puerto: `ss -ltn`, y después verificá que el
+  contenedor está `Up` con los puertos publicados, no solo `Created`.
+- **MinIO dev puede no levantar**: `dvu-minio-1` de otro proyecto ocupa el 9000. Si pasa, el
+  alta de avistamientos vía API falla con "No se pudo consultar object storage".
 - **Datos de prueba en la BD dev**: avistamiento `id=1` ("Arbol grande", `creado_por=2`,
   `estado='aprobado'`), sus identificaciones (una retirada, id 2) y el usuario
   `pruebag@chiloe.dev` (id 2, password `PruebaG2026!`). Credencial solo de desarrollo.
+- **Postgres tarda en estar listo de verdad**: `pg_isready` responde OK contra el servidor
+  temporal de la fase de init y las migraciones fallan con "the database system is shutting
+  down". Esperá con `docker exec ... psql -c 'SELECT 1'`, no con `pg_isready`.
 - `psql`: el usuario es `$POSTGRES_USER` (`dev_user`), no `chiloe_user`. Usá
   `docker exec chiloe-postgres-dev sh -c 'psql -U "$POSTGRES_USER" -d ...'`.
 - La tabla se llama `avistamiento_identificaciones`, no `identificaciones`.
@@ -157,6 +166,8 @@ internet por Cloudflare Tunnel saliente, no por A-record.
 - **No corras `npx prettier` en el repo móvil**: no hay `.prettierrc`, así que usa defaults
   (comillas dobles) y reformatea archivos enteros fuera del estilo del proyecto. El formato
   se valida con `npm run lint`.
+- `npm run lint` arrastra ~25 warnings `no-void` preexistentes en todo el repo. Lo que importa
+  es que salga con **0 errores**.
 - `especies-api` **no compila en este host**: faltan Pistache, libpqxx y
   json-schema-validator. Para compilar o testear:
   `docker build --target tester -t especies-api-test services/especies-api`.
