@@ -8,116 +8,46 @@ Contexto: repo `Chilo-FloraApiDevops` (backend microservicios C++/Go/Nginx) con 
 `mobile/` (React Native bare CLI). Leé `CLAUDE.md` (raíz y `mobile/`) y `docs/PLAN_MAESTRO.md`
 antes de tocar nada.
 
-La **Fase 8b (identificación comunitaria)** está cerrada y sus cuatro deudas técnicas también:
-la última era el **feed comunitario**, que se construyó en la sesión anterior. Hasta entonces
-la única entrada a `AvistamientoDetailScreen` era Perfil → "Mis encuentros", así que nadie
-podía identificar encuentros ajenos — la identificación comunitaria estaba implementada pero
-era inalcanzable.
+**Todo el código de la Fase 8b está en `master` y ninguna de sus piezas está desplegada.**
+El objetivo de esta sesión es uno solo: **poner producción al día y dejar la app móvil
+hablando con la API de producción de punta a punta**, verificado en el dispositivo. No hay
+features nuevas pendientes.
 
-## Qué se hizo en la sesión anterior
+El servidor de producción **ya está encendido** (`https://api.budaicapital.com/health` → 200,
+`https://storage.budaicapital.com/minio/health/live` → 200).
 
-| PR | Repo | Estado | Qué |
-|----|------|--------|-----|
-| #47 | backend | mergeado | `GET /api/v1/avistamientos`: feed de ajenos + `identificaciones_count` |
-| #48 | backend | mergeado | `visibilidad` privado/público + `PATCH /{id}/compartir` |
-| #49 | backend | mergeado | `foto_url` firmada en cada avistamiento |
-| #24 | móvil | **abierto, checks verdes** | `FeedScreen` + pestaña "Comunidad" |
+## Lo que falta desplegar
 
-Detalle:
+`especies-api` en producción arrastra cuatro PRs mergeados y nunca desplegados:
 
-- **Feed de la API (#47).** Listado paginado, filtros `reino` y `grado_identificacion`, orden
-  por `observado_en` descendente. `identificaciones_count` viene en cada fila para que la
-  tarjeta no dispare una petición por encuentro.
-- **Visibilidad (#48).** ADR #12 estaba decidido desde julio pero **nunca implementado**: el
-  móvil ya llamaba a `/compartir`, un endpoint que no existía. Migración `0008`, enum
-  `avistamiento_visibilidad_enum`, columna con default `privado` y backfill a `publico` de lo
-  ya aprobado. Son **dos ejes distintos, decididos por gente distinta**: `visibilidad` la
-  elige el autor, `estado` la moderación. Un privado ajeno no lo ve nadie, tampoco un
-  moderador — nunca se ofreció a nadie. ADR #19.
-- **`foto_url` (#49).** `avistamientos-fotos` es un bucket privado, así que `foto_key` sola
-  no es mostrable desde el móvil. La API firma una URL GET al responder (SigV4 local, sin
-  llamar a MinIO), válida `S3_PRESIGN_EXPIRES_SECONDS` (900 s). No se guarda: caduca. Si
-  firmar falla, `foto_url` viene `null` y el resto de la respuesta sigue igual. ADR #20.
-  Verificado contra un MinIO real: sin firma 403, firmada 200, firma manipulada 403.
-- **Feed móvil (#24, pendiente de merge).** `FeedScreen` con filtros de reino y grado,
-  pull-to-refresh, paginación por offset, foto desde `foto_url` con emoji de reino como
-  placeholder. `ComunidadStackNavigator` y pestaña 👥 Comunidad entre Explorar y Guardados.
+| PR | Qué | Riesgo si falta |
+|----|-----|-----------------|
+| #42 | timestamps en ISO 8601 | fechas inválidas en el móvil salvo por el parche de `fechas.ts` |
+| #47 | `GET /api/v1/avistamientos` (feed + `identificaciones_count`) | **la pestaña Comunidad da 404** |
+| #48 | `visibilidad` + `PATCH /{id}/compartir` (**migración `0008`**) | el móvil llama a un endpoint que no existe |
+| #49 | `foto_url` firmada | el feed sale entero con placeholders de emoji |
 
-### Desviación consciente del feed móvil
+El gateway y `auth-service` no cambiaron; solo hace falta reconstruir `especies-api`.
 
-**El feed no se cachea en SQLite**, saltándose la regla offline-first de `mobile/CLAUDE.md`.
-Razón: `foto_url` caduca a los ~15 minutos, así que un feed guardado se vería sin imágenes —
-justo lo que se viene a mirar. Sin red muestra error con botón de reintento. Las mutaciones
-(identificar, retirar) se siguen encolando como siempre; esto solo afecta a la lectura.
+## Paso 1 — desplegar
 
-## Qué hacer en esta sesión
-
-1. **Mergear el PR #24 del móvil** (lo hace el humano) y después **bumpear el submódulo**
-   `mobile` en el backend, en su propio PR.
-2. **Desplegar.** Producción quedó sin actualizar con todo lo anterior: `especies-api` arrastra
-   el fix de ISO 8601 (#42), el feed (#47), la visibilidad (#48) y `foto_url` (#49). El #48
-   trae migración `0008`, así que hay que correr `especies-api-migrate` **antes** de levantar
-   la API.
-3. **Verificar en el dispositivo** todo lo acumulado (lista abajo).
-
-## Pendiente de verificación
-
-Nada de las dos últimas sesiones se probó en el dispositivo ni en producción:
-
-1. **Feed de comunidad**: entrar en la pestaña Comunidad con el usuario de prueba y comprobar
-   que aparecen encuentros ajenos con foto, que los filtros de reino y grado acotan, que el
-   scroll pagina y que tocar una tarjeta abre el detalle y deja identificar.
-2. **Visibilidad**: un encuentro recién creado **no** debe aparecer en el feed hasta que su
-   autor lo comparta. Verificar también que el autor sí lo ve en "Mis encuentros".
-3. **`foto_url`**: que las fotos del feed carguen de verdad desde el móvil (es una URL contra
-   `S3_PUBLIC_ENDPOINT`; si ese endpoint no es alcanzable desde el teléfono, salen todas con
-   placeholder).
-4. **Cache de especies**: Perfil → "Sincronizar" y comprobar que el contador de la biblioteca
-   baja de 17 a 13 (los del seed).
-5. **Retiro offline**: modo avión, retirar una identificación propia (debe tacharse con
-   "retirada, pendiente de enviar"), quitar el modo avión y comprobar que se envía sola.
-6. **ISO 8601**: que las fechas se vean bien **sin** depender del parche de `fechas.ts`
-   (mirar la respuesta cruda de la API).
-
-## Cómo levantar los servicios
-
-### Entorno local / test
+El host de producción es `10.244.117.161` (por VPN), migrado el 2026-08-14. **Confirmá primero
+el usuario y la ruta del checkout en ese host**: `CLAUDE.md` documenta el comando de compose y
+que el env vive en `~/.config/chiloe-prod/chiloe.env`, pero no la ruta del repo — en el host
+viejo era `/home/trader/Proyectos/chiloe-biodiversidad-api`. Anotalo en este archivo cuando lo
+sepas.
 
 ```bash
-cd /home/obrero/programacion/Chilo-FloraApiDevops
-make dev          # levanta postgres, redis, minio, especies-api, auth-service, gateway
-make ps           # estado
-make logs         # logs de todo (o make logs-especies / logs-auth / logs-gateway)
-make api-test     # health checks de gateway, auth, especies-api y minio
-make dev-down     # bajar (sin borrar volúmenes)
-```
-
-Por debajo es `docker compose -f infrastructure/docker/docker-compose.dev.yml up -d`.
-`make dev-full` añade pgadmin, prometheus y grafana (perfiles `tools` y `monitoring`).
-
-Puertos: gateway `8080`, auth `8081`, especies-api `9081`, minio `9000`.
-
-Ojo, el `Makefile` **no tiene** los targets `test`, `health-check`, `minikube-deploy` ni
-`db-shell` que menciona `CLAUDE.md`. Los reales son `api-test`, `go-test`, `cpp-test`,
-`exec-db`. `CLAUDE.md` está desactualizado en esa sección.
-
-### Producción (host `10.244.117.161`, por VPN)
-
-Producción **se migró el 2026-08-14**: el host viejo `trader@10.244.19.205` (`traderbot`) es
-ahora el entorno de **test**. Las tres piezas que no viven en el repo (env de prod,
-credenciales del túnel, `CLOUDFLARED_UID/GID`) están documentadas en `CLAUDE.md`; sin ellas el
-stack no arranca.
-
-Mergear a `master` **no** despliega nada. Hay que reconstruir a mano:
-
-```bash
+# en el host de prod, dentro del checkout
+git pull --ff-only
+git submodule update --init --recursive   # el puntero de mobile subió con el PR #51
 cd infrastructure/docker
 
-# Migraciones primero si el PR trae una (el #48 trae la 0008):
+# 1. Migración 0008 ANTES de levantar la API nueva.
 docker compose -p chiloe-prod --env-file ~/.config/chiloe-prod/chiloe.env \
   -f docker-compose.prod.yml up especies-api-migrate
 
-# Reconstruir y levantar SOLO el servicio que cambió:
+# 2. Reconstruir y levantar SOLO especies-api.
 docker compose -p chiloe-prod --env-file ~/.config/chiloe-prod/chiloe.env \
   -f docker-compose.prod.yml build especies-api
 docker compose -p chiloe-prod --env-file ~/.config/chiloe-prod/chiloe.env \
@@ -129,56 +59,149 @@ docker logs -f chiloe-especies-api
 
 **Nombrá siempre el servicio concreto.** En el host de test conviven ~21 contenedores de otro
 negocio (prefijos `budai_`, `wt-`); los nuestros llevan prefijo `chiloe-`. Un `up -d` a secas
-es peligroso ahí.
+es peligroso ahí. Y **nunca dos `cloudflared` del mismo túnel a la vez**: Cloudflare ve dos
+conectores y reparte el tráfico entre las dos máquinas.
 
-Servicios del compose de prod: `postgres`, `redis`, `minio`, `minio-create-buckets`,
-`especies-api-migrate`, `especies-api`, `auth-service`, `gateway`, `cloudflared`.
+Comprobaciones tras el deploy, desde cualquier máquina:
 
-⚠️ **Nunca dos `cloudflared` del mismo túnel a la vez**: Cloudflare ve dos conectores y
-reparte el tráfico entre ambas máquinas.
+```bash
+curl -s https://api.budaicapital.com/health                     # 200
+curl -s -i "https://api.budaicapital.com/api/v1/avistamientos?limit=1"   # 401 sin token
+# con un JWT de prod:
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://api.budaicapital.com/api/v1/avistamientos?limit=5" | jq '.data[0]'
+```
 
-## Estado del entorno dev (ahorra media hora)
+En esa respuesta mirá tres cosas: que exista `identificaciones_count`, que exista
+`visibilidad`, y que `foto_url` **no** sea `null` cuando hay `foto_key`.
 
-- **Cuidado con los contenedores de otros proyectos en este host.** No basta con que un puerto
-  responda: lanzando un MinIO de prueba en el 59000, el `docker run` falló en silencio
-  ("port is already allocated") y el `curl` de health devolvió 200 **desde el MinIO de otro
-  proyecto**. Los `mc alias set` iban a la instancia ajena y solo fallaron porque las
-  credenciales no coincidían. Antes de usar un puerto: `ss -ltn`, y después verificá que el
-  contenedor está `Up` con los puertos publicados, no solo `Created`.
-- **MinIO dev puede no levantar**: `dvu-minio-1` de otro proyecto ocupa el 9000. Si pasa, el
-  alta de avistamientos vía API falla con "No se pudo consultar object storage".
-- **Datos de prueba en la BD dev**: avistamiento `id=1` ("Arbol grande", `creado_por=2`,
-  `estado='aprobado'`), sus identificaciones (una retirada, id 2) y el usuario
-  `pruebag@chiloe.dev` (id 2, password `PruebaG2026!`). Credencial solo de desarrollo.
+En la BD, confirmá que la migración corrió:
+
+```sql
+SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 3;
+SELECT visibilidad, count(*) FROM avistamientos GROUP BY 1;
+```
+
+El backfill de la `0008` puso en `publico` lo que ya estaba `aprobado`; el resto queda
+`privado`. Si todo sale `privado`, el feed se verá vacío y **no es un bug**.
+
+## Paso 2 — el cableado del móvil (el punto delicado)
+
+La URL ya está en el código, no hay nada que inventar:
+`mobile/src/config/appConfig.ts` usa `http://localhost:8080` en debug (con `adb reverse`) y
+`https://api.budaicapital.com` en release. Lo que hay que verificar es la cadena entera:
+
+1. **`S3_PUBLIC_ENDPOINT` en `~/.config/chiloe-prod/chiloe.env` debe ser
+   `https://storage.budaicapital.com`**, no `http://minio:9000`. `foto_url` se firma con ese
+   host **dentro de la firma SigV4**: si apunta a un nombre interno, la URL no resuelve desde
+   el teléfono, y si se cambia el host después de firmar, MinIO responde 403. El túnel ya
+   tiene el hostname publicado (`infrastructure/docker/cloudflared/config.yml`), porque el
+   cliente sube las fotos **directo** a MinIO y nunca pasan por el gateway.
+2. **Build release y probarlo sin Metro ni `adb reverse`**, que es la única forma de comprobar
+   que la app habla con producción y no con el túnel de desarrollo:
+   ```bash
+   cd mobile
+   JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./android/gradlew -p android assembleRelease
+   adb install -r android/app/build/outputs/apk/release/app-release.apk
+   ```
+   Antes de probar, **quitá los `adb reverse`** (`adb reverse --remove-all`) para que no haya
+   forma de que el tráfico se cuele al backend local.
+3. **Google Sign-In en release**: hoy `android/app/build.gradle` firma el release con el
+   **keystore de debug** (`signingConfig signingConfigs.debug` dentro de `buildTypes.release`).
+   Eso hace que el SHA-1 sea el mismo que en debug, así que el login sigue funcionando — pero
+   es inaceptable para publicar. Si en esta sesión se decide crear un keystore propio, hay que
+   registrar su SHA-1 en Google Cloud **antes**, o el login falla con `DEVELOPER_ERROR`. El
+   keystore y sus contraseñas **no se commitean**.
+
+## Paso 3 — verificación en el dispositivo
+
+El A53 se conecta con `adb connect 192.168.1.4:36413`. Con el APK release instalado y **sin**
+red local hacia el backend de desarrollo:
+
+1. **Login** con `pruebag@chiloe.dev` (si ese usuario existe en la BD de prod; si no, registrar
+   uno) y con Google.
+2. **Feed de comunidad**: la pestaña 👥 muestra encuentros ajenos **con foto**. Si salen todos
+   con emoji de placeholder, el problema es `S3_PUBLIC_ENDPOINT` o el túnel de storage, no el
+   móvil.
+3. **Filtros y paginación**: acotar por reino y por grado, y hacer scroll hasta que pida la
+   segunda página.
+4. **Identificar** un encuentro ajeno desde el feed y ver que el contador sube.
+5. **Visibilidad**: crear un encuentro nuevo y comprobar que **no** aparece en el feed hasta
+   compartirlo, y que sí aparece en Perfil → "Mis encuentros".
+6. **Subida de foto**: sacar una foto y ver que el PUT presignado a `storage.budaicapital.com`
+   funciona (es el mismo camino que la `foto_url` de lectura, pero de escritura).
+7. **Retiro offline**: modo avión, retirar una identificación propia (se tacha con "pendiente
+   de enviar"), quitar el modo avión y ver que se envía sola.
+8. **ISO 8601**: mirar la respuesta cruda de la API y confirmar que las fechas ya vienen
+   normalizadas sin depender del parche de `mobile/src/utils/fechas.ts`.
+9. **Cache de especies**: Perfil → "Sincronizar" y ver que el contador de la biblioteca baja a
+   los del seed.
+
+## Si algo falla
+
+- **El feed da 404** → el deploy de `especies-api` no tomó; mirá `docker logs chiloe-especies-api`
+  y confirmá que la imagen se reconstruyó (no basta con `up -d`, hace falta `build`).
+- **El feed sale vacío pero responde 200** → todos los avistamientos quedaron `privado`
+  (comportamiento correcto de la `0008`). Compartí uno desde el móvil o con
+  `PATCH /api/v1/avistamientos/{id}/compartir`.
+- **Las fotos no cargan** → `S3_PUBLIC_ENDPOINT`. Verificá con
+  `curl -I "<foto_url copiada de la respuesta>"`: 200 es correcto, 403 significa que el host de
+  la firma no coincide con el host al que se pide.
+- **Login Google con `DEVELOPER_ERROR`** → SHA-1 del keystore no registrado en Google Cloud.
+
+## Entorno local (por si hace falta reproducir algo)
+
+```bash
+cd /home/obrero/programacion/Chilo-FloraApiDevops
+make dev          # postgres, redis, minio, especies-api, auth-service, gateway
+make ps / make logs / make api-test / make dev-down
+```
+
+Puertos: gateway `8080`, auth `8081`, especies-api `9081`, minio `9000`. El `Makefile` **no
+tiene** los targets `test`, `health-check`, `minikube-deploy` ni `db-shell` que menciona
+`CLAUDE.md`; los reales son `api-test`, `go-test`, `cpp-test`, `exec-db`.
+
+Trampas del host de desarrollo que ya costaron tiempo:
+
+- **Contenedores de otros proyectos**: que un puerto responda no significa que sea tuyo. Un
+  `docker run` falló en silencio ("port is already allocated") y el health check devolvió 200
+  **desde el MinIO de otro proyecto**. Antes de usar un puerto: `ss -ltn`; después, confirmá
+  que el contenedor está `Up` con los puertos publicados, no solo `Created`.
+- **MinIO dev puede no levantar**: `dvu-minio-1` ocupa el 9000. Si pasa, el alta de
+  avistamientos falla con "No se pudo consultar object storage".
 - **Postgres tarda en estar listo de verdad**: `pg_isready` responde OK contra el servidor
   temporal de la fase de init y las migraciones fallan con "the database system is shutting
-  down". Esperá con `docker exec ... psql -c 'SELECT 1'`, no con `pg_isready`.
-- `psql`: el usuario es `$POSTGRES_USER` (`dev_user`), no `chiloe_user`. Usá
-  `docker exec chiloe-postgres-dev sh -c 'psql -U "$POSTGRES_USER" -d ...'`.
+  down". Esperá con `docker exec ... psql -c 'SELECT 1'`.
+- `psql`: el usuario es `$POSTGRES_USER` (`dev_user`), no `chiloe_user`.
 - La tabla se llama `avistamiento_identificaciones`, no `identificaciones`.
+- Datos de prueba dev: avistamiento `id=1` ("Arbol grande", `creado_por=2`, `aprobado`) y el
+  usuario `pruebag@chiloe.dev` (id 2, password `PruebaG2026!`). **Credencial solo de desarrollo.**
+- `especies-api` **no compila en este host** (faltan Pistache, libpqxx, json-schema-validator):
+  `docker build --target tester -t especies-api-test services/especies-api`.
 
 ## Build del móvil
 
 - `JAVA_HOME=/usr/lib/jvm/java-17-openjdk` — el JDK 26 del sistema rompe el plugin de Kotlin.
-- Metro en el puerto **8082**: `chiloe-auth-dev` ocupa el 8081 en el host.
-- Dispositivo: `adb connect 192.168.1.4:36413` + `adb reverse tcp:8082 tcp:8082` y el reverse
-  del gateway.
-- **No corras `npx prettier` en el repo móvil**: no hay `.prettierrc`, así que usa defaults
-  (comillas dobles) y reformatea archivos enteros fuera del estilo del proyecto. El formato
-  se valida con `npm run lint`.
-- `npm run lint` arrastra ~25 warnings `no-void` preexistentes en todo el repo. Lo que importa
-  es que salga con **0 errores**.
-- `especies-api` **no compila en este host**: faltan Pistache, libpqxx y
-  json-schema-validator. Para compilar o testear:
-  `docker build --target tester -t especies-api-test services/especies-api`.
-  La lógica pura (como `timestamps.cpp`) sí se puede compilar suelta con g++ + gtest.
+- Metro en el puerto **8082**: `chiloe-auth-dev` ocupa el 8081 en el host. (En release no hace
+  falta Metro.)
+- **No corras `npx prettier` en el repo móvil**: no hay `.prettierrc`, usa comillas dobles por
+  defecto y reformatea archivos enteros fuera del estilo del proyecto. El formato se valida con
+  `npm run lint`, que arrastra ~25 warnings `no-void` preexistentes: lo que importa es **0
+  errores**.
+
+## Detalle que conviene tener presente
+
+El feed **no se cachea en SQLite**, a diferencia de la biblioteca. Es una desviación
+deliberada de la regla offline-first: `foto_url` caduca a los ~15 minutos, así que un feed
+guardado se vería sin imágenes, que es justo lo que se viene a mirar. Sin red muestra un error
+con reintento. Las mutaciones (identificar, retirar) sí se encolan como siempre.
 
 ## Reglas que no se negocian
 
 - Rama por cambio → commits → push → PR contra `master` → checks verdes → **el merge lo hago yo**.
 - Nada de push a `master`, `--force`, `reset --hard` ni `--no-verify`.
 - Migraciones numeradas y **nunca** editadas tras mergear.
-- No commitear `.idea/editor.xml`, `.idea/vcs.xml` ni el directorio sin trackear `diseño/`
-  (submódulo móvil).
+- No commitear `.idea/editor.xml`, `.idea/vcs.xml`, el directorio sin trackear `diseño/`,
+  keystores ni contraseñas de firma.
 - Este archivo **sí** está trackeado: actualizalo al cerrar la sesión, en su propio PR.
 - Avisame explícitamente cada desviación, default elegido u omisión. En español, directo.
