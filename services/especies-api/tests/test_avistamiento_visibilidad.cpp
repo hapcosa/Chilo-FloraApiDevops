@@ -26,11 +26,17 @@ VisibilidadSolicitante moderador(int id) {
     return solicitante;
 }
 
-Avistamiento avistamientoDe(int creadoPor, AvistamientoEstado estado) {
+// Por defecto público: el eje que se está probando es `estado` salvo que el
+// test diga lo contrario.
+Avistamiento avistamientoDe(int creadoPor,
+                            AvistamientoEstado estado,
+                            AvistamientoVisibilidad visibilidad =
+                                AvistamientoVisibilidad::Publico) {
     Avistamiento avistamiento;
     avistamiento.setId(1);
     avistamiento.setCreadoPor(creadoPor);
     avistamiento.setEstado(estado);
+    avistamiento.setVisibilidad(visibilidad);
     return avistamiento;
 }
 
@@ -157,9 +163,82 @@ TEST(AvistamientoVisibilidadTest, FichaSinAprobarSoloAutorYModerador) {
 TEST(AvistamientoVisibilidadTest, FichaSinAutorNoLaVeUnUsuarioCorriente) {
     Avistamiento sinAutor;
     sinAutor.setEstado(AvistamientoEstado::Pendiente);
+    sinAutor.setVisibilidad(AvistamientoVisibilidad::Publico);
 
     EXPECT_FALSE(puedeVerAvistamiento(sinAutor, usuario(7)));
     EXPECT_TRUE(puedeVerAvistamiento(sinAutor, moderador(3)));
+}
+
+// --- Eje `visibilidad`: lo elige el autor, no la moderación (ADR #12) ---
+
+TEST(AvistamientoVisibilidadTest, ElListadoAjenoSoloTraePublicos) {
+    const auto filtros = restringirVisibilidad(AvistamientoFilters{}, usuario(7));
+
+    ASSERT_TRUE(filtros.visibilidad.has_value());
+    EXPECT_EQ(*filtros.visibilidad, AvistamientoVisibilidad::Publico);
+}
+
+// El moderador se salta `estado`, nunca `visibilidad`.
+TEST(AvistamientoVisibilidadTest, ElModeradorTampocoListaPrivadosAjenos) {
+    AvistamientoFilters pedidos;
+    pedidos.visibilidad = AvistamientoVisibilidad::Privado;
+
+    const auto filtros = restringirVisibilidad(pedidos, moderador(3));
+
+    ASSERT_TRUE(filtros.visibilidad.has_value());
+    EXPECT_EQ(*filtros.visibilidad, AvistamientoVisibilidad::Publico);
+}
+
+TEST(AvistamientoVisibilidadTest, PedirPrivadosAjenosNoDaAcceso) {
+    AvistamientoFilters pedidos;
+    pedidos.creado_por = 9;
+    pedidos.visibilidad = AvistamientoVisibilidad::Privado;
+
+    const auto filtros = restringirVisibilidad(pedidos, usuario(7));
+
+    ASSERT_TRUE(filtros.visibilidad.has_value());
+    EXPECT_EQ(*filtros.visibilidad, AvistamientoVisibilidad::Publico);
+}
+
+// "Mis encuentros" muestra los privados propios sin haberlos compartido.
+TEST(AvistamientoVisibilidadTest, LosPropiosNoSeAcotanAPublicos) {
+    AvistamientoFilters pedidos;
+    pedidos.creado_por = 7;
+
+    const auto filtros = restringirVisibilidad(pedidos, usuario(7));
+
+    EXPECT_FALSE(filtros.visibilidad.has_value());
+}
+
+TEST(AvistamientoVisibilidadTest, FichaPrivadaSoloLaVeSuAutor) {
+    const auto privado = avistamientoDe(9, AvistamientoEstado::Aprobado,
+                                        AvistamientoVisibilidad::Privado);
+
+    EXPECT_TRUE(puedeVerAvistamiento(privado, usuario(9)));
+    EXPECT_FALSE(puedeVerAvistamiento(privado, usuario(7)));
+    EXPECT_FALSE(puedeVerAvistamiento(privado, anonimo()));
+    // Nunca se ofreció a nadie: no hay nada que moderar todavía.
+    EXPECT_FALSE(puedeVerAvistamiento(privado, moderador(3)));
+}
+
+TEST(AvistamientoVisibilidadTest, FichaPrivadaSinAutorNoLaVeNadie) {
+    Avistamiento sinAutor;
+    sinAutor.setEstado(AvistamientoEstado::Aprobado);
+    sinAutor.setVisibilidad(AvistamientoVisibilidad::Privado);
+
+    EXPECT_FALSE(puedeVerAvistamiento(sinAutor, usuario(7)));
+    EXPECT_FALSE(puedeVerAvistamiento(sinAutor, moderador(3)));
+    EXPECT_FALSE(puedeVerAvistamiento(sinAutor, anonimo()));
+}
+
+// Los dos ejes son independientes: público no significa aprobado.
+TEST(AvistamientoVisibilidadTest, PublicoSinAprobarSigueOculto) {
+    const auto compartido = avistamientoDe(9, AvistamientoEstado::Pendiente,
+                                           AvistamientoVisibilidad::Publico);
+
+    EXPECT_FALSE(puedeVerAvistamiento(compartido, usuario(7)));
+    EXPECT_TRUE(puedeVerAvistamiento(compartido, moderador(3)));
+    EXPECT_TRUE(puedeVerAvistamiento(compartido, usuario(9)));
 }
 
 } // namespace
