@@ -99,6 +99,7 @@ set(REQUIRED_SOURCES
         src/services/genero_service.cpp
         src/services/especie_service.cpp
         src/services/avistamiento_service.cpp
+        src/services/avistamiento_visibilidad.cpp
         src/services/categoria_service.cpp
         src/services/moderacion_service.cpp
         src/services/identificacion_service.cpp
@@ -217,6 +218,7 @@ set(SOURCES
         src/services/genero_service.cpp
         src/services/especie_service.cpp
         src/services/avistamiento_service.cpp
+        src/services/avistamiento_visibilidad.cpp
         src/services/categoria_service.cpp
         src/services/moderacion_service.cpp
         src/services/identificacion_service.cpp

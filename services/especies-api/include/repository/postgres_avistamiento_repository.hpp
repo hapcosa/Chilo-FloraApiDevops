@@ -11,7 +11,9 @@ class PostgresAvistamientoRepository : public IAvistamientoRepository {
 private:
     std::shared_ptr<Database> database;
 
-    Avistamiento mapRowToAvistamiento(const pqxx::row& row);
+    // `withCount` solo cuando la consulta trajo la columna
+    // `identificaciones_count`; los RETURNING no la traen.
+    Avistamiento mapRowToAvistamiento(const pqxx::row& row, bool withCount = false);
 
 public:
     explicit PostgresAvistamientoRepository(std::shared_ptr<Database> database);
@@ -20,6 +22,7 @@ public:
     AvistamientoSearchResult find(const AvistamientoFilters& filters) override;
     std::optional<Avistamiento> findById(int id) override;
     Avistamiento moderate(int id, const ModeracionAvistamiento& moderacion) override;
+    std::optional<Avistamiento> compartir(int id, int usuarioId) override;
 };
 
 #endif // POSTGRES_AVISTAMIENTO_REPOSITORY_HPP

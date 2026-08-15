@@ -347,6 +347,41 @@ moderación de contenido —ocultar una foto inapropiada— y se resuelve por
 `PATCH /avistamientos/{id}/moderacion`. Son dos decisiones distintas y las toma gente
 distinta.
 
+### Visibilidad de avistamientos (ADR #12, implementado en el #19)
+
+La migración `0008_avistamientos_visibilidad.sql` añade el tercer eje del avistamiento:
+
+```sql
+CREATE TYPE avistamiento_visibilidad_enum AS ENUM ('privado', 'publico');
+ALTER TABLE avistamientos
+    ADD COLUMN visibilidad avistamiento_visibilidad_enum NOT NULL DEFAULT 'privado';
+```
+
+Los tres ejes los deciden personas distintas y no se mezclan:
+
+| Eje | Quién decide | Cómo cambia |
+|-----|--------------|-------------|
+| `visibilidad` | el autor | `PATCH /avistamientos/{id}/compartir` |
+| `estado` | la moderación | `PATCH /avistamientos/{id}/moderacion` |
+| `grado_identificacion` | la comunidad | se recalcula tras cada identificación |
+
+Reglas de la capa de aplicación (`services/avistamiento_visibilidad.cpp`, sin Pistache ni
+BD para poder testearlas):
+
+- Un avistamiento nace `privado`. `visibilidad` **no** se lee del cuerpo de un `POST`:
+  publicar es una acción aparte y explícita.
+- Los privados ajenos no los ve nadie, **tampoco admin/moderator**: no se ofrecieron a
+  nadie, así que no hay nada que moderar hasta que su dueño los comparta.
+- Dentro de lo público, admin/moderator ven cualquier `estado` y el resto solo `aprobado`
+  (ADR #17). Público no significa aprobado: compartir mete el encuentro en la cola.
+- Quien filtra por `creado_por` = su id ve los suyos enteros, privados y sin aprobar
+  incluidos: es "Mis encuentros".
+- `compartir` resuelve la propiedad en el propio `WHERE creado_por = $1` y responde 404, no
+  403, cuando el avistamiento es de otro: un 403 confirmaría que existe.
+
+El backfill de la migración puso en `publico` lo ya `aprobado`, que bajo las reglas de la
+Fase 6 se registró para el catálogo público y un moderador revisó como tal.
+
 ### Campos sugeridos por reino (en `atributos_especificos`)
 
 Pensé en lo que un usuario de divulgación querría leer y lo que es taxonómicamente honesto:
@@ -712,8 +747,10 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
       (`sin_identificar`/`en_discusion`/`investigacion`) se recalcula en la capa de servicio
       tras cada cambio, con quórum de 2/3 y voto decisivo del curador de la categoría. ✅
 - [ ] Avistamientos privados por defecto ("mis encuentros"): visibilidad
-      `privado`/`publico`, endpoint para que el dueño comparta un encuentro a la moderación
-      pública, UI móvil completa (hoy la cola offline/sync existe pero no hay pantalla).
+      `privado`/`publico` y `PATCH /api/v1/avistamientos/{id}/compartir` para que el dueño
+      ofrezca un encuentro a la moderación pública ya existen en el backend (migración
+      `0008`, ADR #19). Falta la UI móvil (hoy la cola offline/sync existe pero no hay
+      pantalla).
 - [ ] Compartir un encuentro a Instagram/Facebook Stories (intents nativos, sin red social
       propia).
 - [ ] Perfil con avatar (subida vía presigned URL, bucket `perfiles-fotos`).
@@ -745,6 +782,12 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 | 15 (2026-08-03) | El panel de curaduría es una **SPA React + Vite + TypeScript** que se compila dentro de la imagen del **gateway** y se sirve como estático bajo `/curaduria/`, autenticada con el mismo JWT del `auth-service`. Los formularios de `atributos_especificos` se generan en runtime desde `GET /api/v1/schemas`, no desde una copia de los schemas en el front | Server-side rendering (Next.js) / plantillas HTML servidas por `especies-api` / duplicar los JSON Schemas en el front | El panel es una herramienta interna para una decena de personas: no necesita SEO ni SSR, y un bundle estático no añade ningún proceso que mantener, monitorear ni escalar —cabe en el contenedor de Nginx que ya existe. React es además el stack que ya se usa en el móvil, así que no abre un frente nuevo de aprendizaje. Servir los schemas desde la API en vez de copiarlos evita el fallo silencioso clásico: que el formulario acepte un campo que el validador del servidor rechaza. Consecuencia asumida: `VITE_S3_PUBLIC_BASE` se hornea en tiempo de build (un bundle estático no lee configuración en runtime), así que cambiar la URL pública del object storage obliga a reconstruir la imagen del gateway. |
 
 | 16 (2026-08-09) | Todos los `TIMESTAMPTZ` que `especies-api` expone en JSON salen en **ISO 8601 con milisegundos y zona explícita** (`2026-08-04T18:55:08.259Z`), normalizados en el mapeo de filas por `utils/timestamps.hpp`. Los clientes no parsean el formato nativo de Postgres | Formatear en SQL con `to_char` en cada SELECT / parchear cada cliente / devolver epoch en milisegundos | libpqxx entrega el literal de Postgres (`2026-08-04 18:55:08.259598+00`): espacio en vez de `T` y seis dígitos de fracción. Hermes (React Native) lo rechaza con `Invalid Date`, y cualquier consumidor futuro tropieza igual. Normalizar en el mapeo lo arregla una vez para toda la API y deja la lógica en una función pura testeable, mientras que `to_char` habría que repetirlo en cada consulta de cada repositorio y se olvida en la siguiente. Se trunca a milisegundos porque ECMAScript solo define tres dígitos de fracción. Consecuencia: el parche del cliente (`mobile/src/utils/fechas.ts`) queda redundante, pero se conserva porque también cubre respuestas cacheadas en SQLite de versiones anteriores de la API. |
+
+| 17 (2026-08-15) | En `GET /api/v1/avistamientos` y `GET /api/v1/avistamientos/{id}`, el filtro `estado` que manda el cliente **no se respeta** salvo que quien pregunte sea admin/moderator o esté pidiendo sus propios avistamientos (`creado_por` = su id): en cualquier otro caso el servidor lo fuerza a `aprobado` y la ficha suelta responde 404. La regla vive en `services/avistamiento_visibilidad.cpp`, aislada de Pistache | Devolver 403 cuando el cliente pide un estado que no le toca / confiar en que el cliente solo pida `aprobado` / restringir solo el listado y dejar la ficha suelta abierta | La ruta ya exigía sesión, pero cualquier usuario logueado podía pedir `?estado=pendiente` y ver avistamientos ajenos sin moderar —justo las fotos que la moderación existe para retener— y enumerar ids saltándose el listado. Se acota en silencio en vez de con 403 porque el feed no tiene por qué distinguir "no hay nada" de "pediste de más", y porque un 403 convertiría en error una petición que hoy funciona. La excepción del autor es lo que mantiene vivo "Mis encuentros", que necesita ver los propios pendientes. |
+
+| 18 (2026-08-15) | El listado de avistamientos trae `identificaciones_count` (vigentes, no retiradas) resuelto con un subselect correlacionado en la misma consulta, y ordena por `observado_en DESC, id DESC` | Una petición de identificaciones por tarjeta / un contador desnormalizado en `avistamientos` mantenido por trigger | El feed muestra "N identificaciones" en cada tarjeta: una petición por fila multiplica las llamadas por el tamaño de la página. El subselect se apoya en `idx_avistamiento_identificaciones_avistamiento`, que la migración 0007 ya creó parcial sobre `NOT retirada`, así que no hizo falta migración nueva. Un contador desnormalizado habría que mantenerlo sincronizado con el retiro y el recálculo de grado, y el ADR #14 ya decidió que esa lógica vive en la capa de servicio y no en triggers. El desempate por `id` es lo que evita que dos avistamientos con el mismo `observado_en` se repitan o se salten entre páginas. |
+
+| 19 (2026-08-15) | Se implementa el ADR #12: `avistamientos.visibilidad` (`privado`/`publico`, migración `0008`, default `privado`) es un eje **independiente** de `estado`, y los privados ajenos no los ve nadie —**tampoco admin/moderator**—. El autor publica el suyo con `PATCH /api/v1/avistamientos/{id}/compartir`; el backfill puso en `publico` lo ya aprobado | Reutilizar `estado` con un valor `privado` / dejar que la moderación vea todo, privados incluidos / publicar por `PATCH` genérico con `visibilidad` en el cuerpo | El ADR #12 se decidió en julio de 2026 pero la columna nunca se creó: hasta ahora "mis encuentros" y "avistamientos de la comunidad" eran la misma consulta, y el móvil ya llamaba a un `/compartir` que el backend no tenía. Mezclarlo con `estado` no funciona porque son decisiones de personas distintas —el autor elige visibilidad, la moderación elige estado— y un privado puede estar además pendiente. La moderación no ve los privados porque un encuentro que nunca se ofreció a nadie no tiene nada que moderar; compartirlo es lo que lo mete en la cola. El endpoint dedicado en vez de un `PATCH` genérico deja el `WHERE creado_por = $1` en una sola consulta y evita que `visibilidad` sea un campo más que el cliente pueda mandar en cualquier petición: `fromJson` lo ignora a propósito. El backfill respeta lo que los autores pidieron bajo las reglas de la Fase 6, donde registrar un avistamiento era ofrecerlo al catálogo público. |
 
 Cualquier cambio futuro a estas decisiones debe quedar como una entrada nueva con fecha y justificación, no editar la anterior.
 

@@ -120,10 +120,24 @@ Rutas de catálogo:
 - `GET /api/generos`
 - `POST /api/v1/uploads/presign`
 - `PATCH /api/v1/especies/{id}/fotos`
-- `GET /api/v1/avistamientos`
+- `GET /api/v1/avistamientos?reino=fungi&grado_identificacion=en_discusion&limit=20&offset=0`
 - `GET /api/v1/avistamientos/{id}`
 - `POST /api/v1/avistamientos`
 - `PATCH /api/v1/avistamientos/{id}/moderacion`
+- `PATCH /api/v1/avistamientos/{id}/compartir`
+
+El listado de avistamientos ordena por `observado_en` descendente y filtra por dos ejes
+que decide gente distinta:
+
+- **`visibilidad`** (`privado` | `publico`) la elige el autor. Un avistamiento nace
+  `privado`; `PATCH /{id}/compartir` lo pone en `publico`. Los privados ajenos no los ve
+  nadie más, tampoco la moderación: nunca se ofrecieron a nadie.
+- **`estado`** lo decide la moderación. Dentro de lo público, admin/moderator ven
+  cualquier estado y el resto solo `aprobado`.
+
+Quien filtra por sus propios avistamientos (`creado_por` = su id) los ve enteros, privados
+y sin aprobar incluidos: es la pantalla "Mis encuentros". Cada fila trae
+`identificaciones_count`, las identificaciones vigentes de ese avistamiento.
 
 Rutas de auth:
 

@@ -1,4 +1,5 @@
 #include "../../include/controllers/avistamiento_controller.hpp"
+#include "../../include/services/avistamiento_visibilidad.hpp"
 #include "../../include/utils/request_identity.hpp"
 
 #include <nlohmann/json.hpp>
@@ -33,6 +34,15 @@ std::optional<std::string> queryStr(const Pistache::Http::Uri::Query& query,
                                     const std::string& key) {
     if (!query.has(key)) return std::nullopt;
     return query.get(key).value();
+}
+
+VisibilidadSolicitante solicitanteDe(const Pistache::Rest::Request& request) {
+    VisibilidadSolicitante solicitante;
+    if (const auto identity = extractIdentity(request)) {
+        solicitante.usuario_id = identity->userId;
+        solicitante.puede_moderar = identity->canModerate();
+    }
+    return solicitante;
 }
 
 ModeracionAvistamiento parseModeracion(const json& payload) {
@@ -79,12 +89,22 @@ void AvistamientoController::getAll(
         if (auto value = queryInt(query, "creado_por")) {
             filters.creado_por = *value;
         }
+        if (auto value = queryStr(query, "visibilidad")) {
+            filters.visibilidad = avistamientoVisibilidadFromString(*value);
+        }
+        if (auto value = queryStr(query, "grado_identificacion")) {
+            filters.grado_identificacion = gradoIdentificacionFromString(*value);
+        }
         if (auto value = queryInt(query, "limit")) {
             filters.limit = *value;
         }
         if (auto value = queryInt(query, "offset")) {
             filters.offset = *value;
         }
+
+        // El estado pedido solo se respeta si quien pregunta tiene derecho a
+        // verlo; el resto de las peticiones se acotan a 'aprobado'.
+        filters = restringirVisibilidad(filters, solicitanteDe(request));
 
         const auto result = service->searchAvistamientos(filters);
         json data = json::array();
@@ -113,7 +133,9 @@ void AvistamientoController::getById(
     try {
         const int id = request.param(":id").as<int>();
         const auto avistamiento = service->getAvistamientoById(id);
-        if (!avistamiento) {
+        // La misma regla que el listado: si no está aprobado solo lo ven su
+        // autor y quien modera. 404 y no 403 para no confirmar que existe.
+        if (!avistamiento || !puedeVerAvistamiento(*avistamiento, solicitanteDe(request))) {
             sendJson(response, Pistache::Http::Code::Not_Found,
                      {{"success", false}, {"error", "avistamiento no encontrado"}});
             return;
@@ -156,6 +178,34 @@ void AvistamientoController::create(
     } catch (const std::invalid_argument& error) {
         sendJson(response, Pistache::Http::Code::Bad_Request,
                  {{"success", false}, {"error", error.what()}});
+    } catch (const std::exception& error) {
+        sendJson(response, Pistache::Http::Code::Internal_Server_Error,
+                 {{"success", false}, {"error", error.what()}});
+    }
+}
+
+void AvistamientoController::compartir(
+    const Pistache::Rest::Request& request,
+    Pistache::Http::ResponseWriter response) {
+    auto identity = extractIdentity(request);
+    if (!identity) {
+        sendJson(response, Pistache::Http::Code::Unauthorized,
+                 {{"success", false}, {"error", "No se pudo verificar la sesión del usuario"}});
+        return;
+    }
+
+    try {
+        const int id = request.param(":id").as<int>();
+        // Solo el autor publica lo suyo. 404 y no 403 si es de otro: confirmar
+        // que existe ya diría algo de un encuentro privado ajeno.
+        const auto avistamiento = service->compartirAvistamiento(id, identity->userId);
+        if (!avistamiento) {
+            sendJson(response, Pistache::Http::Code::Not_Found,
+                     {{"success", false}, {"error", "avistamiento no encontrado"}});
+            return;
+        }
+
+        sendJson(response, Pistache::Http::Code::Ok, avistamiento->toJson());
     } catch (const std::exception& error) {
         sendJson(response, Pistache::Http::Code::Internal_Server_Error,
                  {{"success", false}, {"error", error.what()}});
