@@ -100,6 +100,7 @@ nlohmann::json Avistamiento::toJson() const {
     writeOpt(json, "nombre_sugerido", nombre_sugerido);
     writeOpt(json, "descripcion", descripcion);
     json["foto_key"] = foto_key;
+    writeOpt(json, "foto_url", foto_url);
     json["geo_lat"] = geo_lat;
     json["geo_lng"] = geo_lng;
     writeOpt(json, "precision_metros", precision_metros);

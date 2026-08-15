@@ -28,22 +28,53 @@ void AvistamientoService::validateAvistamiento(const Avistamiento& avistamiento)
     }
 }
 
+// La foto de un encuentro vive en un bucket privado, así que la única forma de
+// que un cliente la muestre es una URL firmada de corta duración. Se resuelve al
+// responder y no se guarda: caduca. Un fallo al firmar no tumba la respuesta —
+// una tarjeta sin foto es peor que nada, pero mucho menos que un 500.
+void AvistamientoService::resolverFotoUrl(Avistamiento& avistamiento) const {
+    if (!storageService || avistamiento.getFotoKey().empty()) {
+        return;
+    }
+    try {
+        avistamiento.setFotoUrl(
+            storageService->createPresignedGet(AvistamientosBucket,
+                                               avistamiento.getFotoKey()));
+    } catch (const std::exception&) {
+        avistamiento.setFotoUrl(std::nullopt);
+    }
+}
+
 Avistamiento AvistamientoService::createAvistamiento(const Avistamiento& avistamiento) {
     validateAvistamiento(avistamiento);
-    return repository->create(avistamiento);
+    auto creado = repository->create(avistamiento);
+    resolverFotoUrl(creado);
+    return creado;
 }
 
 AvistamientoSearchResult AvistamientoService::searchAvistamientos(
     const AvistamientoFilters& filters) {
-    return repository->find(filters);
+    auto result = repository->find(filters);
+    for (auto& avistamiento : result.data) {
+        resolverFotoUrl(avistamiento);
+    }
+    return result;
 }
 
 std::optional<Avistamiento> AvistamientoService::getAvistamientoById(int id) {
-    return repository->findById(id);
+    auto avistamiento = repository->findById(id);
+    if (avistamiento) {
+        resolverFotoUrl(*avistamiento);
+    }
+    return avistamiento;
 }
 
 std::optional<Avistamiento> AvistamientoService::compartirAvistamiento(int id, int usuarioId) {
-    return repository->compartir(id, usuarioId);
+    auto avistamiento = repository->compartir(id, usuarioId);
+    if (avistamiento) {
+        resolverFotoUrl(*avistamiento);
+    }
+    return avistamiento;
 }
 
 Avistamiento AvistamientoService::moderateAvistamiento(
@@ -57,6 +88,8 @@ Avistamiento AvistamientoService::moderateAvistamiento(
         throw std::invalid_argument("motivo_rechazo es obligatorio al rechazar");
     }
 
-    return repository->moderate(id, moderacion);
+    auto moderado = repository->moderate(id, moderacion);
+    resolverFotoUrl(moderado);
+    return moderado;
 }
 

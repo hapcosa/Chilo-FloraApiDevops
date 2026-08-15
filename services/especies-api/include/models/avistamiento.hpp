@@ -52,6 +52,10 @@ private:
     // evidencia de la que sale el grado, pero contada: el feed la muestra en la
     // tarjeta y sin esto haría una petición por fila.
     int identificaciones_count = 0;
+    // URL de lectura firmada, resuelta por la capa de servicio al responder.
+    // No es una columna: `avistamientos-fotos` es un bucket privado y la firma
+    // caduca, así que guardarla no tendría sentido.
+    std::optional<std::string> foto_url;
     std::optional<int> moderado_por;
     std::optional<std::string> moderado_en;
     std::optional<std::string> motivo_rechazo;
@@ -74,6 +78,7 @@ public:
     AvistamientoVisibilidad getVisibilidad() const { return visibilidad; }
     GradoIdentificacion getGradoIdentificacion() const { return grado_identificacion; }
     int getIdentificacionesCount() const { return identificaciones_count; }
+    const std::optional<std::string>& getFotoUrl() const { return foto_url; }
     const std::optional<int>& getModeradoPor() const { return moderado_por; }
     const std::optional<std::string>& getModeradoEn() const { return moderado_en; }
     const std::optional<std::string>& getMotivoRechazo() const { return motivo_rechazo; }
@@ -95,6 +100,7 @@ public:
     void setVisibilidad(AvistamientoVisibilidad value) { visibilidad = value; }
     void setGradoIdentificacion(GradoIdentificacion value) { grado_identificacion = value; }
     void setIdentificacionesCount(int value) { identificaciones_count = value; }
+    void setFotoUrl(std::optional<std::string> value) { foto_url = std::move(value); }
     void setModeradoPor(std::optional<int> value) { moderado_por = value; }
     void setModeradoEn(std::optional<std::string> value) { moderado_en = std::move(value); }
     void setMotivoRechazo(std::optional<std::string> value) { motivo_rechazo = std::move(value); }

@@ -447,8 +447,13 @@ Pensé en lo que un usuario de divulgación querría leer y lo que es taxonómic
 
 ### Buckets
 
-- `especies-fotos` — fichas curadas, públicas vía CDN.
-- `avistamientos-fotos` — fotos de usuarios, requieren moderación antes de ser públicas.
+- `especies-fotos` — fichas curadas, lectura anónima (`mc anonymous set download`). La API
+  devuelve `imagenes_urls` directas.
+- `avistamientos-fotos` — fotos de usuarios, **privado** (`mc anonymous set none`) en dev,
+  prod y k8s. Como una key sola no se puede mostrar, la API devuelve `foto_url`: una URL
+  GET presignada de corta duración, firmada al responder (ADR #20). Es lo que permite que
+  el feed comunitario muestre encuentros ajenos sin abrir el bucket.
+- `perfiles-fotos` — avatares, lectura anónima. El backend guarda la URL, no la key.
 
 ### Procesamiento
 
@@ -788,6 +793,8 @@ Mantener paridad con minikube. Aprendes Kubernetes una sola vez. Si más adelant
 | 18 (2026-08-15) | El listado de avistamientos trae `identificaciones_count` (vigentes, no retiradas) resuelto con un subselect correlacionado en la misma consulta, y ordena por `observado_en DESC, id DESC` | Una petición de identificaciones por tarjeta / un contador desnormalizado en `avistamientos` mantenido por trigger | El feed muestra "N identificaciones" en cada tarjeta: una petición por fila multiplica las llamadas por el tamaño de la página. El subselect se apoya en `idx_avistamiento_identificaciones_avistamiento`, que la migración 0007 ya creó parcial sobre `NOT retirada`, así que no hizo falta migración nueva. Un contador desnormalizado habría que mantenerlo sincronizado con el retiro y el recálculo de grado, y el ADR #14 ya decidió que esa lógica vive en la capa de servicio y no en triggers. El desempate por `id` es lo que evita que dos avistamientos con el mismo `observado_en` se repitan o se salten entre páginas. |
 
 | 19 (2026-08-15) | Se implementa el ADR #12: `avistamientos.visibilidad` (`privado`/`publico`, migración `0008`, default `privado`) es un eje **independiente** de `estado`, y los privados ajenos no los ve nadie —**tampoco admin/moderator**—. El autor publica el suyo con `PATCH /api/v1/avistamientos/{id}/compartir`; el backfill puso en `publico` lo ya aprobado | Reutilizar `estado` con un valor `privado` / dejar que la moderación vea todo, privados incluidos / publicar por `PATCH` genérico con `visibilidad` en el cuerpo | El ADR #12 se decidió en julio de 2026 pero la columna nunca se creó: hasta ahora "mis encuentros" y "avistamientos de la comunidad" eran la misma consulta, y el móvil ya llamaba a un `/compartir` que el backend no tenía. Mezclarlo con `estado` no funciona porque son decisiones de personas distintas —el autor elige visibilidad, la moderación elige estado— y un privado puede estar además pendiente. La moderación no ve los privados porque un encuentro que nunca se ofreció a nadie no tiene nada que moderar; compartirlo es lo que lo mete en la cola. El endpoint dedicado en vez de un `PATCH` genérico deja el `WHERE creado_por = $1` en una sola consulta y evita que `visibilidad` sea un campo más que el cliente pueda mandar en cualquier petición: `fromJson` lo ignora a propósito. El backfill respeta lo que los autores pidieron bajo las reglas de la Fase 6, donde registrar un avistamiento era ofrecerlo al catálogo público. |
+
+| 20 (2026-08-15) | Los avistamientos se sirven con **`foto_url`**, una URL GET presignada de corta duración (`S3_PRESIGN_EXPIRES_SECONDS`, 900 s por defecto) resuelta en la capa de servicio al responder. El bucket `avistamientos-fotos` sigue privado | Abrir `avistamientos-fotos` a lectura anónima como `especies-fotos` / un endpoint `GET /avistamientos/{id}/foto` que responda 302 a la URL firmada / guardar la URL en una columna | El feed comunitario necesita mostrar la foto de encuentros ajenos, y hasta ahora el móvil solo sabía pintar los propios desde el archivo local: la API expone `foto_key` y el bucket está en `mc anonymous set none` en dev, prod y k8s. Abrir el bucket dejaría cualquier foto legible con solo saber la key, incluidas las de encuentros privados y las que la moderación rechazó —justo lo que la moderación existe para retener—. El 302 obligaría a que el `<Image>` de React Native siguiera el redirect llevando el JWT, que es donde ese patrón suele romperse en Android. Firmar en la respuesta no cuesta red: es un HMAC local, el mismo `createSignedUrl` que ya firmaba los PUT. No se guarda en una columna porque caduca. Un fallo al firmar deja `foto_url` en `null` en vez de tumbar la respuesta: una tarjeta sin foto es mejor que un 500. Consecuencia asumida: la URL vive fuera del control de la API una vez emitida, así que la ventana de exposición si alguien la reenvía es la de la expiración. |
 
 Cualquier cambio futuro a estas decisiones debe quedar como una entrada nueva con fecha y justificación, no editar la anterior.
 
