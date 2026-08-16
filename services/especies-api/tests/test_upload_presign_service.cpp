@@ -94,3 +94,61 @@ TEST(UploadPresignServiceTest, RechazaExpiracionFueraDeRango) {
                                            "image/jpeg", 7200),
                  std::invalid_argument);
 }
+
+// --- URLs de lectura firmadas (bucket privado de avistamientos) ---
+
+TEST(UploadPresignServiceTest, CreaPresignedGetParaAvistamientos) {
+    UploadPresignService service(testConfig());
+
+    const std::string url = service.createPresignedGet(
+        "avistamientos-fotos", "avistamientos/2026/08/15/abc-foto.jpg", 600);
+
+    EXPECT_EQ(url.rfind("http://localhost:9000/avistamientos-fotos/"
+                        "avistamientos/2026/08/15/abc-foto.jpg?", 0),
+              0);
+    EXPECT_NE(url.find("X-Amz-Expires=600"), std::string::npos);
+    EXPECT_NE(url.find("X-Amz-Signature="), std::string::npos);
+    // Sin content-type que firmar: el GET solo firma el host.
+    EXPECT_NE(url.find("X-Amz-SignedHeaders=host"), std::string::npos);
+}
+
+// La firma se calcula sobre el endpoint público, no sobre el interno: quien
+// abre la URL es el teléfono, que no ve la red de Docker.
+TEST(UploadPresignServiceTest, PresignedGetUsaElEndpointPublico) {
+    UploadStorageConfig config = testConfig();
+    config.publicEndpoint = "https://fotos.example.org";
+    UploadPresignService service(config);
+
+    const std::string url =
+        service.createPresignedGet("avistamientos-fotos", "avistamientos/x.jpg");
+
+    EXPECT_EQ(url.rfind("https://fotos.example.org/avistamientos-fotos/", 0), 0);
+}
+
+TEST(UploadPresignServiceTest, PresignedGetRechazaBucketNoPermitido) {
+    UploadPresignService service(testConfig());
+
+    EXPECT_THROW(service.createPresignedGet("otro-bucket", "foto.jpg"),
+                 std::invalid_argument);
+}
+
+// La key viene de la BD, pero pudo escribirla un cliente viejo: firmar una
+// travesía de rutas daría acceso a otro bucket.
+TEST(UploadPresignServiceTest, PresignedGetRechazaKeyConRuta) {
+    UploadPresignService service(testConfig());
+
+    EXPECT_THROW(
+        service.createPresignedGet("avistamientos-fotos", "../especies-fotos/x.jpg"),
+        std::invalid_argument);
+    EXPECT_THROW(service.createPresignedGet("avistamientos-fotos", ""),
+                 std::invalid_argument);
+}
+
+TEST(UploadPresignServiceTest, PresignedGetRechazaExpiracionFueraDeRango) {
+    UploadPresignService service(testConfig());
+
+    EXPECT_THROW(service.createPresignedGet("avistamientos-fotos", "a.jpg", 10),
+                 std::invalid_argument);
+    EXPECT_THROW(service.createPresignedGet("avistamientos-fotos", "a.jpg", 7200),
+                 std::invalid_argument);
+}

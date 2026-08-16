@@ -40,6 +40,15 @@ public:
         const std::string& contentType,
         std::optional<int> expiresIn = std::nullopt) const;
 
+    // URL de lectura de corta duración. `avistamientos-fotos` es un bucket
+    // privado (`mc anonymous set none`), así que sin firma no hay forma de
+    // mostrar la foto de un encuentro ajeno. A diferencia del PUT, aquí la key
+    // ya existe: la elige el servidor al firmar la subida, no el cliente.
+    std::string createPresignedGet(
+        const std::string& bucket,
+        const std::string& key,
+        std::optional<int> expiresIn = std::nullopt) const;
+
     bool objectExists(const std::string& bucket, const std::string& key) const;
     const UploadStorageConfig& getConfig() const;
 

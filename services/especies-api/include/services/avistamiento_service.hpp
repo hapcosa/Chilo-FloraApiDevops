@@ -13,6 +13,7 @@ private:
     std::shared_ptr<UploadPresignService> storageService;
 
     void validateAvistamiento(const Avistamiento& avistamiento) const;
+    void resolverFotoUrl(Avistamiento& avistamiento) const;
 
 public:
     AvistamientoService(std::shared_ptr<IAvistamientoRepository> repository,
