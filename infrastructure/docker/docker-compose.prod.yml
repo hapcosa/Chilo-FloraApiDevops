@@ -211,6 +211,16 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - OAUTH_REDIRECT_URL=${PUBLIC_API_URL:-https://api.budaicapital.com}/api/v1/auth/callback
+    # Es el único servicio que necesita salir a internet: valida el idToken de
+    # Google contra `oauth2.googleapis.com`. Docker copia el resolv.conf del
+    # host al crear el contenedor y no lo vuelve a mirar, así que si el
+    # contenedor arranca antes de que NetworkManager termine (típico tras un
+    # reboot) se queda sin nameserver externo y todo login con Google devuelve
+    # 401 sin llegar a salir a la red. Fijar los resolutores acá lo hace
+    # inmune al orden de arranque.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     depends_on:
       postgres:
         condition: service_healthy
