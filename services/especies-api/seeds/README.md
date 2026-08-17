@@ -43,3 +43,12 @@ DB_NAME=chiloe_flora_dev DB_USER=dev_user DB_PASSWORD=dev_password ./scripts/see
 | Archivo | Contenido |
 |---------|-----------|
 | `0001_especies_chiloe.sql` | 13 familias, 13 géneros y 13 especies del archipiélago, cubriendo los cinco reinos |
+| `0002_especies_chiloe_ampliado.sql` | 66 familias, 84 géneros y 90 especies más (49 animalia, 30 plantae, 6 fungi, 3 protista, 2 monera), con fichas largas y `atributos_especificos` completos |
+
+Aplicando ambos: **103 especies** (53 animalia, 34 plantae, 8 fungi, 5 protista,
+3 monera).
+
+⚠️ Las fichas de `0002_*` se redactaron a partir de conocimiento general de la
+biota chilota, **no** transcribiendo una fuente por especie. Pesos, tamaños,
+épocas reproductivas y estados de conservación son plausibles pero no están
+verificados uno a uno: revisar antes de tratarlos como dato duro.
