@@ -1,4 +1,5 @@
 #include "../../include/services/especie_service.hpp"
+#include <algorithm>
 #include <stdexcept>
 #include <filesystem>
 #include <fstream>
@@ -36,23 +37,76 @@ void EspecieService::validateFotoKeyExists(const std::string& key) const {
     }
 }
 
+// La BD solo guarda keys; el cliente necesita URLs. `especies-fotos` es un
+// bucket de lectura pública, así que basta componer la URL: firmarla daría una
+// distinta en cada respuesta, incacheable, y el catálogo devuelve decenas de
+// fotos por página.
+//
+// La portada va primera —la app usa imagenes_urls[0] como imagen principal— y
+// no se repite si además está en fotos_keys. Una key ilegible se salta en vez
+// de tumbar la respuesta: mejor una foto menos que un 500.
+void EspecieService::resolverImagenesUrls(Especie& especie) const {
+    if (!storageService) {
+        return;
+    }
+    const std::string& bucket = storageService->getConfig().especiesBucket;
+
+    std::vector<std::string> keys;
+    if (especie.getFotoPortadaKey() && !especie.getFotoPortadaKey()->empty()) {
+        keys.push_back(*especie.getFotoPortadaKey());
+    }
+    for (const auto& item : especie.getFotosKeys()) {
+        if (!item.is_string()) {
+            continue;
+        }
+        auto key = item.get<std::string>();
+        if (!key.empty() &&
+            std::find(keys.begin(), keys.end(), key) == keys.end()) {
+            keys.push_back(std::move(key));
+        }
+    }
+
+    std::vector<std::string> urls;
+    urls.reserve(keys.size());
+    for (const auto& key : keys) {
+        try {
+            urls.push_back(storageService->createPublicUrl(bucket, key));
+        } catch (const std::exception&) {
+            continue;
+        }
+    }
+    especie.setImagenesUrls(urls);
+}
+
 // Métodos de consulta
 EspecieSearchResult EspecieService::searchEspecies(const EspecieFilters& filters) {
-    return repository->find(filters);
+    auto result = repository->find(filters);
+    for (auto& especie : result.data) {
+        resolverImagenesUrls(especie);
+    }
+    return result;
 }
 
 std::optional<Especie> EspecieService::getEspecieById(int id) {
     if (id <= 0) {
         throw std::invalid_argument("ID debe ser mayor que 0");
     }
-    return repository->findById(id);
+    auto especie = repository->findById(id);
+    if (especie) {
+        resolverImagenesUrls(*especie);
+    }
+    return especie;
 }
 
 std::optional<Especie> EspecieService::searchByNombreCientifico(const std::string& nombre) {
     if (nombre.empty()) {
         throw std::invalid_argument("El nombre científico no puede estar vacío");
     }
-    return repository->getByNombreCientifico(nombre);
+    auto especie = repository->getByNombreCientifico(nombre);
+    if (especie) {
+        resolverImagenesUrls(*especie);
+    }
+    return especie;
 }
 
 Especie EspecieService::createEspecie(const Especie& especie) {
@@ -63,7 +117,9 @@ Especie EspecieService::createEspecie(const Especie& especie) {
         throw std::runtime_error("Ya existe una especie con ese nombre científico");
     }
 
-    return repository->create(especie);
+    auto creada = repository->create(especie);
+    resolverImagenesUrls(creada);
+    return creada;
 }
 
 Especie EspecieService::updateEspecie(const Especie& especie) {
@@ -83,7 +139,9 @@ Especie EspecieService::updateEspecie(const Especie& especie) {
         throw std::runtime_error("Ya existe otra especie con ese nombre científico");
     }
 
-    return repository->update(especie);
+    auto actualizada = repository->update(especie);
+    resolverImagenesUrls(actualizada);
+    return actualizada;
 }
 
 Especie EspecieService::updateFotoKeys(int id, const FotoKeysUpdate& update) {
@@ -119,7 +177,9 @@ Especie EspecieService::updateFotoKeys(int id, const FotoKeysUpdate& update) {
     }
 
     validateEspecie(updated);
-    return repository->update(updated);
+    auto guardada = repository->update(updated);
+    resolverImagenesUrls(guardada);
+    return guardada;
 }
 
 Especie EspecieService::publicarEspecie(int id, int publicadoPor) {
@@ -139,7 +199,9 @@ Especie EspecieService::publicarEspecie(int id, int publicadoPor) {
     // cumplen el schema, este es el último punto donde se puede parar.
     validateEspecie(*existing);
 
-    return repository->setEstado(id, EspecieEstado::Publicada, publicadoPor);
+    auto publicada = repository->setEstado(id, EspecieEstado::Publicada, publicadoPor);
+    resolverImagenesUrls(publicada);
+    return publicada;
 }
 
 Especie EspecieService::despublicarEspecie(int id) {
@@ -155,7 +217,9 @@ Especie EspecieService::despublicarEspecie(int id) {
         throw std::invalid_argument("La especie ya es un borrador");
     }
 
-    return repository->setEstado(id, EspecieEstado::Borrador, std::nullopt);
+    auto borrador = repository->setEstado(id, EspecieEstado::Borrador, std::nullopt);
+    resolverImagenesUrls(borrador);
+    return borrador;
 }
 
 bool EspecieService::deleteEspecie(int id) {

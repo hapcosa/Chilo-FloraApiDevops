@@ -49,6 +49,15 @@ public:
         const std::string& key,
         std::optional<int> expiresIn = std::nullopt) const;
 
+    // URL de lectura sin firma ni caducidad. Solo vale para los buckets
+    // públicos (`mc anonymous set download`): `especies-fotos` y
+    // `perfiles-fotos`. Firmarlos sería peor —una URL distinta en cada
+    // respuesta no la cachea ni el CDN ni el cliente, y el catálogo devuelve
+    // decenas de fotos por página—. Para `avistamientos-fotos`, que es privado,
+    // sigue haciendo falta createPresignedGet.
+    std::string createPublicUrl(const std::string& bucket,
+                                const std::string& key) const;
+
     bool objectExists(const std::string& bucket, const std::string& key) const;
     const UploadStorageConfig& getConfig() const;
 

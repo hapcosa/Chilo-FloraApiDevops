@@ -152,3 +152,57 @@ TEST(UploadPresignServiceTest, PresignedGetRechazaExpiracionFueraDeRango) {
     EXPECT_THROW(service.createPresignedGet("avistamientos-fotos", "a.jpg", 7200),
                  std::invalid_argument);
 }
+
+// --- URLs públicas (buckets de lectura anónima) ---
+
+TEST(UploadPresignServiceTest, CreaUrlPublicaSinFirmaNiCaducidad) {
+    UploadPresignService service(testConfig());
+
+    const std::string url = service.createPublicUrl(
+        "especies-fotos", "especies/2026/08/16/abc-canelo.jpg");
+
+    EXPECT_EQ(url,
+              "http://localhost:9000/especies-fotos/especies/2026/08/16/"
+              "abc-canelo.jpg");
+    EXPECT_EQ(url.find("X-Amz-Signature="), std::string::npos);
+    EXPECT_EQ(url.find('?'), std::string::npos);
+}
+
+TEST(UploadPresignServiceTest, UrlPublicaUsaElEndpointPublico) {
+    UploadStorageConfig config = testConfig();
+    config.publicEndpoint = "https://storage.example.org/";
+    UploadPresignService service(config);
+
+    EXPECT_EQ(service.createPublicUrl("perfiles-fotos", "perfiles/a.jpg"),
+              "https://storage.example.org/perfiles-fotos/perfiles/a.jpg");
+}
+
+// El bucket de encuentros es privado (`mc anonymous set none`): una URL sin
+// firma daría 403 y, peor, escondería el error hasta que el usuario ve el hueco.
+TEST(UploadPresignServiceTest, UrlPublicaRechazaBucketPrivado) {
+    UploadPresignService service(testConfig());
+
+    EXPECT_THROW(
+        service.createPublicUrl("avistamientos-fotos", "avistamientos/a.jpg"),
+        std::invalid_argument);
+}
+
+TEST(UploadPresignServiceTest, UrlPublicaRechazaBucketNoPermitidoYKeyConRuta) {
+    UploadPresignService service(testConfig());
+
+    EXPECT_THROW(service.createPublicUrl("otro-bucket", "a.jpg"),
+                 std::invalid_argument);
+    EXPECT_THROW(service.createPublicUrl("especies-fotos", "../otro/a.jpg"),
+                 std::invalid_argument);
+    EXPECT_THROW(service.createPublicUrl("especies-fotos", ""),
+                 std::invalid_argument);
+}
+
+// Un espacio en la key rompería la URL si no se codifica; la barra no, porque
+// es separador de ruta real.
+TEST(UploadPresignServiceTest, UrlPublicaCodificaLaKeyPeroNoLasBarras) {
+    UploadPresignService service(testConfig());
+
+    EXPECT_EQ(service.createPublicUrl("especies-fotos", "especies/mi foto.jpg"),
+              "http://localhost:9000/especies-fotos/especies/mi%20foto.jpg");
+}

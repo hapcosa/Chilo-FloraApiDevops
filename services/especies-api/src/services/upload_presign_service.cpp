@@ -403,6 +403,19 @@ std::string UploadPresignService::createPresignedGet(
         .url;
 }
 
+std::string UploadPresignService::createPublicUrl(const std::string& bucket,
+                                                  const std::string& key) const {
+    validateAllowedBucket(storageConfig, bucket);
+    validateObjectKeyFormat(key);
+    if (bucket == storageConfig.avistamientosBucket) {
+        throw std::invalid_argument(
+            "avistamientos-fotos es privado: usar createPresignedGet");
+    }
+
+    return normalizeEndpoint(storageConfig.publicEndpoint) + "/" +
+           uriEncode(bucket + "/" + key, false);
+}
+
 bool UploadPresignService::objectExists(const std::string& bucket,
                                         const std::string& key) const {
     validateAllowedBucket(storageConfig, bucket);
