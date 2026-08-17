@@ -14,6 +14,8 @@ services/especies-api/
 │   ├── 0005_postulaciones_curador.sql  # postularse a curador; un admin resuelve
 │   ├── 0006_especies_estado.sql # borrador/publicada + firma de publicación
 │   ├── 0007_identificaciones.sql # identificación comunitaria de avistamientos
+│   ├── 0008_avistamientos_visibilidad.sql # público/privado por avistamiento
+│   ├── 0009_normaliza_atributos_seed.sql  # corrige atributos del seed 0001 ya insertados
 │   └── README.md              # este archivo
 └── scripts/
     └── migrate.sh             # runner
@@ -81,5 +83,10 @@ Cada migración aplicada inserta una fila con `version = nombre del archivo sin 
 ## Qué NO va en una migración
 
 - Datos de negocio (especies, familias). Eso va en seeds aparte, no en `migrations/`.
+  La excepción es **corregir filas que un seed ya insertó**: editar el seed no
+  toca las BD pobladas (`ON CONFLICT DO NOTHING`), así que la corrección viaja en
+  una migración de datos con `UPDATE` idempotente —filtrada por el valor
+  defectuoso— como `0009_normaliza_atributos_seed.sql`. Contenido *nuevo* sigue
+  yendo a `seeds/`.
 - Lógica condicional dependiente del entorno (dev/prod). Las migraciones deben producir el mismo schema en todas partes.
 - Operaciones costosas sin pensar (FULL TABLE LOCKS sobre tablas grandes en prod). Cuando haya datos reales, evaluar con `CONCURRENTLY` o batched updates.

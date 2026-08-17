@@ -114,7 +114,7 @@ FROM (VALUES
         'Suelos húmedos y turbosos, desde el nivel del mar hasta la cordillera.',
         'Poblaciones en la cordillera de Piuchén y sectores de la costa occidental.',
         false, 'En Peligro', 'plantae', 'Fitzroya',
-        '{"tipo_planta":"arbol","altura_promedio_m":45,"tipo_hoja":{"ciclo":"perenne","morfologia":"simple"},"polinizacion":"anemofila","tipo_raiz":"axonomorfa","usos_tradicionales":["Tejuelas para revestimiento de casas e iglesias","Construcción de embarcaciones"],"fruto":{"descripcion":"Conos pequeños y globosos de unos 6 mm.","comestible":"no_comestible"}}',
+        '{"tipo_planta":"arbol","altura_promedio_m":45,"tipo_hoja":{"ciclo":"perenne","morfologia":"simple"},"polinizacion":"anemofila","tipo_raiz":"axonomorfa","usos_tradicionales":["maderable","ceremonial"],"fruto":{"descripcion":"Conos pequeños y globosos de unos 6 mm.","comestible":"no_comestible"}}',
         '["IUCN Red List — Fitzroya cupressoides","CONAF — Monumento Natural Alerce"]'
     ),
     (
@@ -123,7 +123,7 @@ FROM (VALUES
         'Suelos húmedos, orillas de cursos de agua, turberas y bordes de bosque.',
         'Muy extendido en toda la isla, incluso en terrenos abiertos y suelos anegados.',
         false, 'Preocupación Menor', 'plantae', 'Drimys',
-        '{"tipo_planta":"arbol","altura_promedio_m":20,"tipo_hoja":{"ciclo":"perenne","morfologia":"simple"},"floracion_meses":[10,11,12,1],"polinizacion":"entomofila","tipo_raiz":"axonomorfa","usos_tradicionales":["Planta ceremonial mapuche-huilliche","Corteza medicinal antiescorbútica"],"fruto":{"descripcion":"Baya pequeña de color negro azulado al madurar.","comestible":"no_comestible"}}',
+        '{"tipo_planta":"arbol","altura_promedio_m":20,"tipo_hoja":{"ciclo":"perenne","morfologia":"simple"},"floracion_meses":[10,11,12,1],"polinizacion":"entomofila","tipo_raiz":"axonomorfa","usos_tradicionales":["ceremonial","medicinal"],"fruto":{"descripcion":"Baya pequeña de color negro azulado al madurar.","comestible":"no_comestible"}}',
         '["Flora de Chile — Drimys winteri","Etnobotánica del bosque templado austral"]'
     ),
     (
@@ -132,7 +132,7 @@ FROM (VALUES
         'Quebradas húmedas, orillas de esteros, taludes y bordes de camino con suelo removido.',
         'Abundante en toda la isla, especialmente visible en cunetas y quebradas.',
         false, NULL, 'plantae', 'Gunnera',
-        '{"tipo_planta":"hierba","altura_promedio_m":2,"tipo_hoja":{"ciclo":"caduca","morfologia":"simple"},"floracion_meses":[11,12,1],"polinizacion":"anemofila","tipo_raiz":"rizoma","usos_tradicionales":["Pecíolo comestible crudo o en ensaladas","Hojas para cubrir el curanto en hoyo"],"fruto":{"descripcion":"Infrutescencia cónica con numerosos frutos pequeños anaranjados.","comestible":"comestible"}}',
+        '{"tipo_planta":"hierba","altura_promedio_m":2,"tipo_hoja":{"ciclo":"caduca","morfologia":"simple"},"floracion_meses":[11,12,1],"polinizacion":"anemofila","tipo_raiz":"rizoma","usos_tradicionales":["alimentario","fibra"],"fruto":{"descripcion":"Infrutescencia cónica con numerosos frutos pequeños anaranjados.","comestible":"comestible"}}',
         '["Flora de Chile — Gunnera tinctoria","Cocina tradicional chilota"]'
     ),
     (
@@ -141,7 +141,7 @@ FROM (VALUES
         'Riberas de ríos y lagos, suelos húmedos y bien drenados.',
         'Frecuente en bordes de cursos de agua y sectores costeros de la isla.',
         false, 'Preocupación Menor', 'plantae', 'Luma',
-        '{"tipo_planta":"arbol","altura_promedio_m":15,"tipo_hoja":{"ciclo":"perenne","morfologia":"simple"},"floracion_meses":[1,2,3],"polinizacion":"entomofila","tipo_raiz":"axonomorfa","usos_tradicionales":["Frutos comestibles frescos o en mermelada","Leña de alto poder calórico"],"fruto":{"descripcion":"Baya globosa negra de unos 10 mm, dulce al madurar.","comestible":"comestible"}}',
+        '{"tipo_planta":"arbol","altura_promedio_m":15,"tipo_hoja":{"ciclo":"perenne","morfologia":"simple"},"floracion_meses":[1,2,3],"polinizacion":"entomofila","tipo_raiz":"axonomorfa","usos_tradicionales":["alimentario","maderable"],"fruto":{"descripcion":"Baya globosa negra de unos 10 mm, dulce al madurar.","comestible":"comestible"}}',
         '["Flora de Chile — Luma apiculata"]'
     ),
     (
@@ -150,7 +150,7 @@ FROM (VALUES
         'Ramas de coigüe (Nothofagus dombeyi) y otras especies del género.',
         'Aparece en bosques de coigüe de la isla durante la primavera.',
         false, NULL, 'fungi', 'Cyttaria',
-        '{"tipo":"ascomiceto","comestibilidad":"comestible","simbiosis":"parasito","sustrato":["Ramas vivas de Nothofagus dombeyi"],"tipo_himenio":"gleba","temporada":["primavera"]}',
+        '{"tipo":"ascomiceto","comestibilidad":"comestible","simbiosis":"parasito","sustrato":["madera_viva"],"tipo_himenio":"gleba","temporada":["primavera"]}',
         '["Hongos de Chile — Cyttaria espinosae","Fundación Fungi — Guía de hongos comestibles"]'
     ),
     (
@@ -159,7 +159,7 @@ FROM (VALUES
         'Suelo del bosque templado, entre hojarasca y raíces.',
         'En bosques húmedos de la isla, principalmente en otoño.',
         false, NULL, 'fungi', 'Ramaria',
-        '{"tipo":"basidiomiceto","comestibilidad":"comestible","simbiosis":"micorrizico","sustrato":["Mantillo y suelo de bosque templado"],"tipo_himenio":"liso","temporada":["otoño"],"advertencia":"Debe consumirse bien cocido. Varias especies de Ramaria son muy similares entre sí y algunas provocan trastornos gastrointestinales, por lo que la identificación debe confirmarla una persona con experiencia."}',
+        '{"tipo":"basidiomiceto","comestibilidad":"comestible","simbiosis":"micorrizico","sustrato":["suelo","hojarasca"],"tipo_himenio":"liso","temporada":["otono"],"advertencia":"Debe consumirse bien cocido. Varias especies de Ramaria son muy similares entre sí y algunas provocan trastornos gastrointestinales, por lo que la identificación debe confirmarla una persona con experiencia."}',
         '["Hongos de Chile — Ramaria flava","Fundación Fungi — Guía de hongos comestibles"]'
     ),
     (
