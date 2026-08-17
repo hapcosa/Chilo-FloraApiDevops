@@ -28,6 +28,10 @@ private:
     void validateEspecie(const Especie& especie);
     void validateFotoKeyExists(const std::string& key) const;
 
+    // La BD guarda solo keys de object storage; `imagenes_urls` se resuelve al
+    // responder, nunca se persiste.
+    void resolverImagenesUrls(Especie& especie) const;
+
 public:
     EspecieService(std::shared_ptr<IEspecieRepository> repo,
                    std::shared_ptr<AtributosSchemaValidator> validator,
