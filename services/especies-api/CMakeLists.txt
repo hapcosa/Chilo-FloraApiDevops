@@ -82,6 +82,7 @@ set(REQUIRED_SOURCES
         src/models/genero.cpp
         src/models/especie.cpp
         src/models/avistamiento.cpp
+        src/models/celda_mapa.cpp
         src/models/categoria_moderacion.cpp
         src/models/identificacion.cpp
         src/models/postulacion_curador.cpp
@@ -110,6 +111,7 @@ set(REQUIRED_SOURCES
         src/utils/request_identity.cpp
         src/utils/timestamps.cpp
         src/utils/fechas.cpp
+        src/utils/conservacion.cpp
         src/models/imagen.cpp
 )
 
@@ -202,6 +204,7 @@ set(SOURCES
         src/models/genero.cpp
         src/models/especie.cpp
         src/models/avistamiento.cpp
+        src/models/celda_mapa.cpp
         src/models/categoria_moderacion.cpp
         src/models/identificacion.cpp
         src/models/postulacion_curador.cpp
@@ -230,6 +233,7 @@ set(SOURCES
         src/utils/request_identity.cpp
         src/utils/timestamps.cpp
         src/utils/fechas.cpp
+        src/utils/conservacion.cpp
         src/models/imagen.cpp
 )
 

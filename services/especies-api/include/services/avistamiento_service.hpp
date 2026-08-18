@@ -24,6 +24,7 @@ public:
     std::optional<Avistamiento> getAvistamientoById(int id);
     Avistamiento moderateAvistamiento(int id, const ModeracionAvistamiento& moderacion);
     std::optional<Avistamiento> compartirAvistamiento(int id, int usuarioId);
+    std::vector<CeldaMapa> mapaAvistamientos(const MapaFilters& filters);
 };
 
 #endif // AVISTAMIENTO_SERVICE_HPP

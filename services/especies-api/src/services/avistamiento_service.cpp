@@ -103,3 +103,19 @@ Avistamiento AvistamientoService::moderateAvistamiento(
     return moderado;
 }
 
+
+// El mapa no pasa por resolverFotoUrl: una celda no tiene foto. Firmar aquí
+// sería firmar miles de URLs que nadie va a abrir.
+std::vector<CeldaMapa> AvistamientoService::mapaAvistamientos(const MapaFilters& filters) {
+    if (filters.min_lat > filters.max_lat || filters.min_lng > filters.max_lng) {
+        throw std::invalid_argument("bbox invertido");
+    }
+    if (filters.min_lat < -90 || filters.max_lat > 90 ||
+        filters.min_lng < -180 || filters.max_lng > 180) {
+        throw std::invalid_argument("bbox fuera de rango");
+    }
+    if (filters.zoom < 0 || filters.zoom > 21) {
+        throw std::invalid_argument("zoom debe estar en [0, 21]");
+    }
+    return repository->mapa(filters);
+}

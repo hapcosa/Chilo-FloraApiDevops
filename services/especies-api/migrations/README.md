@@ -17,6 +17,7 @@ services/especies-api/
 │   ├── 0008_avistamientos_visibilidad.sql # público/privado por avistamiento
 │   ├── 0009_normaliza_atributos_seed.sql  # corrige atributos del seed 0001 ya insertados
 │   ├── 0010_avistamientos_precision_declarada.sql # cuánto se fía el autor de la ubicación
+│   ├── 0011_avistamientos_indice_espacial.sql # índice del bbox del mapa
 │   └── README.md              # este archivo
 └── scripts/
     └── migrate.sh             # runner

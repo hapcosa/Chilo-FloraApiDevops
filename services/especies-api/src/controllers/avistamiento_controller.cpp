@@ -45,6 +45,32 @@ VisibilidadSolicitante solicitanteDe(const Pistache::Rest::Request& request) {
     return solicitante;
 }
 
+// "min_lng,min_lat,max_lng,max_lat" — el orden de GeoJSON y de las APIs de
+// mapas, para no obligar al cliente a reordenar lo que ya tiene.
+MapaFilters parseBbox(const std::string& bbox) {
+    MapaFilters filters;
+    double valores[4] = {0, 0, 0, 0};
+    std::size_t inicio = 0;
+    for (int i = 0; i < 4; ++i) {
+        const auto coma = bbox.find(',', inicio);
+        if (i < 3 && coma == std::string::npos) {
+            throw std::invalid_argument("'bbox' debe ser min_lng,min_lat,max_lng,max_lat");
+        }
+        const auto trozo = bbox.substr(inicio, coma == std::string::npos ? coma : coma - inicio);
+        try {
+            valores[i] = std::stod(trozo);
+        } catch (...) {
+            throw std::invalid_argument("'bbox' debe ser min_lng,min_lat,max_lng,max_lat");
+        }
+        inicio = coma == std::string::npos ? bbox.size() : coma + 1;
+    }
+    filters.min_lng = valores[0];
+    filters.min_lat = valores[1];
+    filters.max_lng = valores[2];
+    filters.max_lat = valores[3];
+    return filters;
+}
+
 ModeracionAvistamiento parseModeracion(const json& payload) {
     if (!payload.contains("estado") || !payload["estado"].is_string()) {
         throw std::invalid_argument("'estado' es obligatorio");
@@ -70,6 +96,46 @@ ModeracionAvistamiento parseModeracion(const json& payload) {
 AvistamientoController::AvistamientoController(
     std::shared_ptr<AvistamientoService> service)
     : service(std::move(service)) {}
+
+// Celdas agregadas para dibujar el mapa. No devuelve avistamientos: ni el
+// cliente necesita diez mil puntos para pintar un clúster, ni conviene publicar
+// diez mil ubicaciones exactas de una sola petición.
+void AvistamientoController::getMapa(
+    const Pistache::Rest::Request& request,
+    Pistache::Http::ResponseWriter response) {
+    try {
+        const auto query = request.query();
+        const auto bbox = queryStr(query, "bbox");
+        if (!bbox) {
+            throw std::invalid_argument("'bbox' es obligatorio");
+        }
+
+        auto filters = parseBbox(*bbox);
+        if (auto value = queryInt(query, "zoom")) {
+            filters.zoom = *value;
+        }
+        if (auto value = queryStr(query, "reino")) {
+            filters.reino = reinoFromString(*value);
+        }
+        if (auto value = queryInt(query, "especie_id")) {
+            filters.especie_id = *value;
+        }
+
+        json data = json::array();
+        for (const auto& celda : service->mapaAvistamientos(filters)) {
+            data.push_back(celda.toJson());
+        }
+
+        sendJson(response, Pistache::Http::Code::Ok,
+                 {{"success", true}, {"data", data}, {"zoom", filters.zoom}});
+    } catch (const std::invalid_argument& error) {
+        sendJson(response, Pistache::Http::Code::Bad_Request,
+                 {{"success", false}, {"error", error.what()}});
+    } catch (const std::exception& error) {
+        sendJson(response, Pistache::Http::Code::Internal_Server_Error,
+                 {{"success", false}, {"error", error.what()}});
+    }
+}
 
 void AvistamientoController::getAll(
     const Pistache::Rest::Request& request,
