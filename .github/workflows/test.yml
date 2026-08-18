@@ -1,17 +1,23 @@
-# Tests de todos los servicios. Corre en pushes a ramas y en PRs contra master.
-# El deploy vive en deploy.yml y solo corre en merges a master.
+# Tests de todos los servicios. Corre en PRs contra master (y a mano con
+# workflow_dispatch). El deploy vive en deploy.yml y solo corre en merges a
+# master.
+#
+# Antes disparaba también en `push` a cualquier rama, lo que lanzaba dos runs
+# idénticos por cada commit de una rama con PR abierto. El job pesado
+# (test-especies-api) corría duplicado y, cuando una de las dos copias se
+# colgaba, el PR quedaba BLOCKED con la otra copia en verde.
 name: Tests
 
 on:
-  push:
-    branches-ignore: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch:
 
 jobs:
   # Especies API (C++) + migraciones SQL
   test-especies-api:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:15-alpine
@@ -40,7 +46,10 @@ jobs:
       # compiladas (pistache, libpqxx 7.8, json-schema-validator).
       - name: Install postgresql-client
         run: |
-          sudo apt-get update
+          # El mirror del runner falla seguido; sin reintento el step se cuelga.
+          for i in 1 2 3; do
+            sudo apt-get update && break || sleep 5
+          done
           sudo apt-get install -y postgresql-client
 
       - name: Run SQL migrations
@@ -79,6 +88,7 @@ jobs:
   # Panel de curaduría (React + Vite + TypeScript)
   test-panel-curaduria:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: services/panel-curaduria
@@ -109,6 +119,7 @@ jobs:
   # Auth Service (Go)
   test-auth-service:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
