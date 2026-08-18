@@ -21,6 +21,8 @@ Verificado en el repo y contra producción el 2026-08-18.
 | ¿"Actualizar perfil" hace algo? | **Casi nada.** Llama `authApi.whoami()` y refresca los datos que el servidor ya tiene. No edita nada. El endpoint de edición (`PUT /api/v1/auth/me`) existe y solo acepta `name` y `avatar`. |
 | ¿Hay mapa? | No. No hay ninguna dependencia de mapas en `mobile/package.json`. |
 | ¿Hay insignias, bio de usuario, profesión de moderador, parques? | No, nada de eso existe todavía. |
+| ¿Cómo postula un usuario a curar una categoría? | **No puede.** El backend tiene `POST /api/v1/postulaciones` y el panel tiene la bandeja para que un `admin` apruebe o rechace, pero **no existe la interfaz para postular**: `mobile/src/` no menciona postulaciones en ningún archivo. La bandeja del panel solo puede llenarse a mano contra la API. |
+| ¿Puede un `admin` asignar una categoría a alguien directamente? | Solo por API. `POST /api/v1/categorias/:id/moderadores/:usuarioId` y su `DELETE` existen y son admin-only, pero el panel no tiene pantalla que los llame ni listado de usuarios. La única vía por interfaz es aprobar una postulación… que nadie puede crear. |
 
 ---
 
@@ -182,12 +184,38 @@ encuentros": premiar el volumen empuja exactamente la conducta que la Fase 9.0
 intenta desalentar. Las insignias reconocen constancia y variedad, sin tabla de
 posiciones.
 
-**PR 12 — `feat(curaduria): otorgar insignias y editar profesión`**
+**PR 12 — `feat(curaduria): pantalla de usuarios`**
 *(panel de curaduría)*
-El panel ya existe y está en producción; le falta la pantalla de usuarios para
-que un `admin` otorgue insignias manuales y verifique la profesión declarada
-por un moderador. Sin verificación, "profesión" es texto libre que cualquiera
-se atribuye — y el punto del campo es dar respaldo.
+El panel ya existe y está en producción; le falta la pantalla de usuarios, que
+concentra tres cosas que hoy solo se pueden hacer por API o directo en la base:
+- **Listar usuarios** con su rol y sus categorías asignadas. Hoy un `admin` no
+  tiene forma de ver quién es quién.
+- **Asignar y quitar categorías** a un curador, llamando a los
+  `POST`/`DELETE /api/v1/categorias/:id/moderadores/:usuarioId` que ya existen.
+  Hoy la única vía por interfaz es aprobar una postulación, y las postulaciones
+  no se pueden crear (ver PR 13). Es el agujero que dejó a la cuenta admin sin
+  poder repartir permisos.
+- **Otorgar insignias manuales** y verificar la profesión declarada por un
+  moderador. Sin verificación, "profesión" es texto libre que cualquiera se
+  atribuye — y el punto del campo es dar respaldo.
+Falta decidir si el listado de usuarios necesita endpoint nuevo: `auth-service`
+tiene la tabla `users` y `especies-api` tiene las asignaciones, así que el panel
+tendría que cruzar dos servicios o uno tendría que exponer la vista combinada.
+
+**PR 13 — `feat(curaduria): postular a curar una categoría`**
+*(mobile + panel)*
+Cierra el circuito que hoy está partido: el endpoint `POST /api/v1/postulaciones`
+y la bandeja de revisión existen desde la migración `0005`, pero **nadie puede
+postular** porque no hay interfaz en ningún cliente.
+- En la app, desde el perfil: elegir categoría y escribir el `texto` de la
+  postulación (por qué querría curar esa categoría: formación, experiencia de
+  campo, trabajo). Ver el estado de la propia postulación —pendiente, aprobada,
+  rechazada con motivo— y poder volver a postular si la rechazaron.
+- Una sola postulación pendiente por categoría y usuario; conviene comprobar si
+  la migración `0005` ya lo restringe con un índice único antes de resolverlo en
+  código.
+- Se enlaza con la profesión declarada del PR 11: postular es justamente el
+  momento en que tiene sentido pedirla.
 
 ---
 
