@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "../include/controllers/especie_controller.hpp"
+#include "../include/controllers/area_protegida_controller.hpp"
 #include "../include/controllers/avistamiento_controller.hpp"
 #include "../include/controllers/categoria_controller.hpp"
 #include "../include/controllers/familia_controller.hpp"
@@ -18,11 +19,13 @@
 #include "../include/repository/postgres_familia_repository.hpp"
 #include "../include/repository/postgres_genero_repository.hpp"
 #include "../include/repository/postgresql_especie_repository.hpp"
+#include "../include/repository/postgres_area_protegida_repository.hpp"
 #include "../include/repository/postgres_avistamiento_repository.hpp"
 #include "../include/repository/postgres_categoria_repository.hpp"
 #include "../include/repository/postgres_moderador_categoria_repository.hpp"
 #include "../include/repository/postgres_identificacion_repository.hpp"
 #include "../include/repository/postgres_postulacion_repository.hpp"
+#include "../include/services/area_protegida_service.hpp"
 #include "../include/services/avistamiento_service.hpp"
 #include "../include/services/categoria_service.hpp"
 #include "../include/services/especie_service.hpp"
@@ -81,6 +84,8 @@ int main(int argc, char** argv) {
       std::make_shared<PostgresPostulacionRepository>(dataBase);
   auto identificacionRepository =
       std::make_shared<PostgresIdentificacionRepository>(dataBase);
+  auto areaProtegidaRepository =
+      std::make_shared<PostgresAreaProtegidaRepository>(dataBase);
 
   // El schema lo gestiona scripts/migrate.sh contra la BD antes de arrancar
   // el binario (ver services/especies-api/migrations/README.md).
@@ -108,6 +113,8 @@ int main(int argc, char** argv) {
       std::make_shared<AvistamientoService>(avistamientoRepository,
                                             uploadPresignService);
   auto categoriaService = std::make_shared<CategoriaService>(categoriaRepository);
+  auto areaProtegidaService =
+      std::make_shared<AreaProtegidaService>(areaProtegidaRepository);
   auto postulacionService = std::make_shared<PostulacionService>(
       postulacionRepository, categoriaRepository);
   auto identificacionService = std::make_shared<IdentificacionService>(
@@ -123,6 +130,8 @@ int main(int argc, char** argv) {
       std::make_shared<AvistamientoController>(avistamientoService);
   auto categoriaController =
       std::make_shared<CategoriaController>(categoriaService);
+  auto areaProtegidaController =
+      std::make_shared<AreaProtegidaController>(areaProtegidaService);
   auto moderadorController =
       std::make_shared<ModeradorController>(moderacionService);
   auto postulacionController =
@@ -150,6 +159,7 @@ int main(int argc, char** argv) {
   GeneroController::setupRoutes(*router, generoController);
   EspecieController::setupRoutes(*router, especieController);
   AvistamientoController::setupRoutes(*router, avistamientoController);
+  AreaProtegidaController::setupRoutes(*router, areaProtegidaController);
   CategoriaController::setupRoutes(*router, categoriaController);
   ModeradorController::setupRoutes(*router, moderadorController);
   PostulacionController::setupRoutes(*router, postulacionController);

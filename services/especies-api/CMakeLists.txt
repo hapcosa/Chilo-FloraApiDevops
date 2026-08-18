@@ -72,6 +72,7 @@ set(REQUIRED_SOURCES
         src/controllers/genero_controller.cpp
         src/controllers/especie_controller.cpp
         src/controllers/avistamiento_controller.cpp
+        src/controllers/area_protegida_controller.cpp
         src/controllers/categoria_controller.cpp
         src/controllers/moderador_controller.cpp
         src/controllers/identificacion_controller.cpp
@@ -83,6 +84,7 @@ set(REQUIRED_SOURCES
         src/models/especie.cpp
         src/models/avistamiento.cpp
         src/models/celda_mapa.cpp
+        src/models/area_protegida.cpp
         src/models/categoria_moderacion.cpp
         src/models/identificacion.cpp
         src/models/postulacion_curador.cpp
@@ -92,6 +94,7 @@ set(REQUIRED_SOURCES
         src/repository/postgres_genero_repository.cpp
         src/repository/postgresql_especie_repository.cpp
         src/repository/postgres_avistamiento_repository.cpp
+        src/repository/postgres_area_protegida_repository.cpp
         src/repository/postgres_categoria_repository.cpp
         src/repository/postgres_moderador_categoria_repository.cpp
         src/repository/postgres_identificacion_repository.cpp
@@ -100,6 +103,7 @@ set(REQUIRED_SOURCES
         src/services/genero_service.cpp
         src/services/especie_service.cpp
         src/services/avistamiento_service.cpp
+        src/services/area_protegida_service.cpp
         src/services/avistamiento_visibilidad.cpp
         src/services/categoria_service.cpp
         src/services/moderacion_service.cpp
@@ -194,6 +198,7 @@ set(SOURCES
         src/controllers/genero_controller.cpp
         src/controllers/especie_controller.cpp
         src/controllers/avistamiento_controller.cpp
+        src/controllers/area_protegida_controller.cpp
         src/controllers/categoria_controller.cpp
         src/controllers/moderador_controller.cpp
         src/controllers/identificacion_controller.cpp
@@ -205,6 +210,7 @@ set(SOURCES
         src/models/especie.cpp
         src/models/avistamiento.cpp
         src/models/celda_mapa.cpp
+        src/models/area_protegida.cpp
         src/models/categoria_moderacion.cpp
         src/models/identificacion.cpp
         src/models/postulacion_curador.cpp
@@ -214,6 +220,7 @@ set(SOURCES
         src/repository/postgres_genero_repository.cpp
         src/repository/postgresql_especie_repository.cpp
         src/repository/postgres_avistamiento_repository.cpp
+        src/repository/postgres_area_protegida_repository.cpp
         src/repository/postgres_categoria_repository.cpp
         src/repository/postgres_moderador_categoria_repository.cpp
         src/repository/postgres_identificacion_repository.cpp
@@ -222,6 +229,7 @@ set(SOURCES
         src/services/genero_service.cpp
         src/services/especie_service.cpp
         src/services/avistamiento_service.cpp
+        src/services/area_protegida_service.cpp
         src/services/avistamiento_visibilidad.cpp
         src/services/categoria_service.cpp
         src/services/moderacion_service.cpp
