@@ -9,9 +9,10 @@ Seguimos con el sistema de biodiversidad de Chiloé:
 `/home/obrero/programacion/Chilo-FloraApiDevops` (backend) y su submódulo
 `mobile/`, que es su propio repo (`hapcosa/chiloe-biodiversidad-mobile`).
 
-Esta sesión tiene **dos trabajos**: dejar el mapa visible en el teléfono, y el
-PR 2 de la Fase 9. En ese orden — el primero es corto y desbloquea una
-verificación que lleva pendiente desde que se mergeó el mapa.
+Esta sesión tiene **tres trabajos, en este orden**: hacer que la app vuelva a
+abrir —hoy crashea al arrancar—, dejar el mapa visible en el teléfono, y el
+PR 2 de la Fase 9. Lo primero bloquea a los otros dos: sin app que arranque no
+se verifica nada.
 
 ## Reglas innegociables
 
@@ -31,6 +32,48 @@ verificación que lleva pendiente desde que se mergeó el mapa.
 - Las claves SSH están en `~/.env`, se usan con `sshpass -e` y **nunca** se
   imprimen.
 - Este archivo está trackeado: actualizalo al cerrar la sesión, en su propio PR.
+
+---
+
+## Trabajo 0 — La app no abre (esto primero)
+
+**El APK instalado no arranca.** Se instala pero no deja abrirla. Apareció
+después del PR #37 del mapa, así que el primer sospechoso es
+`react-native-maps`: la pestaña Mapa está montada en el `Tab.Navigator`, y si
+el módulo nativo no linkea o `PROVIDER_GOOGLE` revienta sin key, el crash se
+lleva la app entera al arrancar, no solo esa pestaña.
+
+Diagnosticalo antes que nada, con el error en la mano y sin adivinar:
+
+```bash
+adb devices
+adb logcat -c                       # limpiar antes de reproducir
+# abrir la app en el teléfono, que crashee
+adb logcat -d | grep -iE 'AndroidRuntime|FATAL|ReactNative|chiloe' | head -60
+```
+
+Si el proceso muere tan rápido que `pidof` no lo agarra, `adb logcat -d` sin
+filtrar por pid es lo que sirve — el filtro por pid del prompt viejo no
+funciona con un crash de arranque.
+
+Pistas de por dónde puede venir:
+
+- **Falta la key de Maps**: el `manifestPlaceholder` queda vacío y el
+  `<meta-data android:value="">` puede hacer que el SDK tire al inicializar.
+  Si es esto, se arregla solo al hacer el trabajo 1. **Confirmalo con el log,
+  no lo asumas.**
+- **El módulo nativo no linkeó**: buscá `UnsatisfiedLinkError` o
+  "Native module RNMapsAirModule not found". `react-native-maps@1.29.0` sobre
+  RN 0.86 compila (`assembleDebug` pasó), pero compilar no es cargar.
+- **Nueva arquitectura**: si el paquete no está registrado para el modo en que
+  corre la app, revienta al montar la pantalla.
+- **Otra cosa que no tiene que ver con el mapa**: el APK que se probó es el
+  **debug**, que apunta a `localhost:8080` y no encuentra backend. Eso no
+  debería crashear —la app es offline-first— pero si el log apunta ahí, el
+  bug es ese y no el mapa.
+
+Mientras no arranque, no tiene sentido seguir con el resto. Si el arreglo es
+independiente de la key, va en su propio PR contra el repo de mobile.
 
 ---
 
