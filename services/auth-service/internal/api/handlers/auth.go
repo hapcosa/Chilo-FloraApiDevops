@@ -307,6 +307,40 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, profile)
 }
 
+// GetPerfilPublico devuelve la vista pública de otra persona.
+func (h *AuthHandler) GetPerfilPublico(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Bad Request",
+			"message": "Invalid user id",
+			"code":    400,
+		})
+		return
+	}
+
+	perfil, err := h.authService.GetPerfilPublico(uint(id))
+	if err != nil {
+		if errors.Is(err, services.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":   "Not Found",
+				"message": "Perfil no disponible",
+				"code":    404,
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Internal Server Error",
+			"message": "Failed to load profile",
+			"code":    500,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, perfil)
+}
+
 // ChangePassword cambia la contraseña del usuario actual
 func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	userID, exists := middleware.GetCurrentUserID(c)

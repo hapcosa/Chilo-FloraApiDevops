@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"auth-service/internal/config"
@@ -234,6 +235,23 @@ func (s *AuthService) GetUserProfile(userID uint) (*models.UserPublic, error) {
 	return &profile, nil
 }
 
+// GetPerfilPublico devuelve la vista que un tercero puede ver de una persona.
+// Un perfil que no está publicado se responde igual que uno inexistente: que
+// una cuenta exista tampoco es información de terceros.
+func (s *AuthService) GetPerfilPublico(userID uint) (*models.UserPerfilPublico, error) {
+	var user models.User
+	if err := s.db.Where("id = ? AND perfil_publico = ? AND status = ?",
+		userID, true, models.UserStatusActive).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+
+	perfil := user.ToPerfilPublico()
+	return &perfil, nil
+}
+
 // UpdateUserProfile actualiza el perfil de un usuario
 func (s *AuthService) UpdateUserProfile(userID uint, req *models.UpdateUserRequest) (*models.UserPublic, error) {
 	var user models.User
@@ -250,6 +268,16 @@ func (s *AuthService) UpdateUserProfile(userID uint, req *models.UpdateUserReque
 	}
 	if req.Avatar != "" {
 		user.Avatar = req.Avatar
+	}
+	// Punteros: nil es "no lo mandó", "" es "quiero borrarlo".
+	if req.Bio != nil {
+		user.Bio = strings.TrimSpace(*req.Bio)
+	}
+	if req.Profesion != nil {
+		user.Profesion = strings.TrimSpace(*req.Profesion)
+	}
+	if req.PerfilPublico != nil {
+		user.PerfilPublico = *req.PerfilPublico
 	}
 
 	if err := s.db.Save(&user).Error; err != nil {

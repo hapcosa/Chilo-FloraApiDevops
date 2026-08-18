@@ -58,6 +58,10 @@ func SetupRoutes(router *gin.Engine, authService *services.AuthService, oauthSer
 			// Perfil de usuario
 			protected.GET("/me", authHandler.GetProfile)
 			protected.PUT("/me", authHandler.UpdateProfile)
+
+			// Vista pública de otra persona. Va protegida: la comunidad es
+			// de gente con cuenta, no un directorio abierto.
+			protected.GET("/usuarios/:id/publico", authHandler.GetPerfilPublico)
 			protected.POST("/change-password", authHandler.ChangePassword)
 
 			// Logout
