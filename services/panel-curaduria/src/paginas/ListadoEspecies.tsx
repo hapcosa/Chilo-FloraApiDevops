@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useSesion } from '../auth/sesion';
-import { Aviso } from '../componentes/Aviso';
-import type { Especie, EspecieEstado } from '../api/tipos';
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { useSesion } from "../auth/sesion";
+import { Aviso } from "../componentes/Aviso";
+import type { Especie, EspecieEstado } from "../api/tipos";
 
 const POR_PAGINA = 20;
 
@@ -12,9 +12,9 @@ export function ListadoEspecies() {
   const [especies, setEspecies] = useState<Especie[]>([]);
   const [total, setTotal] = useState(0);
   const [pagina, setPagina] = useState(0);
-  const [categoriaId, setCategoriaId] = useState<number | ''>('');
-  const [estado, setEstado] = useState<EspecieEstado | ''>('');
-  const [busqueda, setBusqueda] = useState('');
+  const [categoriaId, setCategoriaId] = useState<number | "">("");
+  const [estado, setEstado] = useState<EspecieEstado | "">("");
+  const [busqueda, setBusqueda] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
 
@@ -23,8 +23,8 @@ export function ListadoEspecies() {
     setError(null);
     api
       .especies({
-        categoria_id: categoriaId === '' ? undefined : categoriaId,
-        estado: estado === '' ? undefined : estado,
+        categoria_id: categoriaId === "" ? undefined : categoriaId,
+        estado: estado === "" ? undefined : estado,
         q: busqueda || undefined,
         limit: POR_PAGINA,
         offset: pagina * POR_PAGINA,
@@ -33,7 +33,9 @@ export function ListadoEspecies() {
         setEspecies(respuesta.data);
         setTotal(respuesta.pagination?.total ?? respuesta.data.length);
       })
-      .catch((fallo) => setError(fallo instanceof Error ? fallo.message : 'Error al listar'))
+      .catch((fallo) =>
+        setError(fallo instanceof Error ? fallo.message : "Error al listar"),
+      )
       .finally(() => setCargando(false));
   }, [api, categoriaId, estado, busqueda, pagina]);
 
@@ -42,11 +44,13 @@ export function ListadoEspecies() {
   async function cambiarEstado(especie: Especie) {
     setError(null);
     try {
-      if (especie.estado === 'borrador') await api.publicar(especie.id);
+      if (especie.estado === "borrador") await api.publicar(especie.id);
       else await api.despublicar(especie.id);
       cargar();
     } catch (fallo) {
-      setError(fallo instanceof Error ? fallo.message : 'No se pudo cambiar el estado');
+      setError(
+        fallo instanceof Error ? fallo.message : "No se pudo cambiar el estado",
+      );
     }
   }
 
@@ -74,7 +78,9 @@ export function ListadoEspecies() {
           <select
             value={categoriaId}
             onChange={(e) => {
-              setCategoriaId(e.target.value === '' ? '' : Number(e.target.value));
+              setCategoriaId(
+                e.target.value === "" ? "" : Number(e.target.value),
+              );
               setPagina(0);
             }}
           >
@@ -92,7 +98,7 @@ export function ListadoEspecies() {
           <select
             value={estado}
             onChange={(e) => {
-              setEstado(e.target.value as EspecieEstado | '');
+              setEstado(e.target.value as EspecieEstado | "");
               setPagina(0);
             }}
           >
@@ -115,7 +121,11 @@ export function ListadoEspecies() {
         <button type="submit">Filtrar</button>
       </form>
 
-      {error && <Aviso tono="error">{error}</Aviso>}
+      {error && (
+        <Aviso tono="error" desplazar>
+          {error}
+        </Aviso>
+      )}
 
       {cargando ? (
         <p>Cargando…</p>
@@ -140,14 +150,16 @@ export function ListadoEspecies() {
                     <em>{especie.nombre_cientifico}</em>
                   </Link>
                 </td>
-                <td>{especie.nombre_comun || '—'}</td>
+                <td>{especie.nombre_comun || "—"}</td>
                 <td>{especie.reino}</td>
                 <td>
-                  <span className={`pastilla pastilla--${especie.estado}`}>{especie.estado}</span>
+                  <span className={`pastilla pastilla--${especie.estado}`}>
+                    {especie.estado}
+                  </span>
                 </td>
                 <td>
                   <button type="button" onClick={() => cambiarEstado(especie)}>
-                    {especie.estado === 'borrador' ? 'Publicar' : 'Despublicar'}
+                    {especie.estado === "borrador" ? "Publicar" : "Despublicar"}
                   </button>
                 </td>
               </tr>
@@ -157,11 +169,16 @@ export function ListadoEspecies() {
       )}
 
       <nav className="paginacion">
-        <button type="button" disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}>
+        <button
+          type="button"
+          disabled={pagina === 0}
+          onClick={() => setPagina(pagina - 1)}
+        >
           Anterior
         </button>
         <span>
-          {total} ficha{total === 1 ? '' : 's'} · página {pagina + 1} de {ultimaPagina + 1}
+          {total} ficha{total === 1 ? "" : "s"} · página {pagina + 1} de{" "}
+          {ultimaPagina + 1}
         </span>
         <button
           type="button"

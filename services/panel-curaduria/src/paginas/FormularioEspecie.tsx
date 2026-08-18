@@ -1,16 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useSesion } from '../auth/sesion';
-import { Aviso } from '../componentes/Aviso';
-import { SubidaFotos } from '../componentes/SubidaFotos';
-import { FormularioAtributos } from '../schema/FormularioAtributos';
-import { atributosParaEnviar, camposDeSchema, faltantesRequeridos } from '../schema/campos';
-import { REINOS, type Especie, type Familia, type Genero, type JsonSchema, type Reino } from '../api/tipos';
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useSesion } from "../auth/sesion";
+import { Aviso } from "../componentes/Aviso";
+import { SubidaFotos } from "../componentes/SubidaFotos";
+import { FormularioAtributos } from "../schema/FormularioAtributos";
+import {
+  atributosParaEnviar,
+  camposDeSchema,
+  faltantesRequeridos,
+} from "../schema/campos";
+import {
+  REINOS,
+  type Especie,
+  type Familia,
+  type Genero,
+  type JsonSchema,
+  type Reino,
+} from "../api/tipos";
 
 interface Borrador {
   reino: Reino;
-  genero_id: number | '';
-  categoria_id: number | '';
+  genero_id: number | "";
+  categoria_id: number | "";
   nombre_cientifico: string;
   nombre_comun: string;
   autor_cientifico: string;
@@ -25,17 +36,17 @@ interface Borrador {
 }
 
 const BORRADOR_VACIO: Borrador = {
-  reino: 'plantae',
-  genero_id: '',
-  categoria_id: '',
-  nombre_cientifico: '',
-  nombre_comun: '',
-  autor_cientifico: '',
-  descripcion: '',
-  habitat: '',
-  distribucion_chiloe: '',
+  reino: "plantae",
+  genero_id: "",
+  categoria_id: "",
+  nombre_cientifico: "",
+  nombre_comun: "",
+  autor_cientifico: "",
+  descripcion: "",
+  habitat: "",
+  distribucion_chiloe: "",
   endemica: false,
-  estado_conservacion: '',
+  estado_conservacion: "",
   atributos_especificos: {},
   fotos_keys: [],
   foto_portada_key: null,
@@ -45,7 +56,7 @@ function desdeEspecie(especie: Especie): Borrador {
   return {
     reino: especie.reino,
     genero_id: especie.genero_id,
-    categoria_id: especie.categoria_id ?? '',
+    categoria_id: especie.categoria_id ?? "",
     nombre_cientifico: especie.nombre_cientifico,
     nombre_comun: especie.nombre_comun,
     autor_cientifico: especie.autor_cientifico,
@@ -98,7 +109,9 @@ export function FormularioEspecie() {
         setBorrador(desdeEspecie(cargada));
       })
       .catch((fallo) =>
-        setError(fallo instanceof Error ? fallo.message : 'No se pudo cargar la ficha'),
+        setError(
+          fallo instanceof Error ? fallo.message : "No se pudo cargar la ficha",
+        ),
       )
       .finally(() => setCargando(false));
   }, [api, id, esNueva]);
@@ -120,13 +133,20 @@ export function FormularioEspecie() {
     };
   }, [api, borrador.reino]);
 
-  const campos = useMemo(() => (schema ? camposDeSchema(schema) : []), [schema]);
+  const campos = useMemo(
+    () => (schema ? camposDeSchema(schema) : []),
+    [schema],
+  );
 
   // El género no lleva reino: lo hereda de su familia. Se filtra para que no se
   // pueda colgar un canelo de un género de aves.
   const generosDelReino = useMemo(() => {
-    const reinoDeFamilia = new Map(familias.map((familia) => [familia.id, familia.reino]));
-    return generos.filter((genero) => reinoDeFamilia.get(genero.familia_id) === borrador.reino);
+    const reinoDeFamilia = new Map(
+      familias.map((familia) => [familia.id, familia.reino]),
+    );
+    return generos.filter(
+      (genero) => reinoDeFamilia.get(genero.familia_id) === borrador.reino,
+    );
   }, [generos, familias, borrador.reino]);
 
   function actualizar<K extends keyof Borrador>(clave: K, valor: Borrador[K]) {
@@ -138,13 +158,18 @@ export function FormularioEspecie() {
     setError(null);
     setAviso(null);
 
-    const faltantes = faltantesRequeridos(campos, borrador.atributos_especificos);
+    const faltantes = faltantesRequeridos(
+      campos,
+      borrador.atributos_especificos,
+    );
     if (faltantes.length > 0) {
-      setError(`Faltan campos obligatorios del reino ${borrador.reino}: ${faltantes.join(', ')}`);
+      setError(
+        `Faltan campos obligatorios del reino ${borrador.reino}: ${faltantes.join(", ")}`,
+      );
       return;
     }
-    if (borrador.genero_id === '') {
-      setError('Elige un género.');
+    if (borrador.genero_id === "") {
+      setError("Elige un género.");
       return;
     }
 
@@ -153,8 +178,11 @@ export function FormularioEspecie() {
     const cuerpo = {
       ...borrador,
       genero_id: Number(borrador.genero_id),
-      categoria_id: borrador.categoria_id === '' ? null : Number(borrador.categoria_id),
-      atributos_especificos: atributosParaEnviar(borrador.atributos_especificos),
+      categoria_id:
+        borrador.categoria_id === "" ? null : Number(borrador.categoria_id),
+      atributos_especificos: atributosParaEnviar(
+        borrador.atributos_especificos,
+      ),
     };
 
     setGuardando(true);
@@ -162,15 +190,15 @@ export function FormularioEspecie() {
       if (esNueva) {
         const creada = await api.crearEspecie(cuerpo);
         navegar(`/especies/${creada.id}`, { replace: true });
-        setAviso('Ficha creada como borrador. Publícala cuando esté lista.');
+        setAviso("Ficha creada como borrador. Publícala cuando esté lista.");
       } else {
         const actualizada = await api.actualizarEspecie(Number(id), cuerpo);
         setEspecie(actualizada);
         setBorrador(desdeEspecie(actualizada));
-        setAviso('Cambios guardados.');
+        setAviso("Cambios guardados.");
       }
     } catch (fallo) {
-      setError(fallo instanceof Error ? fallo.message : 'No se pudo guardar');
+      setError(fallo instanceof Error ? fallo.message : "No se pudo guardar");
     } finally {
       setGuardando(false);
     }
@@ -182,15 +210,19 @@ export function FormularioEspecie() {
     setAviso(null);
     try {
       const actualizada =
-        especie.estado === 'borrador'
+        especie.estado === "borrador"
           ? await api.publicar(especie.id)
           : await api.despublicar(especie.id);
       setEspecie(actualizada);
       setAviso(
-        actualizada.estado === 'publicada' ? 'Ficha publicada.' : 'Ficha devuelta a borrador.',
+        actualizada.estado === "publicada"
+          ? "Ficha publicada."
+          : "Ficha devuelta a borrador.",
       );
     } catch (fallo) {
-      setError(fallo instanceof Error ? fallo.message : 'No se pudo cambiar el estado');
+      setError(
+        fallo instanceof Error ? fallo.message : "No se pudo cambiar el estado",
+      );
     }
   }
 
@@ -199,12 +231,16 @@ export function FormularioEspecie() {
   return (
     <section>
       <header className="cabecera-seccion">
-        <h1>{esNueva ? 'Nueva ficha' : borrador.nombre_cientifico || 'Ficha'}</h1>
+        <h1>
+          {esNueva ? "Nueva ficha" : borrador.nombre_cientifico || "Ficha"}
+        </h1>
         {especie && (
           <div className="acciones">
-            <span className={`pastilla pastilla--${especie.estado}`}>{especie.estado}</span>
+            <span className={`pastilla pastilla--${especie.estado}`}>
+              {especie.estado}
+            </span>
             <button type="button" onClick={cambiarEstado}>
-              {especie.estado === 'borrador' ? 'Publicar' : 'Despublicar'}
+              {especie.estado === "borrador" ? "Publicar" : "Despublicar"}
             </button>
           </div>
         )}
@@ -212,22 +248,31 @@ export function FormularioEspecie() {
 
       {esNueva && (
         <Aviso tono="atencion">
-          La ficha nace como <strong>borrador</strong>: no la ve nadie fuera de la curaduría hasta
-          que la publiques.
+          La ficha nace como <strong>borrador</strong>: no la ve nadie fuera de
+          la curaduría hasta que la publiques.
         </Aviso>
       )}
 
-      {borrador.reino === 'fungi' && (
+      {borrador.reino === "fungi" && (
         <Aviso tono="atencion">
-          <strong>Hongos:</strong> la comestibilidad es obligatoria y la ficha se publica con una
-          advertencia sanitaria. Ninguna ficha de este panel sirve para decidir si un hongo se puede
-          comer: ante la duda, marca <em>desconocido</em> y explica las confusiones peligrosas en el
-          campo de advertencia.
+          <strong>Hongos:</strong> la comestibilidad es obligatoria y la ficha
+          se publica con una advertencia sanitaria. Ninguna ficha de este panel
+          sirve para decidir si un hongo se puede comer: ante la duda, marca{" "}
+          <em>desconocido</em> y explica las confusiones peligrosas en el campo
+          de advertencia.
         </Aviso>
       )}
 
-      {error && <Aviso tono="error">{error}</Aviso>}
-      {aviso && <Aviso tono="exito">{aviso}</Aviso>}
+      {error && (
+        <Aviso tono="error" desplazar>
+          {error}
+        </Aviso>
+      )}
+      {aviso && (
+        <Aviso tono="exito" desplazar>
+          {aviso}
+        </Aviso>
+      )}
 
       <form className="formulario" onSubmit={guardar}>
         <fieldset className="grupo">
@@ -261,7 +306,7 @@ export function FormularioEspecie() {
               required
               maxLength={200}
               value={borrador.nombre_cientifico}
-              onChange={(e) => actualizar('nombre_cientifico', e.target.value)}
+              onChange={(e) => actualizar("nombre_cientifico", e.target.value)}
             />
           </label>
 
@@ -271,7 +316,7 @@ export function FormularioEspecie() {
               type="text"
               maxLength={200}
               value={borrador.nombre_comun}
-              onChange={(e) => actualizar('nombre_comun', e.target.value)}
+              onChange={(e) => actualizar("nombre_comun", e.target.value)}
             />
           </label>
 
@@ -281,7 +326,7 @@ export function FormularioEspecie() {
               type="text"
               maxLength={200}
               value={borrador.autor_cientifico}
-              onChange={(e) => actualizar('autor_cientifico', e.target.value)}
+              onChange={(e) => actualizar("autor_cientifico", e.target.value)}
             />
           </label>
 
@@ -290,7 +335,10 @@ export function FormularioEspecie() {
             <select
               value={borrador.genero_id}
               onChange={(e) =>
-                actualizar('genero_id', e.target.value === '' ? '' : Number(e.target.value))
+                actualizar(
+                  "genero_id",
+                  e.target.value === "" ? "" : Number(e.target.value),
+                )
               }
               required
             >
@@ -308,7 +356,10 @@ export function FormularioEspecie() {
             <select
               value={borrador.categoria_id}
               onChange={(e) =>
-                actualizar('categoria_id', e.target.value === '' ? '' : Number(e.target.value))
+                actualizar(
+                  "categoria_id",
+                  e.target.value === "" ? "" : Number(e.target.value),
+                )
               }
               required
             >
@@ -320,8 +371,8 @@ export function FormularioEspecie() {
               ))}
             </select>
             <span className="ayuda">
-              Solo aparecen las categorías sobre las que tienes curaduría: son las únicas en las que
-              puedes guardar.
+              Solo aparecen las categorías sobre las que tienes curaduría: son
+              las únicas en las que puedes guardar.
             </span>
           </label>
         </fieldset>
@@ -334,7 +385,7 @@ export function FormularioEspecie() {
             <textarea
               rows={5}
               value={borrador.descripcion}
-              onChange={(e) => actualizar('descripcion', e.target.value)}
+              onChange={(e) => actualizar("descripcion", e.target.value)}
             />
           </label>
 
@@ -343,7 +394,7 @@ export function FormularioEspecie() {
             <textarea
               rows={3}
               value={borrador.habitat}
-              onChange={(e) => actualizar('habitat', e.target.value)}
+              onChange={(e) => actualizar("habitat", e.target.value)}
             />
           </label>
 
@@ -352,7 +403,9 @@ export function FormularioEspecie() {
             <textarea
               rows={3}
               value={borrador.distribucion_chiloe}
-              onChange={(e) => actualizar('distribucion_chiloe', e.target.value)}
+              onChange={(e) =>
+                actualizar("distribucion_chiloe", e.target.value)
+              }
             />
           </label>
 
@@ -360,7 +413,7 @@ export function FormularioEspecie() {
             <input
               type="checkbox"
               checked={borrador.endemica}
-              onChange={(e) => actualizar('endemica', e.target.checked)}
+              onChange={(e) => actualizar("endemica", e.target.checked)}
             />
             Endémica de Chiloé
           </label>
@@ -372,7 +425,9 @@ export function FormularioEspecie() {
               maxLength={60}
               placeholder="LC, NT, VU, EN, CR…"
               value={borrador.estado_conservacion}
-              onChange={(e) => actualizar('estado_conservacion', e.target.value)}
+              onChange={(e) =>
+                actualizar("estado_conservacion", e.target.value)
+              }
             />
           </label>
         </fieldset>
@@ -380,13 +435,15 @@ export function FormularioEspecie() {
         <fieldset className="grupo">
           <legend>Atributos de {borrador.reino}</legend>
           <p className="ayuda">
-            Estos campos vienen del JSON Schema que valida el servidor, así que lo que aquí se
-            acepta es exactamente lo que se acepta al guardar.
+            Estos campos vienen del JSON Schema que valida el servidor, así que
+            lo que aquí se acepta es exactamente lo que se acepta al guardar.
           </p>
           <FormularioAtributos
             campos={campos}
             atributos={borrador.atributos_especificos}
-            onChange={(atributos) => actualizar('atributos_especificos', atributos)}
+            onChange={(atributos) =>
+              actualizar("atributos_especificos", atributos)
+            }
           />
         </fieldset>
 
@@ -396,16 +453,20 @@ export function FormularioEspecie() {
             fotosKeys={borrador.fotos_keys}
             portada={borrador.foto_portada_key}
             onChange={({ fotos_keys, foto_portada_key }) =>
-              setBorrador((actual) => ({ ...actual, fotos_keys, foto_portada_key }))
+              setBorrador((actual) => ({
+                ...actual,
+                fotos_keys,
+                foto_portada_key,
+              }))
             }
           />
         </fieldset>
 
         <div className="acciones">
           <button type="submit" disabled={guardando}>
-            {guardando ? 'Guardando…' : 'Guardar'}
+            {guardando ? "Guardando…" : "Guardar"}
           </button>
-          <button type="button" onClick={() => navegar('/especies')}>
+          <button type="button" onClick={() => navegar("/especies")}>
             Volver
           </button>
         </div>
