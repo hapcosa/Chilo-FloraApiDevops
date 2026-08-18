@@ -1,19 +1,26 @@
 # Prompt para la siguiente sesión
 
 Copiá todo lo que sigue como primer mensaje de la sesión nueva.
+Estado al 2026-08-18.
+
+Hay otros dos prompts en la raíz para trabajos específicos, y **cada sesión va
+en su propio `git worktree`**: [PROMPT_FASE_9.md](PROMPT_FASE_9.md) para
+ejecutar el plan de la Fase 9, y
+[PROMPT_CAMARA_SESION.md](PROMPT_CAMARA_SESION.md) para la cámara.
 
 ---
 
-Seguimos con la app móvil de biodiversidad de Chiloé. Trabajás en el submódulo
-`mobile/` (`/home/obrero/programacion/Chilo-FloraApiDevops/mobile`), que es su
-propio repo git: `hapcosa/chiloe-biodiversidad-mobile`.
+Seguimos con el sistema de biodiversidad de Chiloé:
+`/home/obrero/programacion/Chilo-FloraApiDevops` (backend) y su submódulo
+`mobile/`, que es su propio repo (`hapcosa/chiloe-biodiversidad-mobile`).
 
 ## Reglas innegociables
 
 - Rama por cambio → commits → push → PR contra `master` → checks verdes →
   **el merge lo hago yo**. Nada de push a `master`, `--force`, `reset --hard`
   ni `--no-verify`.
-- Migraciones numeradas y **nunca** editadas tras mergear.
+- Migraciones numeradas y **nunca** editadas tras mergear. Las tablas no se
+  crean desde código de aplicación.
 - No commitear `.idea/editor.xml`, `.idea/vcs.xml`, el directorio sin trackear
   `diseño/`, keystores ni contraseñas de firma.
 - Fotos: nunca multipart a la API. Presigned URL → subida directa → se notifica
@@ -26,162 +33,116 @@ propio repo git: `hapcosa/chiloe-biodiversidad-mobile`.
   imprimen.
 - Si te doy permiso para un update en producción, no borres los datos al
   terminar.
-- Este archivo (`PROMPT_SIGUIENTE_SESION.md`, en la raíz del backend) está
-  trackeado: actualizalo al cerrar la sesión, en su propio PR.
+- Este archivo está trackeado: actualizalo al cerrar la sesión, en su propio PR.
+
+## Lo primero: producción está atrasada
+
+`master` avanzó cuatro PRs de backend y **nada de eso está desplegado**.
+Mergear no despliega.
+
+- **Prod está en la migración `0009`.** Faltan aplicar la `0010`
+  (precisión declarada de avistamientos), la `0011` (índice espacial) y la
+  `0012` (áreas protegidas, con sus datos sembrados).
+- El `nginx.prod.conf` cambió (rutas nuevas de áreas protegidas), así que el
+  **gateway** también hay que reconstruirlo — y ahí va además el arreglo del
+  aviso del panel de curaduría, que está mergeado sin desplegar.
+
+Orden: migraciones primero, después la API, después el gateway.
+
+```bash
+# en donaldchavez@10.244.117.161
+cd ~/servicios/chiloe-biodiversidad-api && git pull --ff-only origin master
+cd infrastructure/docker
+C="docker compose -p chiloe-prod --env-file ~/.config/chiloe-prod/chiloe.env -f docker-compose.prod.yml"
+$C build especies-api gateway
+$C up especies-api-migrate      # sin -d, para ver el resultado
+$C up -d especies-api gateway
+```
+
+⚠️ **Nombrá siempre el servicio concreto.** Un `build`/`up` pelado levantaría
+un segundo `cloudflared` del mismo túnel, y Cloudflare repartiría el tráfico
+entre las dos máquinas.
+
+Verificación después: `curl -s https://api.budaicapital.com/api/v1/areas-protegidas | head`
+y que el panel siga respondiendo 200 en `/curaduria/`.
+
+## Dónde va la Fase 9
+
+El plan es [docs/PLAN_FASE_9_TURISMO_Y_COMUNIDAD.md](docs/PLAN_FASE_9_TURISMO_Y_COMUNIDAD.md).
+Van 8 de 13.
+
+| PR | Qué | Estado |
+|---|---|---|
+| 1 | Quitar emojis de las fichas | ✅ mobile #32 |
+| 2 | **Crear encuentro al terminar la captura** | ❌ **sin empezar** |
+| 3 | Contar encuentros en vez de fichas abiertas | ✅ mobile #33 |
+| 4 | Advertencia de fauna | ✅ mobile #34 |
+| 5 | Bio, profesión y visibilidad en el perfil | ✅ backend #64 |
+| 6 | Editar perfil de verdad | ✅ mobile #35 |
+| 7 | Encuentros anteriores a la app | ✅ backend #65 + mobile #36 |
+| 8 | **Mapa satelital de encuentros** | ❌ **sin empezar** |
+| 9 | Endpoint agregado para el mapa | ✅ backend #66 |
+| 10 | Parques y áreas protegidas | ✅ backend #67 |
+| 11 | **Insignias** | ❌ sin empezar |
+| 12 | **Pantalla de usuarios del panel** | ❌ sin empezar |
+| 13 | **Postular a curar** | ❌ sin empezar |
+
+El siguiente natural es el **PR 8**: el backend del mapa ya está entero
+(endpoint agregado + áreas protegidas) y sin la pantalla móvil no se ve nada de
+eso. Después el **PR 2**, que es el que cierra el flujo de la cámara.
+
+Del PR 12 hay una **decisión pendiente conmigo, no la tomes solo**: el listado
+de usuarios cruza dos servicios (`users` vive en `auth-service`, las
+asignaciones a categorías en `especies-api`), así que hay que elegir si el panel
+consulta a los dos o si uno expone la vista combinada.
+
+## Cosas que ya están y conviene no redescubrir
+
+- El panel de curaduría está en producción en
+  `https://api.budaicapital.com/curaduria/` y **tiene login con Google**. Mi
+  cuenta `hapcosa@gmail.com` (id 4) es `admin`.
+- **Nadie puede postular a curar todavía**: el endpoint
+  `POST /api/v1/postulaciones` y la bandeja de revisión existen desde la
+  migración `0005`, pero ningún cliente tiene interfaz para postular. Es el
+  PR 13.
+- **Un admin tampoco puede repartir permisos por la web**: los endpoints
+  `POST`/`DELETE /api/v1/categorias/:id/moderadores/:usuarioId` existen y son
+  admin-only, pero ninguna pantalla los llama. Es el PR 12.
+- La **key de Google Maps** va en el `AndroidManifest.xml` del APK (Maps SDK for
+  Android), **no** en el env del backend, y **restringida por nombre de paquete
+  y huella SHA-1**. Una key sin restringir es facturable por cualquiera que la
+  saque del APK. La `GOOGLE_MAP_API` del `.env` local no la usa nadie.
 
 ## Entorno
 
-- Build: `JAVA_HOME=/usr/lib/jvm/java-17-openjdk` (el default del host es Java 26
-  y el plugin Gradle de RN falla).
-- `applicationId cl.chiloe.biodiversidad`. El buildType `release` está firmado
-  con la clave de debug y `enableProguardInReleaseBuilds = false`.
-- `src/config/appConfig.ts`: debug → `http://localhost:8080`,
+- Build de Android: `JAVA_HOME=/usr/lib/jvm/java-17-openjdk` (el default del
+  host es Java 26 y el plugin Gradle de RN no parsea esa versión).
+- `especies-api` **solo compila dentro de Docker**: al host le faltan Pistache y
+  libpqxx.
+- `applicationId cl.chiloe.biodiversidad`. El `release` está firmado con la
+  clave de debug y `enableProguardInReleaseBuilds = false`.
+- `mobile/src/config/appConfig.ts`: debug → `http://localhost:8080`,
   release → `https://api.budaicapital.com`. Solo el APK release habla con prod.
-- Dispositivo por adb: `192.168.1.7:46723`.
-  Logs: `adb logcat -d --pid=$(adb shell pidof cl.chiloe.biodiversidad)`
-  (un grep por "chiloe" a secas se ahoga en ruido de SurfaceFlinger).
-- Los screenshots salen 1080×2400 y se muestran a 900×2000: multiplicá las
-  coordenadas por 1.20. El tab "Perfil" está en `1010,2230`; "Probar cámara NDK"
-  en `540,1925`; el obturador en `540,1914`.
-- Para sacar archivos del cache de la app hay que poner `debuggable true` en el
-  buildType release **temporalmente** (no commitearlo) y usar
-  `adb exec-out run-as cl.chiloe.biodiversidad cat <ruta>`.
+- Dispositivo por adb en red (reconfirmá la IP con `adb devices`).
+  Logs: `adb logcat -d --pid=$(adb shell pidof cl.chiloe.biodiversidad)`.
+- Producción es `donaldchavez@10.244.117.161`, checkout en
+  `~/servicios/chiloe-biodiversidad-api`, proyecto compose `chiloe-prod`, env
+  **fuera del repo** en `~/.config/chiloe-prod/chiloe.env`. El host viejo
+  `10.244.19.205` es el entorno de test. Postgres: usuario `chiloe_prod`, base
+  `chiloe_biodiversidad`.
+- Los datos viven en volúmenes Docker con nombre (`chiloe-prod_postgres_data`,
+  `_minio_data`, `_redis_data`): migrarlos requiere `pg_dump` y un `tar` del
+  volumen, no copiar un directorio.
 
-## Estado al cerrar la sesión anterior
+## Otros pendientes, más viejos
 
-### PRs esperando tu merge
-
-- mobile **#26** — icono de la app.
-- mobile **#29** — orientación del preview + cierre de la app al volver.
-  Checks verdes.
-- backend **#56** — DNS.
-
-Mobile #27 y #28 ya están mergeados.
-
-### Trabajo sin commitear en el working tree de `mobile/`
-
-En `android/app/src/main/cpp/camera/camera_ndk.cpp` hay cambios **sin compilar
-y sin commitear** que atacan la deformación del preview:
-
-1. `chooseStreamSize()` acepta un parámetro `aspect` y descarta las
-   resoluciones cuya relación de aspecto no coincida (tolerancia 0.02).
-2. `open()` guarda `impl_->jpegSize` y **resuelve `impl_->previewSize` ahí
-   mismo**, exigiendo el aspecto del JPEG, con caída a "cualquier tamaño" si
-   ninguna coincide.
-3. `setPreviewSurface()` ya no elige el tamaño: usa `impl_->previewSize`.
-
-El motivo de mover la elección a `open()` es que la vista necesita conocer el
-tamaño **antes** de crear el `Surface`. **Falta la mitad Kotlin**, que es la
-que cierra el arreglo (ver abajo).
-
-## Lo primero que hay que hacer
-
-### 1. Terminar el arreglo de la deformación del preview
-
-En `ChiloeCameraPreviewView.attachIfReady()`, antes de crear el `Surface`:
-pedir `sensorGeometry(sessionId)` y llamar
-`texture.setDefaultBufferSize(geometry.previewWidth, geometry.previewHeight)`.
-Esa es la receta oficial de Camera2 (`Camera2Basic` hace
-`setDefaultBufferSize` desde el `SurfaceTexture`, no desde el nativo).
-Probablemente convenga sacar el `ANativeWindow_setBuffersGeometry` del C++.
-
-Después: compilar, instalar, medir de nuevo y commitear.
-
-**Lo que ya está medido en el dispositivo, para no repetirlo:**
-
-- La orientación está **bien**. Rotación 0 es la correcta. Lo confirmé
-  comparando el preview con el JPEG: ambos muestran la escena igual de derecha.
-- La matriz que el productor aplica al `SurfaceTexture` es la **identidad**:
-  el productor no rota. (La justificación contraria que había en el código y en
-  el PR era falsa y ya está corregida.)
-- El JPEG sale perfecto: 4624×3468 con EXIF `orientation=6`, se ve derecho y sin
-  deformar. El camino de la foto **no se toca**.
-- La deformación del preview es real y se mide con la proporción del mismo
-  objeto (un tarro metálico) en foto y preview:
-
-  | versión | proporción del tarro | deformación (1.000 = perfecto) |
-  |---|---|---|
-  | foto (referencia) | 1.15 | — |
-  | preview original (stream 16:9) | 0.68 | 0.59 |
-  | preview con stream 4:3 | 0.87 | 0.79 |
-
-- Con el stream forzado a 4:3 el aparato elige **1440×1080** (antes 1920×1080).
-- **La causa del 21% que queda**: el buffer entrega un campo de visión casi
-  cuadrado (aspecto 0.974) **sin importar qué stream se pida** — o sea,
-  `ANativeWindow_setBuffersGeometry` no manda. De ahí la corrección por
-  `setDefaultBufferSize`.
-
-Método de medición reproducible (sirve para verificar el arreglo): sacar un
-screenshot del preview y una foto de la misma escena sin mover el teléfono,
-aplicar el EXIF al JPEG con `PIL.ImageOps.exif_transpose`, y comparar la
-proporción del bounding box de un objeto brillante por umbral de luminancia.
-También sirve correlacionar perfiles 1-D de columnas y filas para obtener las
-escalas horizontal y vertical por separado. No hay numpy en el host.
-
-### 2. El enfoque no funciona
-
-El preview ya pide `AF_MODE_CONTINUOUS_PICTURE`, así que hace falta
-toque-para-enfocar con disparo explícito de AF
-(`ACAMERA_CONTROL_AF_TRIGGER_START` y regiones `AF_REGIONS`).
-
-### 3. Los cinco puntos del pedido original, todos sin empezar
-
-Del mensaje original: *"la imagen de perfil se toma automáticamente, no te
-muestra la escena a capturar y también debería tener la opción de colocar una
-imagen cualquiera que uno tenga en el celular, y el problema de la cámara
-persiste... también capturar una foto desde la app debería ser un botón que esté
-en la barra de navegación ya que si ves una especie la quieres capturar rápido,
-hay que mejorar la cámara y que sea configurable en lo posible como la cámara
-pro que viene integrada al sistema operativo"*.
-
-1. **Visor con obturador para el avatar.** `PerfilScreen.pickAvatar()` (~línea
-   153) hace `openCamera({lens:'front'})` y `capture()` al toque, sin mostrar
-   nada. `MiEncuentroFormScreen.tomarFoto()` tiene **exactamente el mismo bug**.
-   Los dos deberían usar una pantalla de cámara con visor.
-2. **Selector de galería.** Plan acordado: un puente Kotlin con
-   `ACTION_GET_CONTENT`, **no** una dependencia npm nueva (el CLAUDE.md del repo
-   prohíbe dependencias sin justificar).
-3. **Deformación del preview** — ver punto 1 de arriba.
-4. **Botón de captura en la barra de navegación.** Va en
-   `src/navigation/AppNavigator.tsx`, que hoy tiene los tabs
-   `Home | Explorar | Comunidad | Guardados | Perfil` con iconos emoji.
-5. **Controles manuales tipo "cámara pro".** Hoy `CameraSession` expone
-   `setIso`, `setExposure` y `setFocus`, pero **no hay forma de conocer los
-   rangos válidos**. Hay que agregar en C++/JNI un `capabilities()` que exponga
-   rango de ISO, rango de exposición y distancia mínima de enfoque.
-
-Te dije que 1, 2, 4 y 5 iban en **un solo PR** (`feat/camara-pro-y-galeria`)
-en vez de cuatro apilados, porque todos tocan la misma pantalla de captura
-nueva.
-
-## Otros pendientes
-
-- Fotos para una especie con "hartas fotos": bloqueado esperándote. No voy a
-  bajar imágenes de licencia indeterminada a producción.
+- **Prueba manual de la cámara en el teléfono**: nunca se hizo. Es lo primero
+  de [PROMPT_CAMARA_SESION.md](PROMPT_CAMARA_SESION.md).
+- Fotos para una especie con "hartas fotos": bloqueado esperándome. No bajes
+  imágenes de licencia indeterminada a producción.
 - Verificación del Paso 3, puntos que faltan: 3 (filtros y paginación),
   5 (visibilidad), 6 (captura de foto + PUT presigned), 9 (sync del cache de
-  especies). El 7 solo cuando pongas modo avión a mano.
+  especies). El 7 solo cuando ponga modo avión a mano.
 - Sin decidir: un PR aparte por la contraseña de Postgres en texto plano que
-  `especies-api` imprime al arrancar, y que queda en los logs del contenedor de
+  `especies-api` imprime al arrancar y queda en los logs del contenedor de
   producción.
-
-## Contexto de infraestructura (por si toca backend)
-
-Producción es `10.244.117.161`. El host viejo `10.244.19.205` (`traderbot`) es
-ahora el entorno de test. Tres piezas no viven en el repo y hay que llevarlas a
-mano: `~/.config/chiloe-prod/chiloe.env`, las credenciales del túnel en
-`~/.cloudflared/<uuid>.json` (+ `cert.pem`), y `CLOUDFLARED_UID`/`GID`.
-
-```bash
-cd infrastructure/docker
-docker compose --env-file ~/.config/chiloe-prod/chiloe.env \
-  -f docker-compose.prod.yml -p chiloe-prod up -d
-```
-
-⚠️ **Nunca dos `cloudflared` del mismo túnel a la vez**: Cloudflare ve dos
-conectores y reparte el tráfico. El cutover es parar el viejo y después levantar
-el nuevo. En los `build`/`up` **nombrá siempre el servicio concreto**.
-
-Los datos viven en volúmenes Docker con nombre (`chiloe-prod_postgres_data`,
-`chiloe-prod_minio_data`, `chiloe-prod_redis_data`): migrarlos requiere
-`pg_dump` y un `tar` del volumen, no copiar un directorio.
