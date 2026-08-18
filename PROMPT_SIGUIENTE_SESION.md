@@ -37,7 +37,9 @@ propio repo git: `hapcosa/chiloe-biodiversidad-mobile`.
   con la clave de debug y `enableProguardInReleaseBuilds = false`.
 - `src/config/appConfig.ts`: debug → `http://localhost:8080`,
   release → `https://api.budaicapital.com`. Solo el APK release habla con prod.
-- Dispositivo por adb: `192.168.1.7:46723`.
+- Dispositivo por adb: **ya conectado** por depuración inalámbrica —
+  `192.168.1.7:38015`, un Samsung A53 (`SM_A536E`, `a53x`). El puerto cambia en
+  cada emparejamiento: verificá con `adb devices -l` antes de asumirlo.
   Logs: `adb logcat -d --pid=$(adb shell pidof cl.chiloe.biodiversidad)`
   (un grep por "chiloe" a secas se ahoga en ruido de SurfaceFlinger).
 - Los screenshots salen 1080×2400 y se muestran a 900×2000: multiplicá las
@@ -55,6 +57,7 @@ propio repo git: `hapcosa/chiloe-biodiversidad-mobile`.
 - mobile **#29** — orientación del preview + cierre de la app al volver.
   Checks verdes.
 - backend **#56** — DNS.
+- backend **#57** — este mismo archivo.
 
 Mobile #27 y #28 ya están mergeados.
 
@@ -73,6 +76,14 @@ y sin commitear** que atacan la deformación del preview:
 El motivo de mover la elección a `open()` es que la vista necesita conocer el
 tamaño **antes** de crear el `Surface`. **Falta la mitad Kotlin**, que es la
 que cierra el arreglo (ver abajo).
+
+⚠️ Hay además un **stash guardado en `mobile/`**: `stash@{0}` "avatar perfil
+wip", tomado sobre `feat/rediseno-visual-pantallas` (toca `apiClient.ts`,
+`authApi.ts`, `AuthContext.tsx`, `photoUpload.ts` y `PerfilScreen.tsx`). **No lo
+saques estando en otra rama**: aplicado sobre `fix/camara-orientacion-preview`
+da conflictos en `photoUpload.ts` y `PerfilScreen.tsx`. Probablemente sea el
+principio del punto 1 del pedido original (visor para el avatar); revisalo antes
+de reescribir esa pantalla desde cero.
 
 ## Lo primero que hay que hacer
 
