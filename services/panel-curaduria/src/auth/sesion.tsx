@@ -1,7 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { crearApi, login as loginRequest, type Api } from '../api/api';
-import type { Categoria, Usuario } from '../api/tipos';
+import {
+  crearApi,
+  login as loginRequest,
+  loginConGoogle as loginGoogleRequest,
+  type Api,
+} from '../api/api';
+import { olvidarCuentaGoogle } from './google';
+import type { Categoria, RespuestaLogin, Usuario } from '../api/tipos';
 
 // El token vive en sessionStorage y no en localStorage: sobrevive a un F5 pero
 // muere al cerrar la pestaña. Un panel de curaduría abierto en un equipo
@@ -19,6 +25,8 @@ interface Sesion {
   esGlobal: boolean;
   cargandoCategorias: boolean;
   entrar: (email: string, password: string) => Promise<void>;
+  // `credential` es el ID token que entrega Google Identity Services.
+  entrarConGoogle: (credential: string) => Promise<void>;
   salir: () => void;
 }
 
@@ -41,6 +49,9 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   const [cargandoCategorias, setCargandoCategorias] = useState(false);
 
   const salir = useCallback(() => {
+    // Sin esto, Google vuelve a entrar solo con la misma cuenta y cerrar sesión
+    // no se siente como cerrar sesión.
+    olvidarCuentaGoogle();
     sessionStorage.removeItem(CLAVE_TOKEN);
     sessionStorage.removeItem(CLAVE_USUARIO);
     setToken(null);
@@ -77,13 +88,26 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
     };
   }, [api, usuario, token, esGlobal]);
 
-  const entrar = useCallback(async (email: string, password: string) => {
-    const respuesta = await loginRequest(email, password);
+  const guardarSesion = useCallback((respuesta: RespuestaLogin) => {
     sessionStorage.setItem(CLAVE_TOKEN, respuesta.access_token);
     sessionStorage.setItem(CLAVE_USUARIO, JSON.stringify(respuesta.user));
     setToken(respuesta.access_token);
     setUsuario(respuesta.user);
   }, []);
+
+  const entrar = useCallback(
+    async (email: string, password: string) => {
+      guardarSesion(await loginRequest(email, password));
+    },
+    [guardarSesion],
+  );
+
+  const entrarConGoogle = useCallback(
+    async (credential: string) => {
+      guardarSesion(await loginGoogleRequest(credential));
+    },
+    [guardarSesion],
+  );
 
   const valor = useMemo<Sesion>(
     () => ({
@@ -94,9 +118,20 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
       esGlobal,
       cargandoCategorias,
       entrar,
+      entrarConGoogle,
       salir,
     }),
-    [usuario, token, api, categoriasCuradas, esGlobal, cargandoCategorias, entrar, salir],
+    [
+      usuario,
+      token,
+      api,
+      categoriasCuradas,
+      esGlobal,
+      cargandoCategorias,
+      entrar,
+      entrarConGoogle,
+      salir,
+    ],
   );
 
   return <SesionContext.Provider value={valor}>{children}</SesionContext.Provider>;

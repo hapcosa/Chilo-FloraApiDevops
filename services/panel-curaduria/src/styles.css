@@ -370,3 +370,26 @@ td button + button {
 .login button {
   width: 100%;
 }
+
+.login-google {
+  display: flex;
+  justify-content: center;
+  min-height: 40px;
+}
+
+/* Línea con la palabra "o con correo" centrada entre los dos métodos. */
+.login-separador {
+  align-items: center;
+  color: #6b7280;
+  display: flex;
+  font-size: 0.85rem;
+  gap: 0.75rem;
+}
+
+.login-separador::before,
+.login-separador::after {
+  background: #d1d5db;
+  content: '';
+  flex: 1;
+  height: 1px;
+}

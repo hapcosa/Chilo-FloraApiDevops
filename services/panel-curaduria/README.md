@@ -67,3 +67,20 @@ imagen del gateway. Es la contrapartida de no tener servidor propio.
   que es trabajo aparte.
 - La sesión vive en `sessionStorage`: sobrevive a un F5, muere al cerrar la
   pestaña. Deliberado — es un panel con permisos de escritura sobre el catálogo.
+
+## Entrar con Google
+
+Quien creó su cuenta en la app con Google no tiene contraseña, así que el login
+por correo no le sirve. El panel muestra el botón de Google (Google Identity
+Services, cargado desde el CDN de Google la primera vez que se abre el login) y
+manda el `credential` a `POST /api/v1/auth/google`, el mismo endpoint que usa la
+app móvil.
+
+- El ID de cliente es el **Web** client ID (`VITE_GOOGLE_CLIENT_ID` lo sobrescribe).
+  No es un secreto: viaja en el bundle.
+- Requisito externo: el dominio donde se sirve el panel debe estar en
+  **Authorized JavaScript origins** de ese cliente OAuth en Google Cloud Console
+  (`https://api.budaicapital.com` para producción, `http://localhost:5173` para
+  desarrollo). Sin eso Google no dibuja el botón.
+- El backend no necesitó cambios: `GoogleIDTokenLogin` ya acepta el campo
+  `credential` y `GOOGLE_CLIENT_ID` ya admite lista de audiencias separada por comas.

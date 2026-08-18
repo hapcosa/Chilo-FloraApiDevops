@@ -112,6 +112,16 @@ export function login(email: string, password: string): Promise<RespuestaLogin> 
   });
 }
 
+// Login con Google: el panel manda el `credential` (el ID token que devuelve
+// Google Identity Services) y el auth-service lo verifica contra Google y emite
+// el JWT propio. Mismo endpoint que usa la app móvil.
+export function loginConGoogle(credential: string): Promise<RespuestaLogin> {
+  return request<RespuestaLogin>('/api/v1/auth/google', {
+    method: 'POST',
+    body: { credential },
+  });
+}
+
 // La subida va directa al object storage con la URL presignada: nunca
 // multipart contra la API (ver CLAUDE.md § Fotos).
 export async function subirArchivo(presign: PresignedUpload, archivo: File): Promise<void> {
