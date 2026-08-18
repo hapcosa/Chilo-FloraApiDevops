@@ -16,6 +16,7 @@ public:
 
     void getAll(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void getById(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
+    void getMapa(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void create(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void moderate(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     void compartir(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
@@ -26,6 +27,10 @@ public:
 
         Routes::Get(router, "/api/v1/avistamientos",
                     Routes::bind(&AvistamientoController::getAll, controller));
+        // Antes que "/:id": si no, el router trataría "mapa" como un id y el
+        // endpoint respondería 400 por un parámetro que nadie mandó.
+        Routes::Get(router, "/api/v1/avistamientos/mapa",
+                    Routes::bind(&AvistamientoController::getMapa, controller));
         Routes::Get(router, "/api/v1/avistamientos/:id",
                     Routes::bind(&AvistamientoController::getById, controller));
         Routes::Post(router, "/api/v1/avistamientos",

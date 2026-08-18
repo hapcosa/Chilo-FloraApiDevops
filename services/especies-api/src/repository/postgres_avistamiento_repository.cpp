@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "../../include/utils/conservacion.hpp"
 #include "../../include/utils/timestamps.hpp"
 
 namespace {
@@ -273,6 +274,91 @@ Avistamiento PostgresAvistamientoRepository::moderate(
         return avistamiento;
     } catch (const std::exception& error) {
         std::cerr << "Error al moderar avistamiento: " << error.what() << std::endl;
+        throw;
+    }
+}
+
+// Celdas agregadas para el mapa (Fase 9, PR 9).
+//
+// La agregación va entera en SQL: el punto del endpoint es no traer las filas.
+// Dos niveles de GROUP BY —primero por (celda, especie), luego por celda— es lo
+// que permite sacar la especie dominante sin un subselect correlacionado por
+// celda.
+//
+// El tamaño de celda no es uniforme: una especie amenazada nunca se agrega más
+// fino que kCeldaMinimaSensible aunque el zoom pida detalle. La clasificación
+// usa el mismo patrón que utils::esEstadoConservacionSensible, generado desde
+// la misma lista de tokens.
+std::vector<CeldaMapa> PostgresAvistamientoRepository::mapa(const MapaFilters& filters) {
+    try {
+        auto conn = database->createConnection();
+        pqxx::work txn(*conn);
+
+        const double celda = gradosPorCeldaSegunZoom(filters.zoom);
+        const std::string celdaSql = txn.quote(celda);
+        const std::string minimaSql = txn.quote(kCeldaMinimaSensible);
+
+        std::string filtros;
+        if (filters.reino) {
+            filtros += " AND a.reino = " + txn.quote(reinoToString(*filters.reino))
+                     + "::reino_enum";
+        }
+        if (filters.especie_id) {
+            filtros += " AND a.especie_id = " + txn.quote(*filters.especie_id);
+        }
+
+        const std::string sql =
+            std::string("WITH puntos AS ("
+            " SELECT a.geo_lat, a.geo_lng, a.especie_id,"
+            // COALESCE porque el LEFT JOIN deja `estado_conservacion` en NULL
+            // para los encuentros sin especie asignada, y `~*` sobre NULL da
+            // NULL, que luego sobrevive al bool_or y revienta al leerlo como
+            // bool. Sin especie no hay nada que proteger: false.
+            " COALESCE(e.estado_conservacion ~* ") + txn.quote(utils::patronSqlEstadoSensible())
+            + ", false) AS sensible,"
+            " CASE WHEN e.estado_conservacion ~* " + txn.quote(utils::patronSqlEstadoSensible())
+            + " THEN GREATEST(" + celdaSql + "::numeric, " + minimaSql + "::numeric)"
+            + " ELSE " + celdaSql + "::numeric END AS tam"
+            + " FROM avistamientos a"
+            + " LEFT JOIN especies e ON e.id = a.especie_id"
+            + " WHERE a.estado = 'aprobado' AND a.visibilidad = 'publico'"
+            + " AND a.geo_lat BETWEEN " + txn.quote(filters.min_lat)
+            + " AND " + txn.quote(filters.max_lat)
+            + " AND a.geo_lng BETWEEN " + txn.quote(filters.min_lng)
+            + " AND " + txn.quote(filters.max_lng)
+            + filtros
+            + "), celdas AS ("
+            + " SELECT floor(geo_lat / tam) * tam + tam / 2 AS lat,"
+            + " floor(geo_lng / tam) * tam + tam / 2 AS lng,"
+            + " tam, especie_id, bool_or(sensible) AS sensible, COUNT(*) AS n"
+            + " FROM puntos GROUP BY 1, 2, 3, 4"
+            + ") SELECT lat, lng, tam, SUM(n) AS total,"
+            + " COUNT(*) FILTER (WHERE especie_id IS NOT NULL) AS especies_distintas,"
+            + " (array_agg(especie_id ORDER BY n DESC, especie_id)"
+            + "  FILTER (WHERE especie_id IS NOT NULL))[1] AS especie_dominante_id,"
+            + " bool_or(sensible) AS sensible"
+            + " FROM celdas GROUP BY lat, lng, tam"
+            + " ORDER BY total DESC, lat, lng LIMIT 2000";
+
+        pqxx::result result = txn.exec(sql);
+        txn.commit();
+
+        std::vector<CeldaMapa> celdas;
+        celdas.reserve(result.size());
+        for (const auto& row : result) {
+            CeldaMapa item;
+            item.lat = row["lat"].as<double>();
+            item.lng = row["lng"].as<double>();
+            item.grados = row["tam"].as<double>();
+            item.total = row["total"].as<int>();
+            item.especies_distintas = row["especies_distintas"].as<int>();
+            item.especie_dominante_id = optInt(row["especie_dominante_id"]);
+            item.sensible = row["sensible"].as<bool>();
+            celdas.push_back(item);
+        }
+        return celdas;
+    } catch (const std::exception& error) {
+        std::cerr << "Error al agregar el mapa de avistamientos: " << error.what() << std::endl;
         throw;
     }
 }
