@@ -10,7 +10,8 @@ namespace {
 
 constexpr const char* kSelectCols =
     "id, especie_id, reino, nombre_sugerido, descripcion, foto_key, "
-    "geo_lat, geo_lng, precision_metros, observado_en, creado_por, estado, "
+    "geo_lat, geo_lng, precision_metros, precision_declarada, observado_en, "
+    "creado_por, estado, "
     "visibilidad, moderado_por, moderado_en, motivo_rechazo, "
     "grado_identificacion, created_at, updated_at";
 
@@ -68,6 +69,8 @@ Avistamiento PostgresAvistamientoRepository::mapRowToAvistamiento(const pqxx::ro
     avistamiento.setGeoLat(row["geo_lat"].as<double>());
     avistamiento.setGeoLng(row["geo_lng"].as<double>());
     avistamiento.setPrecisionMetros(optDouble(row["precision_metros"]));
+    avistamiento.setPrecisionDeclarada(
+        precisionDeclaradaFromString(row["precision_declarada"].c_str()));
     avistamiento.setObservadoEn(utils::toIso8601Opt(optStr(row["observado_en"])));
     avistamiento.setCreadoPor(optInt(row["creado_por"]));
     avistamiento.setEstado(avistamientoEstadoFromString(row["estado"].c_str()));
@@ -94,7 +97,8 @@ Avistamiento PostgresAvistamientoRepository::create(const Avistamiento& avistami
         const std::string sql =
             std::string("INSERT INTO avistamientos (")
             + "especie_id, reino, nombre_sugerido, descripcion, foto_key, "
-            + "geo_lat, geo_lng, precision_metros, observado_en, creado_por"
+            + "geo_lat, geo_lng, precision_metros, precision_declarada, "
+            + "observado_en, creado_por"
             + ") VALUES ("
             + quoteOptInt(txn, avistamiento.getEspecieId()) + ", "
             + txn.quote(reinoToString(avistamiento.getReino())) + "::reino_enum, "
@@ -104,6 +108,8 @@ Avistamiento PostgresAvistamientoRepository::create(const Avistamiento& avistami
             + txn.quote(avistamiento.getGeoLat()) + ", "
             + txn.quote(avistamiento.getGeoLng()) + ", "
             + quoteOptDouble(txn, avistamiento.getPrecisionMetros()) + ", "
+            + txn.quote(precisionDeclaradaToString(avistamiento.getPrecisionDeclarada()))
+            + "::precision_declarada_enum, "
             + (avistamiento.getObservadoEn()
                    ? txn.quote(*avistamiento.getObservadoEn())
                    : std::string("NOW()")) + ", "

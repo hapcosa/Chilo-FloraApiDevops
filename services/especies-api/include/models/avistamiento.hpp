@@ -28,6 +28,18 @@ enum class AvistamientoVisibilidad {
 std::string avistamientoVisibilidadToString(AvistamientoVisibilidad visibilidad);
 AvistamientoVisibilidad avistamientoVisibilidadFromString(const std::string& value);
 
+// Cuánto se fía la persona de la ubicación que dio. `precision_metros` mide el
+// sensor; esto mide el recuerdo, y un encuentro de hace tres años solo tiene lo
+// segundo (migración 0010).
+enum class PrecisionDeclarada {
+    Exacto,
+    Aproximado,
+    Zona
+};
+
+std::string precisionDeclaradaToString(PrecisionDeclarada precision);
+PrecisionDeclarada precisionDeclaradaFromString(const std::string& value);
+
 class Avistamiento {
 private:
     int id = 0;
@@ -39,6 +51,7 @@ private:
     double geo_lat = 0;
     double geo_lng = 0;
     std::optional<double> precision_metros;
+    PrecisionDeclarada precision_declarada = PrecisionDeclarada::Exacto;
     std::optional<std::string> observado_en;
     std::optional<int> creado_por;
     AvistamientoEstado estado = AvistamientoEstado::Pendiente;
@@ -72,6 +85,7 @@ public:
     double getGeoLat() const { return geo_lat; }
     double getGeoLng() const { return geo_lng; }
     const std::optional<double>& getPrecisionMetros() const { return precision_metros; }
+    PrecisionDeclarada getPrecisionDeclarada() const { return precision_declarada; }
     const std::optional<std::string>& getObservadoEn() const { return observado_en; }
     const std::optional<int>& getCreadoPor() const { return creado_por; }
     AvistamientoEstado getEstado() const { return estado; }
@@ -94,6 +108,7 @@ public:
     void setGeoLat(double value) { geo_lat = value; }
     void setGeoLng(double value) { geo_lng = value; }
     void setPrecisionMetros(std::optional<double> value) { precision_metros = value; }
+    void setPrecisionDeclarada(PrecisionDeclarada value) { precision_declarada = value; }
     void setObservadoEn(std::optional<std::string> value) { observado_en = std::move(value); }
     void setCreadoPor(std::optional<int> value) { creado_por = value; }
     void setEstado(AvistamientoEstado value) { estado = value; }

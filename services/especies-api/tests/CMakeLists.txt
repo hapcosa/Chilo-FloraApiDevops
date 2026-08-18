@@ -17,6 +17,8 @@
 #     acepta fromJson (el cliente no publica mandando "estado" en el cuerpo).
 #   - timestamps.cpp: normalización a ISO 8601 de lo que devuelve libpqxx,
 #     con los formatos reales de Postgres como entrada.
+#   - fechas.cpp: qué `observado_en` se acepta ahora que un encuentro puede ser
+#     un recuerdo de hace años (Fase 9, PR 7).
 #   - avistamiento.cpp: qué expone toJson (el feed lee identificaciones_count)
 #     y qué ignora fromJson.
 #   - avistamiento_visibilidad.cpp: quién puede ver avistamientos sin aprobar,
@@ -34,6 +36,7 @@ add_executable(unit_tests
         test_especie_estado.cpp
         test_identificacion.cpp
         test_timestamps.cpp
+        test_fechas.cpp
         test_avistamiento.cpp
         test_avistamiento_visibilidad.cpp
         ${CMAKE_SOURCE_DIR}/src/models/reino.cpp
@@ -48,6 +51,7 @@ add_executable(unit_tests
         ${CMAKE_SOURCE_DIR}/src/models/avistamiento.cpp
         ${CMAKE_SOURCE_DIR}/src/services/avistamiento_visibilidad.cpp
         ${CMAKE_SOURCE_DIR}/src/utils/timestamps.cpp
+        ${CMAKE_SOURCE_DIR}/src/utils/fechas.cpp
 )
 
 target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)

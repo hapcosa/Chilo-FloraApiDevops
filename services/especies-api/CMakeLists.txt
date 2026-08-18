@@ -109,6 +109,7 @@ set(REQUIRED_SOURCES
         src/utils/atributos_schema_validator.cpp
         src/utils/request_identity.cpp
         src/utils/timestamps.cpp
+        src/utils/fechas.cpp
         src/models/imagen.cpp
 )
 
@@ -228,6 +229,7 @@ set(SOURCES
         src/utils/atributos_schema_validator.cpp
         src/utils/request_identity.cpp
         src/utils/timestamps.cpp
+        src/utils/fechas.cpp
         src/models/imagen.cpp
 )
 
