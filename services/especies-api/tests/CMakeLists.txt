@@ -19,6 +19,8 @@
 #     con los formatos reales de Postgres como entrada.
 #   - fechas.cpp: qué `observado_en` se acepta ahora que un encuentro puede ser
 #     un recuerdo de hace años (Fase 9, PR 7).
+#   - area_protegida.cpp: tipos y validación del bbox de un parque (Fase 9,
+#     PR 10). Las consultas espaciales viven en SQL y no se cubren aquí.
 #   - conservacion.cpp + celda_mapa.cpp: qué especies se difuminan en el mapa
 #     público y de qué tamaño es la celda en cada zoom (Fase 9, PR 9). La
 #     agregación en sí vive en SQL y no se cubre aquí.
@@ -41,6 +43,7 @@ add_executable(unit_tests
         test_timestamps.cpp
         test_fechas.cpp
         test_mapa_celdas.cpp
+        test_area_protegida.cpp
         test_avistamiento.cpp
         test_avistamiento_visibilidad.cpp
         ${CMAKE_SOURCE_DIR}/src/models/reino.cpp
@@ -58,6 +61,7 @@ add_executable(unit_tests
         ${CMAKE_SOURCE_DIR}/src/utils/fechas.cpp
         ${CMAKE_SOURCE_DIR}/src/utils/conservacion.cpp
         ${CMAKE_SOURCE_DIR}/src/models/celda_mapa.cpp
+        ${CMAKE_SOURCE_DIR}/src/models/area_protegida.cpp
 )
 
 target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
