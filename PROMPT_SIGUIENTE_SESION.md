@@ -37,17 +37,26 @@ Seguimos con el sistema de biodiversidad de Chiloé:
 
 ## Lo primero: producción está atrasada
 
-`master` avanzó cuatro PRs de backend y **nada de eso está desplegado**.
+`master` avanzó varios PRs de backend y **nada de eso está desplegado**.
 Mergear no despliega.
 
-- **Prod está en la migración `0009`.** Faltan aplicar la `0010`
-  (precisión declarada de avistamientos), la `0011` (índice espacial) y la
-  `0012` (áreas protegidas, con sus datos sembrados).
+⚠️ **Antes de desplegar, mergear el PR #69.** El PR #67 (parques y áreas
+protegidas) se mergeó por error contra `feat/mapa-endpoint-agregado` —una rama
+que ya estaba mergeada—, así que ese trabajo **nunca llegó a `master`**: ni la
+migración `0012`, ni el módulo `area_protegida`, ni las rutas nuevas del
+`nginx.prod.conf`. El PR #69 lleva el mismo commit `5b06fab` a `master` y tiene
+los checks en verde. Sin ese merge, el `git pull` de abajo no trae nada de
+áreas protegidas y el gateway se reconstruye con el nginx viejo.
+
+- **Prod está en la migración `0009`** (según el traspaso anterior; **verificalo
+  antes de tocar nada**, no se pudo confirmar contra la BD). Faltan aplicar la
+  `0010` (precisión declarada de avistamientos), la `0011` (índice espacial) y
+  la `0012` (áreas protegidas, con sus datos sembrados).
 - El `nginx.prod.conf` cambió (rutas nuevas de áreas protegidas), así que el
   **gateway** también hay que reconstruirlo — y ahí va además el arreglo del
   aviso del panel de curaduría, que está mergeado sin desplegar.
 
-Orden: migraciones primero, después la API, después el gateway.
+Orden: mergear el #69, después migraciones, después la API, después el gateway.
 
 ```bash
 # en donaldchavez@10.244.117.161
@@ -82,7 +91,7 @@ Van 8 de 13.
 | 7 | Encuentros anteriores a la app | ✅ backend #65 + mobile #36 |
 | 8 | **Mapa satelital de encuentros** | ❌ **sin empezar** |
 | 9 | Endpoint agregado para el mapa | ✅ backend #66 |
-| 10 | Parques y áreas protegidas | ✅ backend #67 |
+| 10 | Parques y áreas protegidas | ⚠️ backend #69 (el #67 no llegó a `master`) |
 | 11 | **Insignias** | ❌ sin empezar |
 | 12 | **Pantalla de usuarios del panel** | ❌ sin empezar |
 | 13 | **Postular a curar** | ❌ sin empezar |
