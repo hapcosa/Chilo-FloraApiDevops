@@ -56,4 +56,34 @@ TEST(AvistamientoTest, VisibilidadRoundTripDeString) {
     EXPECT_THROW(avistamientoVisibilidadFromString("oculto"), std::invalid_argument);
 }
 
+// La precisión declarada la afirma quien registra —a diferencia de
+// `visibilidad`— porque habla de su propio dato, no de un permiso.
+TEST(AvistamientoTest, PrecisionDeclaradaPorDefectoEsExacto) {
+    const auto avistamiento = Avistamiento::fromJson(nlohmann::json{
+        {"reino", "fungi"},
+        {"foto_key", "avistamientos/1.jpg"},
+        {"geo_lat", -42.5},
+        {"geo_lng", -73.8}});
+
+    EXPECT_EQ(avistamiento.getPrecisionDeclarada(), PrecisionDeclarada::Exacto);
+    EXPECT_EQ(avistamiento.toJson()["precision_declarada"], "exacto");
+}
+
+TEST(AvistamientoTest, PrecisionDeclaradaSeLeeDelCuerpo) {
+    const auto avistamiento = Avistamiento::fromJson(nlohmann::json{
+        {"reino", "plantae"},
+        {"foto_key", "avistamientos/2.jpg"},
+        {"geo_lat", -42.5},
+        {"geo_lng", -73.8},
+        {"precision_declarada", "zona"}});
+
+    EXPECT_EQ(avistamiento.getPrecisionDeclarada(), PrecisionDeclarada::Zona);
+    EXPECT_EQ(avistamiento.toJson()["precision_declarada"], "zona");
+}
+
+TEST(AvistamientoTest, PrecisionDeclaradaInvalidaRevienta) {
+    EXPECT_THROW(precisionDeclaradaFromString("mas o menos"), std::invalid_argument);
+    EXPECT_EQ(precisionDeclaradaToString(PrecisionDeclarada::Aproximado), "aproximado");
+}
+
 } // namespace

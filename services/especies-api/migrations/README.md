@@ -16,6 +16,7 @@ services/especies-api/
 │   ├── 0007_identificaciones.sql # identificación comunitaria de avistamientos
 │   ├── 0008_avistamientos_visibilidad.sql # público/privado por avistamiento
 │   ├── 0009_normaliza_atributos_seed.sql  # corrige atributos del seed 0001 ya insertados
+│   ├── 0010_avistamientos_precision_declarada.sql # cuánto se fía el autor de la ubicación
 │   └── README.md              # este archivo
 └── scripts/
     └── migrate.sh             # runner

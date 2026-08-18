@@ -82,6 +82,25 @@ AvistamientoVisibilidad avistamientoVisibilidadFromString(const std::string& val
     throw std::invalid_argument("visibilidad de avistamiento inválida: " + value);
 }
 
+std::string precisionDeclaradaToString(PrecisionDeclarada precision) {
+    switch (precision) {
+        case PrecisionDeclarada::Exacto:
+            return "exacto";
+        case PrecisionDeclarada::Aproximado:
+            return "aproximado";
+        case PrecisionDeclarada::Zona:
+            return "zona";
+    }
+    return "exacto";
+}
+
+PrecisionDeclarada precisionDeclaradaFromString(const std::string& value) {
+    if (value == "exacto") return PrecisionDeclarada::Exacto;
+    if (value == "aproximado") return PrecisionDeclarada::Aproximado;
+    if (value == "zona") return PrecisionDeclarada::Zona;
+    throw std::invalid_argument("precisión declarada inválida: " + value);
+}
+
 bool Avistamiento::esValido() const {
     if (foto_key.empty() || foto_key.length() > 500) return false;
     if (geo_lat < -90 || geo_lat > 90) return false;
@@ -104,6 +123,7 @@ nlohmann::json Avistamiento::toJson() const {
     json["geo_lat"] = geo_lat;
     json["geo_lng"] = geo_lng;
     writeOpt(json, "precision_metros", precision_metros);
+    json["precision_declarada"] = precisionDeclaradaToString(precision_declarada);
     writeOpt(json, "observado_en", observado_en);
     writeOpt(json, "creado_por", creado_por);
     json["estado"] = avistamientoEstadoToString(estado);
@@ -149,6 +169,15 @@ Avistamiento Avistamiento::fromJson(const nlohmann::json& json) {
     avistamiento.nombre_sugerido = optString(json, "nombre_sugerido");
     avistamiento.descripcion = optString(json, "descripcion");
     avistamiento.precision_metros = optDouble(json, "precision_metros");
+    // A diferencia de `visibilidad`, esta sí la declara quien registra: es una
+    // afirmación sobre su propio dato, no un permiso.
+    if (json.contains("precision_declarada") && !json["precision_declarada"].is_null()) {
+        if (!json["precision_declarada"].is_string()) {
+            throw std::invalid_argument("'precision_declarada' debe ser string");
+        }
+        avistamiento.precision_declarada =
+            precisionDeclaradaFromString(json["precision_declarada"].get<std::string>());
+    }
     avistamiento.observado_en = optString(json, "observado_en");
     avistamiento.creado_por = optInt(json, "creado_por");
     avistamiento.moderado_por = optInt(json, "moderado_por");

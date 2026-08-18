@@ -1,7 +1,10 @@
 #include "../../include/services/avistamiento_service.hpp"
 
+#include <ctime>
 #include <stdexcept>
 #include <utility>
+
+#include "../../include/utils/fechas.hpp"
 
 namespace {
 
@@ -17,6 +20,13 @@ AvistamientoService::AvistamientoService(
 void AvistamientoService::validateAvistamiento(const Avistamiento& avistamiento) const {
     if (!avistamiento.esValido()) {
         throw std::invalid_argument("avistamiento inválido");
+    }
+
+    // Un encuentro puede ser de hace años (Fase 9, PR 7), pero no del futuro
+    // ni de antes de que existiera la fotografía de campo.
+    if (avistamiento.getObservadoEn() &&
+        !utils::observadoEnEsAceptable(*avistamiento.getObservadoEn(), std::time(nullptr))) {
+        throw std::invalid_argument("observado_en fuera de rango");
     }
 
     if (!storageService) {
