@@ -217,6 +217,85 @@ postular** porque no hay interfaz en ningún cliente.
 - Se enlaza con la profesión declarada del PR 11: postular es justamente el
   momento en que tiene sentido pedirla.
 
+### Fase 9.4 — Que la app se vea viva
+
+Los tres salen de mirar la app funcionando en el teléfono el 2026-08-18, no de
+la planificación original.
+
+**PR 14 — `feat(home): portada con lo último, no con una especie al azar`**
+*(backend + mobile)*
+Hoy la portada muestra **una especie destacada elegida arbitrariamente** y un
+círculo por reino. No cambia entre visitas, no refleja que alguien esté usando
+la app y no da ninguna razón para volver a abrirla. Una portada de una
+biblioteca viva tiene que mostrar movimiento:
+
+- **Últimas especies publicadas** — fichas nuevas, por `creado_en`.
+- **Últimas ediciones** — fichas que se actualizaron, por `actualizado_en`, con
+  qué cambió si es barato saberlo. Es lo que hace visible el trabajo de
+  curaduría, que hoy no se ve por ningún lado.
+- **Últimos encuentros de la comunidad** — los avistamientos aprobados y
+  públicos más recientes, con foto. Reusa la visibilidad ya resuelta en el PR 8
+  y la ofuscación de especies amenazadas del PR 9: la portada **no** puede ser
+  la puerta de atrás que publique ubicaciones que el mapa protege.
+
+Conviene un solo endpoint agregado (`GET /api/v1/portada`) y no tres llamadas:
+la portada es lo primero que se abre y a veces con red de isla. Cachearlo
+offline como el resto (`src/db/`), para que abrir la app sin señal siga
+mostrando lo último que se vio en vez de tres bloques vacíos.
+
+**PR 15 — `feat(explorar): filtros por grupo dentro de cada reino`**
+*(backend + mobile)*
+Filtrar solo por reino es demasiado grueso: `animalia` mete en la misma bolsa al
+chungungo, al pudú, al chucao y a una rana. Hay que poder filtrar por grupo —
+aves, mamíferos, peces, reptiles, anfibios e invertebrados en animalia, y lo que
+corresponda en los otros cuatro reinos.
+
+**El eje ya existe y conviene mirarlo antes de crear otro.** La migración `0004`
+creó `categorias_moderacion` — literalmente "subgrupo curable dentro de un reino
+(p. ej. 'Aves' dentro de animalia)", sin jerarquía — y la columna
+`especies.categoria_id`, ya backfilleada con cinco categorías "general". Es la
+misma partición que pide este filtro, escrita para otro propósito.
+
+**Decisión pendiente, no la tomo solo.** Tres caminos:
+
+1. **Reusar `categorias_moderacion` como eje de navegación.** No hay migración
+   estructural: se crean las subcategorías reales ("Aves", "Mamíferos", "Peces",
+   "Reptiles", "Anfibios") por la API, que es como el `0004` dice que se hacen, y
+   se reclasifican las 103 fichas. El filtro es un `WHERE categoria_id = …`
+   sobre una columna que ya está indexada. **Es la que recomiendo**, con una
+   advertencia: acopla el eje de *permisos de curaduría* al de *navegación*, así
+   que a futuro un curador de "Aves" y la pestaña "Aves" quedan atados al mismo
+   registro. Hoy eso es una ventaja —quien cura aves es quien sabe de aves— pero
+   conviene decidirlo a ojos abiertos.
+2. **Tabla `clases` entre reino y familia**, con `familias.clase_id`. Es la
+   taxonomía real (reino → filo → clase → orden → familia) y separa navegación
+   de permisos. Cuesta una migración más y deja dos particiones parecidas
+   conviviendo, que es la receta para que se contradigan.
+3. **Columna `grupo` en `especies`** o propiedad en `atributos_especificos`.
+   Las descarto: la primera es un dato denormalizado que puede contradecir a la
+   familia; la segunda mete en el JSONB algo que aplica a todos los reinos y que
+   se va a filtrar en la pantalla principal de navegación.
+
+Cualquiera exige decidir los grupos de protista y monera, donde la clase no es
+un concepto tan usado ni tan útil para alguien que pasea por Chiloé. Ojo con
+inventar taxonomía: los grupos tienen que salir de una fuente, no de la
+intuición.
+
+**PR 16 — `fix(app): íconos de navegación en vez de emojis`**
+*(mobile)*
+La barra usa **emojis literales** (`AppNavigator.tsx:31-38`: 🏠 🔎 📷 🗺️ 👥 🔖
+🙋). Se ven como emoticones de teléfono, cambian de dibujo en cada versión de
+Android y no respetan el color activo/inactivo del tema, porque un emoji trae
+su propio color. Hay que reemplazarlos por íconos de trazo, minimalistas, que
+tomen el `color` que ya les pasa `tabBarIcon`.
+
+Es la misma corrección que el PR 1 hizo en las fichas, pero en la navegación.
+Requiere **una dependencia nueva** (`react-native-svg` o un set de íconos), que
+hay que justificar en el PR; la alternativa sin dependencias es incluir los
+trazos como componentes propios. Se decide junto con si el Mapa sigue siendo la
+séptima pestaña: con siete, los títulos ya se truncan en pantalla ("Comun…",
+"Guarda…").
+
 ---
 
 ## 3. Riesgos y cosas que hay que mirar
