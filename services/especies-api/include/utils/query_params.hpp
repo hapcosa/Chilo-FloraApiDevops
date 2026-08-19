@@ -1,0 +1,22 @@
+#ifndef UTILS_QUERY_PARAMS_HPP
+#define UTILS_QUERY_PARAMS_HPP
+
+#include <string>
+
+namespace utils {
+
+// Decodifica los %XX de un valor de query string.
+//
+// Pistache entrega el valor tal como viajó por la red, sin decodificar. Un
+// cliente que codifica la coma como %2C —lo que manda la RFC 3986 y lo que hace
+// encodeURIComponent sin que se le pida— dejaba al `bbox` del mapa sin comas
+// que separar, y la API respondía 400 a cada movimiento del mapa.
+//
+// Un '%' que no encabeza un par hexadecimal se deja tal cual: es un porcentaje
+// literal, no una secuencia rota. El '+' tampoco se toca, porque solo significa
+// espacio en formularios (x-www-form-urlencoded) y acá los valores son números.
+std::string percentDecode(const std::string& valor);
+
+} // namespace utils
+
+#endif // UTILS_QUERY_PARAMS_HPP

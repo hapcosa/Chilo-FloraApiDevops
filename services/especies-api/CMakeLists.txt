@@ -242,6 +242,7 @@ set(SOURCES
         src/utils/timestamps.cpp
         src/utils/fechas.cpp
         src/utils/conservacion.cpp
+        src/utils/query_params.cpp
         src/models/imagen.cpp
 )
 

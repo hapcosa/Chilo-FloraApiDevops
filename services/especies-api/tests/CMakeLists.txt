@@ -26,6 +26,8 @@
 #     agregación en sí vive en SQL y no se cubre aquí.
 #   - avistamiento.cpp: qué expone toJson (el feed lee identificaciones_count)
 #     y qué ignora fromJson.
+#   - query_params.cpp: decodificación de los %XX de la query string, que
+#     Pistache no hace. El bbox del mapa llegaba con las comas como %2C.
 #   - avistamiento_visibilidad.cpp: quién puede ver avistamientos sin aprobar,
 #     aislado de Pistache para fijar la regla sin levantar el servidor.
 
@@ -46,6 +48,7 @@ add_executable(unit_tests
         test_area_protegida.cpp
         test_avistamiento.cpp
         test_avistamiento_visibilidad.cpp
+        test_query_params.cpp
         ${CMAKE_SOURCE_DIR}/src/models/reino.cpp
         ${CMAKE_SOURCE_DIR}/src/models/especie_estado.cpp
         ${CMAKE_SOURCE_DIR}/src/models/especie.cpp
@@ -60,6 +63,7 @@ add_executable(unit_tests
         ${CMAKE_SOURCE_DIR}/src/utils/timestamps.cpp
         ${CMAKE_SOURCE_DIR}/src/utils/fechas.cpp
         ${CMAKE_SOURCE_DIR}/src/utils/conservacion.cpp
+        ${CMAKE_SOURCE_DIR}/src/utils/query_params.cpp
         ${CMAKE_SOURCE_DIR}/src/models/celda_mapa.cpp
         ${CMAKE_SOURCE_DIR}/src/models/area_protegida.cpp
 )

@@ -1,5 +1,6 @@
 #include "../../include/controllers/avistamiento_controller.hpp"
 #include "../../include/services/avistamiento_visibilidad.hpp"
+#include "../../include/utils/query_params.hpp"
 #include "../../include/utils/request_identity.hpp"
 
 #include <nlohmann/json.hpp>
@@ -46,8 +47,10 @@ VisibilidadSolicitante solicitanteDe(const Pistache::Rest::Request& request) {
 }
 
 // "min_lng,min_lat,max_lng,max_lat" — el orden de GeoJSON y de las APIs de
-// mapas, para no obligar al cliente a reordenar lo que ya tiene.
-MapaFilters parseBbox(const std::string& bbox) {
+// mapas, para no obligar al cliente a reordenar lo que ya tiene. Llega sin
+// decodificar: ver utils::percentDecode.
+MapaFilters parseBbox(const std::string& original) {
+    const std::string bbox = utils::percentDecode(original);
     MapaFilters filters;
     double valores[4] = {0, 0, 0, 0};
     std::size_t inicio = 0;
