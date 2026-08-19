@@ -1,7 +1,7 @@
-# Prompt para la sesión de mapa + captura
+# Prompt para la sesión de portada, filtros e íconos
 
 Copiá todo lo que sigue como primer mensaje de la sesión nueva.
-Estado al 2026-08-18, después del despliegue de la migración `0012`.
+Estado al 2026-08-19, con cuatro PRs abiertos esperando merge.
 
 ---
 
@@ -9,10 +9,10 @@ Seguimos con el sistema de biodiversidad de Chiloé:
 `/home/obrero/programacion/Chilo-FloraApiDevops` (backend) y su submódulo
 `mobile/`, que es su propio repo (`hapcosa/chiloe-biodiversidad-mobile`).
 
-Esta sesión tiene **tres trabajos, en este orden**: hacer que la app vuelva a
-abrir —hoy crashea al arrancar—, dejar el mapa visible en el teléfono, y el
-PR 2 de la Fase 9. Lo primero bloquea a los otros dos: sin app que arranque no
-se verifica nada.
+La sesión anterior cerró la captura y arregló el mapa del lado del servidor.
+Falta **verificar el mapa en el teléfono contra producción** —lo bloquea un
+merge y un redespliegue que hago yo— y arrancar la **Fase 9.4**: portada viva,
+filtros por subgrupo e íconos de navegación.
 
 ## Reglas innegociables
 
@@ -35,194 +35,149 @@ se verifica nada.
 
 ---
 
-## Trabajo 0 — La app no abre (esto primero)
+## Lo que cerró la sesión anterior
 
-**El APK instalado no arranca.** Se instala pero no deja abrirla. Apareció
-después del PR #37 del mapa, así que el primer sospechoso es
-`react-native-maps`: la pestaña Mapa está montada en el `Tab.Navigator`, y si
-el módulo nativo no linkea o `PROVIDER_GOOGLE` revienta sin key, el crash se
-lleva la app entera al arrancar, no solo esa pestaña.
+- **La app no arrancaba**: no era el mapa ni un crash nativo. El APK instalado
+  era el **debug**, que no lleva bundle JS y exige Metro en `localhost:8081`.
+  Con `assembleRelease` arrancó. No hubo cambio de código.
+- **El mapa se ve**: teselas satelitales sobre Chiloé con la key de
+  `GOOGLE_MAP_API` del `.env` (el prompt anterior decía que esa key "no la usa
+  nadie" — era falso, es la buena). Los pines de áreas protegidas caen bien, o
+  sea el `bbox` no está invertido.
+- **Los círculos de la comunidad fallaban con 400 en 4 ms**: `parseBbox` del
+  backend partía por comas un valor que llegaba como `%2C`. Pistache **no**
+  decodifica los valores de query. Arreglado con `utils::percentDecode` y 7
+  tests → **backend PR 73**.
+- **Captura → encuentro** (PR 2 de la Fase 9) → **mobile PR 38**.
+- **El deploy automático nunca existió**: el workflow apuntaba a EKS/ECR y
+  fallaba en cada push a master hace meses. Borrado → **backend PR 75**.
 
-Diagnosticalo antes que nada, con el error en la mano y sin adivinar:
+## PRs abiertos, esperando que yo los merge
 
-```bash
-adb devices
-adb logcat -c                       # limpiar antes de reproducir
-# abrir la app en el teléfono, que crashee
-adb logcat -d | grep -iE 'AndroidRuntime|FATAL|ReactNative|chiloe' | head -60
-```
+| PR | Repo | Qué | Checks |
+|---|---|---|---|
+| 73 | backend | `percentDecode` del bbox — **desbloquea el mapa** | verde |
+| 74 | backend | Plan de la Fase 9.4 | verde |
+| 75 | backend | Borrar el deploy a EKS | recién abierto |
+| 38 | mobile | Encuentro tras la captura | verde |
 
-Si el proceso muere tan rápido que `pidof` no lo agarra, `adb logcat -d` sin
-filtrar por pid es lo que sirve — el filtro por pid del prompt viejo no
-funciona con un crash de arranque.
-
-Pistas de por dónde puede venir:
-
-- **Falta la key de Maps**: el `manifestPlaceholder` queda vacío y el
-  `<meta-data android:value="">` puede hacer que el SDK tire al inicializar.
-  Si es esto, se arregla solo al hacer el trabajo 1. **Confirmalo con el log,
-  no lo asumas.**
-- **El módulo nativo no linkeó**: buscá `UnsatisfiedLinkError` o
-  "Native module RNMapsAirModule not found". `react-native-maps@1.29.0` sobre
-  RN 0.86 compila (`assembleDebug` pasó), pero compilar no es cargar.
-- **Nueva arquitectura**: si el paquete no está registrado para el modo en que
-  corre la app, revienta al montar la pantalla.
-- **Otra cosa que no tiene que ver con el mapa**: el APK que se probó es el
-  **debug**, que apunta a `localhost:8080` y no encuentra backend. Eso no
-  debería crashear —la app es offline-first— pero si el log apunta ahí, el
-  bug es ese y no el mapa.
-
-Mientras no arranque, no tiene sentido seguir con el resto. Si el arreglo es
-independiente de la key, va en su propio PR contra el repo de mobile.
+**Empezá preguntándome si ya los mergeé.** El trabajo 0 depende del 73.
 
 ---
 
-## Trabajo 1 — Ver el mapa en el teléfono
+## Trabajo 0 — Terminar de verificar el mapa
 
-El mapa está mergeado (mobile #37) y **nadie lo vio funcionando nunca**. Sin
-key de Google el `MapView` renderiza gris, así que no hay evidencia de que los
-círculos caigan donde deben.
+Requiere que yo haya mergeado el **PR 73** y redesplegado `especies-api` en
+producción. Pedímelo; el redespliegue lo hago yo o te paso el resultado.
 
-### 1.1 Crear la key (esto lo hago yo, pedímelo)
+Después, con el release instalado en el teléfono, mirá en la pestaña **Mapa**:
 
-En la consola de Google Cloud, proyecto del backend:
+- Que los **círculos de la comunidad** aparezcan y caigan sobre Chiloé, no en
+  el Golfo de Guinea. Es lo que arregla el PR 73.
+- Que el **filtro por reino** recargue las celdas.
+- Que tocar un **punto caliente** filtre por esa especie.
+- Que el chip alterne **Satelital ↔ Híbrida**.
+- Que las tres capas se prendan y apaguen por separado.
+- Que aparezcan **7 áreas protegidas**: PN Chiloé, Tantauco, Tepuhueico,
+  Ahuenco, Islotes de Puñihuil, Humedal de Caulín, Humedales de Putemún.
 
-1. Habilitar **Maps SDK for Android** (no "Maps JavaScript API", no
-   "Maps Static API" — el binding nativo usa el SDK de Android).
-2. Crear una **API key** nueva.
-3. **Restringirla**, que es la parte que no se saltea: aplicación Android, con
-   el par
-   - nombre de paquete: `cl.chiloe.biodiversidad`
-   - huella SHA-1 de la clave de **debug** (la que firma también el release
-     hoy): `AA:37:42:19:E7:B6:F9:98:2B:E3:37:D0:AC:CD:ED:30:D3:82:77:6F`
-4. Restringir además la key **por API**, dejando solo Maps SDK for Android.
+Y probá el flujo nuevo de **Capturar** (PR 38, si está mergeado): disparo →
+revisión → Crear encuentro / Repetir / Descartar, incluyendo
+"todavía no sé cuál es". Nunca se probó en el teléfono, solo en CI.
 
-Una key sin restringir es facturable por cualquiera que la saque del APK, y el
-APK es un ZIP que se abre con `unzip`.
+### Decisión pendiente conmigo
 
-La `GOOGLE_MAP_API` que hay en el `.env` local **no la usa nadie**; no es esta.
+El mapa quedó como **séptima pestaña** y con siete las etiquetas se truncan
+("Comun…", "Guarda…"). La alternativa es colgarlo del stack de Comunidad.
+**No la tomes solo**: decidila conmigo mirando el teléfono. Se solapa con el
+PR 16 de abajo, que rehace la barra igual.
 
-### 1.2 Ponerla y compilar
+Comandos:
 
 ```bash
-cd mobile
-echo 'MAPS_API_KEY=...' >> android/local.properties   # el archivo ya está en .gitignore
-cd android
+cd mobile/android
 JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew :app:assembleRelease
-```
-
-`local.properties` **no se commitea**. El `manifestPlaceholder` de
-`android/app/build.gradle` la inyecta en build time; también lee la variable de
-entorno `MAPS_API_KEY` si no existe el archivo.
-
-**Tiene que ser `assembleRelease`, no debug**: `src/config/appConfig.ts` manda
-el debug a `http://localhost:8080` y solo el release habla con
-`https://api.budaicapital.com`. Con el APK debug no se ve nada del backend.
-
-### 1.3 Instalar y mirar
-
-```bash
-adb devices        # reconfirmá la IP, cambia
+adb devices        # reconfirmá la IP, cambia sola
 adb install -r app/build/outputs/apk/release/app-release.apk
 adb logcat -d --pid=$(adb shell pidof cl.chiloe.biodiversidad)
 ```
 
-Qué mirar en la pestaña **Mapa** (🗺️, entre Capturar y Comunidad):
-
-- Que la capa base sea **satelital** y el chip la alterne a híbrida.
-- Que las tres capas se prendan y apaguen por separado: Comunidad, Mis
-  encuentros, Áreas protegidas.
-- Que aparezcan **7 áreas protegidas** — ya están en producción: PN Chiloé,
-  Tantauco, Tepuhueico, Ahuenco, Islotes de Puñihuil, Humedal de Caulín,
-  Humedales de Putemún.
-- Que los círculos de la comunidad caigan **sobre Chiloé** y no en el Golfo de
-  Guinea: si el `bbox` se serializara al revés, el mapa pediría celdas de otro
-  lugar del mundo **sin dar error**. Hay test de eso
-  (`src/api/__tests__/mapaApi.test.ts`), pero el test no prueba que el servidor
-  entienda lo mismo.
-- Que el filtro por reino recargue, y que tocar un punto caliente filtre por
-  esa especie.
-
-Si algo se ve mal, el arreglo va en su propio PR contra el repo de mobile.
-
-### 1.4 Decisión pendiente conmigo
-
-El mapa quedó como **séptima pestaña**. Siete aprietan la barra. La alternativa
-es colgarlo del stack de Comunidad. Decidilo mirándolo en el teléfono, no antes.
+Tiene que ser **release**: `src/config/appConfig.ts` manda el debug a
+`http://localhost:8080` y solo el release habla con `api.budaicapital.com`.
+Si la pantalla sale roja con "Unable to load script", instalaste el debug.
 
 ---
 
-## Trabajo 2 — PR 2 de la Fase 9
+## Trabajo 1 — Fase 9.4, "que la app se vea viva"
 
-**`feat(camara): ofrecer crear un encuentro al terminar la captura`** *(mobile)*
+El plan está en
+[docs/PLAN_FASE_9_TURISMO_Y_COMUNIDAD.md](docs/PLAN_FASE_9_TURISMO_Y_COMUNIDAD.md),
+sección **Fase 9.4** (la agrega el PR 74). Son tres PRs, en este orden:
 
-Es el que cierra el flujo de la cámara. El plan completo está en
-[docs/PLAN_FASE_9_TURISMO_Y_COMUNIDAD.md](docs/PLAN_FASE_9_TURISMO_Y_COMUNIDAD.md).
+### PR 14 — Portada viva *(backend + mobile)*
 
-Hoy la pestaña "Capturar" deja la foto en la caché local **sin destino**: se
-saca y ahí queda. Tras el disparo hay que mostrar una revisión con la foto y
-tres salidas:
+Hoy la portada muestra **una especie arbitraria por reino** y no cambia nunca.
+Tiene que mostrar **últimas especies publicadas**, **últimas ediciones** y
+**últimos encuentros de la comunidad**.
 
-- **Crear encuentro** → elegir especie → formulario ya existente.
-- **Repetir**.
-- **Descartar**.
+Un solo endpoint `GET /api/v1/portada` que devuelva las tres listas, no tres
+llamadas desde el teléfono.
 
-El selector de especie reusa la búsqueda de `BibliotecaScreen` y **admite
-"todavía no sé cuál es"**: un encuentro sin especie que la comunidad identifica
-después. La tabla `avistamiento_identificaciones` de la migración `0007` ya
-existe para eso, no hay que crear nada en el backend.
+⚠️ **No filtres esto en el cliente**: los encuentros de la portada tienen que
+respetar lo mismo que el mapa —privados fuera, y nada que revele la ubicación
+exacta de una especie amenazada (ADR #23)—. Si la portada muestra coordenadas,
+tira abajo la ofuscación del mapa.
 
-Toca: `src/screens/CameraScreen.tsx`, una pantalla nueva de revisión y otra de
-selección de especie, `src/navigation/AppNavigator.tsx` y
-`src/screens/MiEncuentroFormScreen.tsx` (que debe aceptar una foto ya tomada).
+### PR 15 — Filtros por subgrupo *(backend + mobile)*
 
-Ojo con lo offline-first: el encuentro tiene que poder encolarse sin red, como
-todo lo demás (`src/db/mutationQueue.ts`).
+Dentro de `animalia`: aves, peces, reptiles, mamíferos, anfibios. Y lo que
+corresponda en los otros reinos.
 
----
+**El eje ya existe**: la migración `0004` creó `categorias_moderacion`
+—"subgrupo curable dentro de un reino, sin jerarquía"— y `especies.categoria_id`.
+Está backfilleada con cinco categorías "general", una por reino. La
+recomendación del plan es **reusarla** en vez de crear una tabla `clases` nueva.
 
-## Estado de la Fase 9
+El costo de reusarla, que hay que asumir a conciencia: acopla el eje de
+**permisos de curaduría** con el eje de **navegación**. Crear la categoría
+"Aves" para que la app filtre significa crear también una unidad de moderación
+que alguien puede curar. Si eso no te cierra, decidilo conmigo antes de
+escribir código.
 
-Van 9 de 13. El plan es
-[docs/PLAN_FASE_9_TURISMO_Y_COMUNIDAD.md](docs/PLAN_FASE_9_TURISMO_Y_COMUNIDAD.md).
+Las subcategorías las crea un admin por la API; hay que sembrarlas.
 
-| PR | Qué | Estado |
-|---|---|---|
-| 1 | Quitar emojis de las fichas | ✅ mobile #32 |
-| 2 | **Crear encuentro al terminar la captura** | ❌ **es el trabajo 2 de acá** |
-| 3 | Contar encuentros en vez de fichas abiertas | ✅ mobile #33 |
-| 4 | Advertencia de fauna | ✅ mobile #34 |
-| 5 | Bio, profesión y visibilidad en el perfil | ✅ backend #64 |
-| 6 | Editar perfil de verdad | ✅ mobile #35 |
-| 7 | Encuentros anteriores a la app | ✅ backend #65 + mobile #36 |
-| 8 | Mapa satelital de encuentros | ✅ mobile #37 — **sin verificar en teléfono** |
-| 9 | Endpoint agregado para el mapa | ✅ backend #66 |
-| 10 | Parques y áreas protegidas | ✅ backend #69 |
-| 11 | **Insignias** | ❌ sin empezar |
-| 12 | **Pantalla de usuarios del panel** | ❌ sin empezar |
-| 13 | **Postular a curar** | ❌ sin empezar |
+### PR 16 — Íconos en vez de emojis *(mobile)*
 
-Del PR 12 hay una **decisión pendiente conmigo, no la tomes solo**: el listado
-de usuarios cruza dos servicios (`users` vive en `auth-service`, las
-asignaciones a categorías en `especies-api`), así que hay que elegir si el panel
-consulta a los dos o si uno expone la vista combinada.
+Los íconos de la barra son emojis del sistema (`🏠 🔎 📷 🗺️ 👥 🔖 🙋`) puestos
+como `<Text>` en `src/navigation/AppNavigator.tsx`. Se ven como emoticones de
+teléfono y cambian de forma según el fabricante. Quiero algo **minimalista y
+elegante**.
+
+Esto **necesita una dependencia nueva** (una librería de íconos SVG o una fuente
+de íconos), así que justificala en el PR: cuál, por qué esa, cuánto pesa el
+bundle. Y acordate de la decisión de las siete pestañas de arriba: si la barra
+se rehace, se rehace una vez.
 
 ---
 
-## Producción: al día
+## Producción
 
-Desplegada el 2026-08-18. **No hace falta tocarla en esta sesión.**
+Desplegada al 2026-08-18: migraciones hasta la **`0012`**, 7 áreas protegidas
+sembradas, índice `idx_avistamientos_mapa` creado. **Le falta el PR 73.**
 
-- Migraciones al día hasta la **`0012`**, con las 7 áreas protegidas sembradas.
-- Índice `idx_avistamientos_mapa` creado.
-- Gateway reconstruido: `/api/v1/areas-protegidas` responde 401 sin token (o
-  sea la ruta existe y exige sesión), `/curaduria/` responde 200.
-- Respaldo previo al despliegue en
-  `~/backups/chiloe_20260818_155343.sql.gz` en la máquina de producción.
+**No hay deploy automático.** El workflow que existía apuntaba a EKS y fallaba
+siempre; se borró en el PR 75. Redesplegar es a mano.
 
-Si hiciera falta redesplegar, **nombrá siempre los servicios concretos**: un
-`build`/`up` pelado levantaría un segundo `cloudflared` del túnel de Chiloé y
-Cloudflare repartiría el tráfico entre dos máquinas. En esa máquina corren tres
+Si alguna vez se automatiza: la máquina **no tiene IP pública**. Se llega por
+una red **ZeroTier** (`10.244.0.0/16`, interfaz `ztbpaiczc3`) y el túnel
+Cloudflare solo publica `api.budaicapital.com` y `storage.budaicapital.com`.
+Un runner de GitHub no la alcanza. Los caminos son: SSH por Cloudflare Access
+con service token, unir el runner a ZeroTier, o un runner self-hosted en la
+máquina. **Eso lo decido yo, no lo implementes por tu cuenta.**
+
+Al redesplegar, **nombrá siempre los servicios concretos**: un `build`/`up`
+pelado levantaría un segundo `cloudflared` del túnel de Chiloé y Cloudflare
+repartiría el tráfico entre dos máquinas. En esa máquina corren tres
 `cloudflared` de proyectos distintos.
 
 ```bash
@@ -252,33 +207,45 @@ Los contenedores se llaman `chiloe-postgres`, `chiloe-gateway`,
 - Build de Android: `JAVA_HOME=/usr/lib/jvm/java-17-openjdk` (el default del
   host es Java 26 y el plugin Gradle de RN no parsea esa versión).
 - `especies-api` **solo compila dentro de Docker**: al host le faltan Pistache y
-  libpqxx.
+  libpqxx. Los tests de gtest se reproducen con
+  `docker build --target tester services/especies-api`, que es lo que hace CI.
 - `applicationId cl.chiloe.biodiversidad`. El `release` está firmado con la
   clave de debug y `enableProguardInReleaseBuilds = false`.
-- `mobile/src/config/appConfig.ts`: debug → `http://localhost:8080`,
-  release → `https://api.budaicapital.com`.
+- La key de Google Maps sale de `GOOGLE_MAP_API` en el `.env` y va a
+  `mobile/android/local.properties` como `MAPS_API_KEY`. Ese archivo **no se
+  commitea**; el `manifestPlaceholder` de `android/app/build.gradle` la inyecta
+  en build time y también lee la variable de entorno del mismo nombre.
 - Producción es `donaldchavez@10.244.117.161`, checkout en
   `~/servicios/chiloe-biodiversidad-api`, proyecto compose `chiloe-prod`, env
   **fuera del repo** en `~/.config/chiloe-prod/chiloe.env`. El host viejo
   `10.244.19.205` es el entorno de test. Postgres: usuario `chiloe_prod`, base
   `chiloe_biodiversidad`.
-- El CI del backend corre **solo en `pull_request`** desde el PR #70. Antes
-  disparaba también en `push` y lanzaba dos runs por commit; cuando una copia se
-  colgaba, el PR quedaba `BLOCKED` con la otra en verde. Si volvés a ver un PR
-  trabado con todo verde, mirá si hay un run colgado y cancelalo.
+- El CI del backend corre **solo en `pull_request`** desde el PR #70.
+- El job `test-especies-api` se cuelga a veces en `Install postgresql-client`
+  (apt no responde) y GitHub lo cancela a los 20 min. No es el código:
+  `gh run rerun <run-id> --failed` y listo. Ojo con la duración que muestra la
+  UI, que **suma los dos intentos** y parece un cuelgue de media hora.
 
 ---
 
 ## Otros pendientes, más viejos
 
-- **Prueba manual de la cámara en el teléfono**: nunca se hizo. Está en
-  [PROMPT_CAMARA_SESION.md](PROMPT_CAMARA_SESION.md), y se solapa con el
-  trabajo 2 de acá: conviene hacerla en la misma pasada.
+- **`queryStr` no decodifica nada**: el arreglo del PR 73 fue solo para `bbox`.
+  Cualquier búsqueda con espacios o acentos (`?q=zorro%20chilote`) llega mal a
+  los demás endpoints. Es un PR chico y aparte; no lo metí en el 73 para no
+  ensancharlo.
+- **Prueba manual de la cámara en el teléfono**: nunca se hizo del todo. Está en
+  [PROMPT_CAMARA_SESION.md](PROMPT_CAMARA_SESION.md) y se solapa con el trabajo 0.
+- Fase 9: faltan los PRs **11** (insignias), **12** (pantalla de usuarios del
+  panel) y **13** (postular a curar). Del 12 hay una **decisión pendiente
+  conmigo**: `users` vive en `auth-service` y las asignaciones a categorías en
+  `especies-api`, así que hay que elegir si el panel consulta a los dos o si uno
+  expone la vista combinada.
 - Fotos para una especie con "hartas fotos": bloqueado esperándome. No bajes
   imágenes de licencia indeterminada a producción.
 - Verificación del Paso 3, puntos que faltan: 3 (filtros y paginación),
-  5 (visibilidad), 6 (captura de foto + PUT presigned), 9 (sync del cache de
-  especies). El 7 solo cuando ponga modo avión a mano.
+  5 (visibilidad), 9 (sync del cache de especies). El 7 solo cuando ponga modo
+  avión a mano.
 - Sin decidir: un PR aparte por la contraseña de Postgres en texto plano que
   `especies-api` imprime al arrancar y queda en los logs del contenedor de
   producción.
