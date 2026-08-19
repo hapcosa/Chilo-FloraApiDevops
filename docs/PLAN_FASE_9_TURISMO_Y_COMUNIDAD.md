@@ -250,25 +250,36 @@ chungungo, al pudú, al chucao y a una rana. Hay que poder filtrar por grupo —
 aves, mamíferos, peces, reptiles, anfibios e invertebrados en animalia, y lo que
 corresponda en los otros cuatro reinos.
 
-**Decisión pendiente, no la tomo solo.** Hoy la jerarquía es
-`familias → generos → especies` (migración `0001`) y **no existe el nivel de
-clase**, que es justamente donde viven "aves" y "mamíferos". Tres caminos:
+**El eje ya existe y conviene mirarlo antes de crear otro.** La migración `0004`
+creó `categorias_moderacion` — literalmente "subgrupo curable dentro de un reino
+(p. ej. 'Aves' dentro de animalia)", sin jerarquía — y la columna
+`especies.categoria_id`, ya backfilleada con cinco categorías "general". Es la
+misma partición que pide este filtro, escrita para otro propósito.
 
-1. **Tabla `clases` entre reino y familia**, con `familias.clase_id`. Es la
-   taxonomía real (reino → filo → clase → orden → familia), no hay que tocar
-   las 103 especies una por una —la familia ya determina la clase— y el filtro
-   es un JOIN indexable. **Es la que recomiendo.**
-2. **Columna `grupo` en `especies`.** Más rápida de escribir, pero es un dato
-   denormalizado que hay que llenar y mantener especie por especie, y que puede
-   contradecir a la familia.
-3. **Propiedad en `atributos_especificos`.** La descarto: el JSONB es para lo
-   que aplica a *algunos* reinos, y todos los reinos tienen clases. Además
-   filtrar por JSONB en la pantalla principal de navegación es peor de indexar.
+**Decisión pendiente, no la tomo solo.** Tres caminos:
 
-Cualquiera de las tres necesita migración con backfill y decidir los grupos de
-protista y monera, donde la clase no es un concepto tan usado ni tan útil para
-alguien que pasea por Chiloé. Ojo con inventar taxonomía: los grupos tienen que
-salir de una fuente, no de la intuición.
+1. **Reusar `categorias_moderacion` como eje de navegación.** No hay migración
+   estructural: se crean las subcategorías reales ("Aves", "Mamíferos", "Peces",
+   "Reptiles", "Anfibios") por la API, que es como el `0004` dice que se hacen, y
+   se reclasifican las 103 fichas. El filtro es un `WHERE categoria_id = …`
+   sobre una columna que ya está indexada. **Es la que recomiendo**, con una
+   advertencia: acopla el eje de *permisos de curaduría* al de *navegación*, así
+   que a futuro un curador de "Aves" y la pestaña "Aves" quedan atados al mismo
+   registro. Hoy eso es una ventaja —quien cura aves es quien sabe de aves— pero
+   conviene decidirlo a ojos abiertos.
+2. **Tabla `clases` entre reino y familia**, con `familias.clase_id`. Es la
+   taxonomía real (reino → filo → clase → orden → familia) y separa navegación
+   de permisos. Cuesta una migración más y deja dos particiones parecidas
+   conviviendo, que es la receta para que se contradigan.
+3. **Columna `grupo` en `especies`** o propiedad en `atributos_especificos`.
+   Las descarto: la primera es un dato denormalizado que puede contradecir a la
+   familia; la segunda mete en el JSONB algo que aplica a todos los reinos y que
+   se va a filtrar en la pantalla principal de navegación.
+
+Cualquiera exige decidir los grupos de protista y monera, donde la clase no es
+un concepto tan usado ni tan útil para alguien que pasea por Chiloé. Ojo con
+inventar taxonomía: los grupos tienen que salir de una fuente, no de la
+intuición.
 
 **PR 16 — `fix(app): íconos de navegación en vez de emojis`**
 *(mobile)*
