@@ -56,6 +56,7 @@ nlohmann::json CategoriaModeracion::toJson() const {
     json["slug"] = slug;
     json["nombre"] = nombre;
     json["reino"] = reinoToString(reino);
+    json["total_especies"] = total_especies;
     writeOpt(json, "descripcion", descripcion);
     writeOpt(json, "created_at", created_at);
     writeOpt(json, "updated_at", updated_at);
