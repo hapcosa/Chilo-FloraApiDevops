@@ -169,10 +169,17 @@ AvistamientoSearchResult PostgresAvistamientoRepository::find(
         const auto countResult = txn.exec("SELECT COUNT(*) FROM avistamientos a" + where);
         const int total = countResult[0][0].as<int>();
 
+        // `id DESC` desempata en ambos casos: dos encuentros del mismo día
+        // (o del mismo segundo, al importar) tienen que salir en un orden
+        // estable o la paginación repite y saltea filas.
+        const std::string ordenSql = filters.orden == OrdenAvistamiento::CreadoEn
+                                         ? " ORDER BY created_at DESC, id DESC"
+                                         : " ORDER BY observado_en DESC, id DESC";
+
         const std::string dataSql =
             std::string("SELECT ") + kSelectCols + kCountCol + " FROM avistamientos a"
             + where
-            + " ORDER BY observado_en DESC, id DESC"
+            + ordenSql
             + " LIMIT " + std::to_string(filters.limit)
             + " OFFSET " + std::to_string(filters.offset);
 

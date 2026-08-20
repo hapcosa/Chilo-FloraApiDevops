@@ -8,6 +8,7 @@
 #include "../include/controllers/especie_controller.hpp"
 #include "../include/controllers/area_protegida_controller.hpp"
 #include "../include/controllers/avistamiento_controller.hpp"
+#include "../include/controllers/portada_controller.hpp"
 #include "../include/controllers/categoria_controller.hpp"
 #include "../include/controllers/familia_controller.hpp"
 #include "../include/controllers/identificacion_controller.hpp"
@@ -27,6 +28,7 @@
 #include "../include/repository/postgres_postulacion_repository.hpp"
 #include "../include/services/area_protegida_service.hpp"
 #include "../include/services/avistamiento_service.hpp"
+#include "../include/services/portada_service.hpp"
 #include "../include/services/categoria_service.hpp"
 #include "../include/services/especie_service.hpp"
 #include "../include/services/familia_service.hpp"
@@ -120,6 +122,8 @@ int main(int argc, char** argv) {
   auto identificacionService = std::make_shared<IdentificacionService>(
       identificacionRepository, avistamientoRepository, especieRepository,
       moderacionService);
+  auto portadaService =
+      std::make_shared<PortadaService>(especieService, avistamientoService);
 
   // Initialize controllers
   auto familiaController = std::make_shared<FamiliaController>(familiaService);
@@ -141,6 +145,7 @@ int main(int argc, char** argv) {
   auto uploadController =
       std::make_shared<UploadController>(uploadPresignService);
   auto schemaController = std::make_shared<SchemaController>(schemaValidator);
+  auto portadaController = std::make_shared<PortadaController>(portadaService);
 
   // Setup router
   auto router = std::make_shared<Pistache::Rest::Router>();
@@ -160,6 +165,7 @@ int main(int argc, char** argv) {
   EspecieController::setupRoutes(*router, especieController);
   AvistamientoController::setupRoutes(*router, avistamientoController);
   AreaProtegidaController::setupRoutes(*router, areaProtegidaController);
+  PortadaController::setupRoutes(*router, portadaController);
   CategoriaController::setupRoutes(*router, categoriaController);
   ModeradorController::setupRoutes(*router, moderadorController);
   PostulacionController::setupRoutes(*router, postulacionController);

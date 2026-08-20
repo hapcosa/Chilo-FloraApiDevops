@@ -73,6 +73,7 @@ set(REQUIRED_SOURCES
         src/controllers/especie_controller.cpp
         src/controllers/avistamiento_controller.cpp
         src/controllers/area_protegida_controller.cpp
+        src/controllers/portada_controller.cpp
         src/controllers/categoria_controller.cpp
         src/controllers/moderador_controller.cpp
         src/controllers/identificacion_controller.cpp
@@ -85,6 +86,7 @@ set(REQUIRED_SOURCES
         src/models/avistamiento.cpp
         src/models/celda_mapa.cpp
         src/models/area_protegida.cpp
+        src/models/portada.cpp
         src/models/categoria_moderacion.cpp
         src/models/identificacion.cpp
         src/models/postulacion_curador.cpp
@@ -104,6 +106,7 @@ set(REQUIRED_SOURCES
         src/services/especie_service.cpp
         src/services/avistamiento_service.cpp
         src/services/area_protegida_service.cpp
+        src/services/portada_service.cpp
         src/services/avistamiento_visibilidad.cpp
         src/services/categoria_service.cpp
         src/services/moderacion_service.cpp
@@ -138,10 +141,12 @@ set(REQUIRED_HEADERS
         include/controllers/moderador_controller.hpp
         include/controllers/identificacion_controller.hpp
         include/controllers/postulacion_controller.hpp
+        include/controllers/portada_controller.hpp
         include/controllers/schema_controller.hpp
         include/controllers/upload_controller.hpp
         include/models/especie.hpp
         include/models/avistamiento.hpp
+        include/models/portada.hpp
         include/models/categoria_moderacion.hpp
         include/models/identificacion.hpp
         include/models/postulacion_curador.hpp
@@ -172,6 +177,7 @@ set(REQUIRED_HEADERS
         include/services/categoria_service.hpp
         include/services/moderacion_service.hpp
         include/services/identificacion_service.hpp
+        include/services/portada_service.hpp
         include/services/postulacion_service.hpp
         include/services/upload_presign_service.hpp
         include/utils/config.hpp
@@ -199,6 +205,7 @@ set(SOURCES
         src/controllers/especie_controller.cpp
         src/controllers/avistamiento_controller.cpp
         src/controllers/area_protegida_controller.cpp
+        src/controllers/portada_controller.cpp
         src/controllers/categoria_controller.cpp
         src/controllers/moderador_controller.cpp
         src/controllers/identificacion_controller.cpp
@@ -211,6 +218,7 @@ set(SOURCES
         src/models/avistamiento.cpp
         src/models/celda_mapa.cpp
         src/models/area_protegida.cpp
+        src/models/portada.cpp
         src/models/categoria_moderacion.cpp
         src/models/identificacion.cpp
         src/models/postulacion_curador.cpp
@@ -230,6 +238,7 @@ set(SOURCES
         src/services/especie_service.cpp
         src/services/avistamiento_service.cpp
         src/services/area_protegida_service.cpp
+        src/services/portada_service.cpp
         src/services/avistamiento_visibilidad.cpp
         src/services/categoria_service.cpp
         src/services/moderacion_service.cpp

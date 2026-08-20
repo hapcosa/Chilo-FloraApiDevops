@@ -7,6 +7,15 @@
 #include "../models/avistamiento.hpp"
 #include "../models/celda_mapa.hpp"
 
+// Por qué fecha se ordena el listado.
+//
+// El feed ordena por `observado_en`: cuenta una historia de naturaleza, y ahí
+// lo que importa es cuándo se vio el bicho. La portada ordena por `created_at`
+// porque cuenta actividad de la app: desde la Fase 9 (PR 7) un encuentro puede
+// ser un recuerdo de hace años, y subirlo hoy es movimiento de hoy — con
+// `observado_en` no aparecería nunca.
+enum class OrdenAvistamiento { ObservadoEn, CreadoEn };
+
 struct AvistamientoFilters {
     std::optional<AvistamientoEstado> estado;
     std::optional<Reino> reino;
@@ -14,6 +23,7 @@ struct AvistamientoFilters {
     std::optional<int> creado_por;
     std::optional<GradoIdentificacion> grado_identificacion;
     std::optional<AvistamientoVisibilidad> visibilidad;
+    OrdenAvistamiento orden = OrdenAvistamiento::ObservadoEn;
     int limit = 50;
     int offset = 0;
 };
