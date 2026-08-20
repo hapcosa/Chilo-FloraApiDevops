@@ -65,6 +65,14 @@ private:
     // evidencia de la que sale el grado, pero contada: el feed la muestra en la
     // tarjeta y sin esto haría una petición por fila.
     int identificaciones_count = 0;
+    // ¿La especie de este encuentro está en categoría de conservación de
+    // riesgo? Lo resuelve la BD en la misma consulta (no es una columna de
+    // `avistamientos`) y decide si la ubicación se publica exacta o difuminada.
+    bool especie_sensible = false;
+    // Marca que `geo_lat`/`geo_lng` ya vienen redondeados a la celda mínima.
+    // Va en el JSON para que el cliente no dibuje un alfiler donde solo hay un
+    // cuadrado de ~1 km.
+    bool ubicacion_difuminada = false;
     // URL de lectura firmada, resuelta por la capa de servicio al responder.
     // No es una columna: `avistamientos-fotos` es un bucket privado y la firma
     // caduca, así que guardarla no tendría sentido.
@@ -92,6 +100,8 @@ public:
     AvistamientoVisibilidad getVisibilidad() const { return visibilidad; }
     GradoIdentificacion getGradoIdentificacion() const { return grado_identificacion; }
     int getIdentificacionesCount() const { return identificaciones_count; }
+    bool getEspecieSensible() const { return especie_sensible; }
+    bool getUbicacionDifuminada() const { return ubicacion_difuminada; }
     const std::optional<std::string>& getFotoUrl() const { return foto_url; }
     const std::optional<int>& getModeradoPor() const { return moderado_por; }
     const std::optional<std::string>& getModeradoEn() const { return moderado_en; }
@@ -115,6 +125,8 @@ public:
     void setVisibilidad(AvistamientoVisibilidad value) { visibilidad = value; }
     void setGradoIdentificacion(GradoIdentificacion value) { grado_identificacion = value; }
     void setIdentificacionesCount(int value) { identificaciones_count = value; }
+    void setEspecieSensible(bool value) { especie_sensible = value; }
+    void setUbicacionDifuminada(bool value) { ubicacion_difuminada = value; }
     void setFotoUrl(std::optional<std::string> value) { foto_url = std::move(value); }
     void setModeradoPor(std::optional<int> value) { moderado_por = value; }
     void setModeradoEn(std::optional<std::string> value) { moderado_en = std::move(value); }

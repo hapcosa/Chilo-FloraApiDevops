@@ -5,6 +5,7 @@
 
 #include <optional>
 
+#include "models/celda_mapa.hpp"
 #include "services/avistamiento_visibilidad.hpp"
 
 namespace {
@@ -239,6 +240,89 @@ TEST(AvistamientoVisibilidadTest, PublicoSinAprobarSigueOculto) {
     EXPECT_FALSE(puedeVerAvistamiento(compartido, usuario(7)));
     EXPECT_TRUE(puedeVerAvistamiento(compartido, moderador(3)));
     EXPECT_TRUE(puedeVerAvistamiento(compartido, usuario(9)));
+}
+
+// --- Ubicación de especies amenazadas ---------------------------------------
+//
+// El mapa agregado nunca publica el punto exacto de una especie en riesgo, pero
+// el feed devolvía la fila entera: mismo dato, otro endpoint. Estos tests fijan
+// que las dos salidas cuenten la misma historia.
+
+Avistamiento enRiesgo(int autor) {
+    Avistamiento avistamiento;
+    avistamiento.setId(1);
+    avistamiento.setCreadoPor(autor);
+    avistamiento.setEstado(AvistamientoEstado::Aprobado);
+    avistamiento.setVisibilidad(AvistamientoVisibilidad::Publico);
+    avistamiento.setGeoLat(-42.4721);
+    avistamiento.setGeoLng(-73.7658);
+    avistamiento.setPrecisionMetros(5.0);
+    avistamiento.setEspecieSensible(true);
+    return avistamiento;
+}
+
+TEST(AvistamientoVisibilidadTest, UbicacionSensibleSeDifuminaParaUnTercero) {
+    const auto publicado = difuminarUbicacion(enRiesgo(9), usuario(7));
+
+    EXPECT_TRUE(publicado.getUbicacionDifuminada());
+    EXPECT_NE(publicado.getGeoLat(), -42.4721);
+    EXPECT_NE(publicado.getGeoLng(), -73.7658);
+
+    // Dentro de la misma celda de ~1,1 km, no en otro sitio: sigue siendo
+    // información útil, solo que menos fina.
+    EXPECT_NEAR(publicado.getGeoLat(), -42.4721, kCeldaMinimaSensible);
+    EXPECT_NEAR(publicado.getGeoLng(), -73.7658, kCeldaMinimaSensible);
+
+    // Decir "exacto a 5 m" sobre una celda de un kilómetro sería mentir.
+    EXPECT_FALSE(publicado.getPrecisionMetros().has_value());
+}
+
+// El punto difuminado tiene que llegar marcado, o el cliente lo dibuja como un
+// alfiler y deshace la protección al mostrarlo.
+TEST(AvistamientoVisibilidadTest, ElJsonDiceQueLaUbicacionEstaDifuminada) {
+    EXPECT_TRUE(difuminarUbicacion(enRiesgo(9), usuario(7)).toJson()["ubicacion_difuminada"]);
+    EXPECT_FALSE(difuminarUbicacion(enRiesgo(9), usuario(9)).toJson()["ubicacion_difuminada"]);
+}
+
+// Su autor ve su propio dato tal como lo registró.
+TEST(AvistamientoVisibilidadTest, ElAutorSigueViendoElPuntoExacto) {
+    const auto propio = difuminarUbicacion(enRiesgo(9), usuario(9));
+
+    EXPECT_FALSE(propio.getUbicacionDifuminada());
+    EXPECT_DOUBLE_EQ(propio.getGeoLat(), -42.4721);
+    EXPECT_EQ(propio.getPrecisionMetros(), 5.0);
+}
+
+// La moderación tiene que poder juzgar si el registro es plausible, igual que
+// ve los estados sin aprobar.
+TEST(AvistamientoVisibilidadTest, LaModeracionVeElPuntoExacto) {
+    const auto moderado = difuminarUbicacion(enRiesgo(9), moderador(3));
+
+    EXPECT_FALSE(moderado.getUbicacionDifuminada());
+    EXPECT_DOUBLE_EQ(moderado.getGeoLng(), -73.7658);
+}
+
+// Difuminar todo lo que no está clasificado dejaría el feed entero en celdas de
+// un kilómetro. La contrapartida es la misma que asume el mapa: una ficha sin
+// curar no protege a su especie.
+TEST(AvistamientoVisibilidadTest, LoQueNoEsSensibleNoSeToca) {
+    Avistamiento comun = enRiesgo(9);
+    comun.setEspecieSensible(false);
+
+    const auto publicado = difuminarUbicacion(comun, anonimo());
+
+    EXPECT_FALSE(publicado.getUbicacionDifuminada());
+    EXPECT_DOUBLE_EQ(publicado.getGeoLat(), -42.4721);
+}
+
+// Difuminar dos veces no puede correr el punto: el feed y la ficha por id
+// aplican la misma regla sobre la misma fila.
+TEST(AvistamientoVisibilidadTest, DifuminarEsIdempotente) {
+    const auto una = difuminarUbicacion(enRiesgo(9), anonimo());
+    const auto dos = difuminarUbicacion(una, anonimo());
+
+    EXPECT_DOUBLE_EQ(una.getGeoLat(), dos.getGeoLat());
+    EXPECT_DOUBLE_EQ(una.getGeoLng(), dos.getGeoLng());
 }
 
 } // namespace

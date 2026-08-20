@@ -173,12 +173,15 @@ void AvistamientoController::getAll(
 
         // El estado pedido solo se respeta si quien pregunta tiene derecho a
         // verlo; el resto de las peticiones se acotan a 'aprobado'.
-        filters = restringirVisibilidad(filters, solicitanteDe(request));
+        const auto solicitante = solicitanteDe(request);
+        filters = restringirVisibilidad(filters, solicitante);
 
         const auto result = service->searchAvistamientos(filters);
         json data = json::array();
         for (const auto& avistamiento : result.data) {
-            data.push_back(avistamiento.toJson());
+            // Difuminar aquí y no en el modelo: `toJson` no sabe quién
+            // pregunta, y esa es justamente la pregunta que decide.
+            data.push_back(difuminarUbicacion(avistamiento, solicitante).toJson());
         }
 
         sendJson(response, Pistache::Http::Code::Ok,
@@ -204,13 +207,17 @@ void AvistamientoController::getById(
         const auto avistamiento = service->getAvistamientoById(id);
         // La misma regla que el listado: si no está aprobado solo lo ven su
         // autor y quien modera. 404 y no 403 para no confirmar que existe.
-        if (!avistamiento || !puedeVerAvistamiento(*avistamiento, solicitanteDe(request))) {
+        const auto solicitante = solicitanteDe(request);
+        if (!avistamiento || !puedeVerAvistamiento(*avistamiento, solicitante)) {
             sendJson(response, Pistache::Http::Code::Not_Found,
                      {{"success", false}, {"error", "avistamiento no encontrado"}});
             return;
         }
 
-        sendJson(response, Pistache::Http::Code::Ok, avistamiento->toJson());
+        // Sin esto, pedir la ficha por id sería la forma de recuperar el punto
+        // exacto que el listado acaba de difuminar.
+        sendJson(response, Pistache::Http::Code::Ok,
+                 difuminarUbicacion(*avistamiento, solicitante).toJson());
     } catch (const std::exception& error) {
         sendJson(response, Pistache::Http::Code::Internal_Server_Error,
                  {{"success", false}, {"error", error.what()}});

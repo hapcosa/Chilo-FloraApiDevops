@@ -31,8 +31,10 @@
 #   - portada.cpp: el recorte del endpoint agregado de la portada (Fase 9.4,
 #     PR 14). Sobre todo que un encuentro proyectado no lleve coordenadas: el
 #     mapa difumina las especies amenazadas y esto no puede deshacerlo.
-#   - avistamiento_visibilidad.cpp: quién puede ver avistamientos sin aprobar,
-#     aislado de Pistache para fijar la regla sin levantar el servidor.
+#   - avistamiento_visibilidad.cpp: quién puede ver avistamientos sin aprobar y
+#     quién ve su ubicación exacta, aislado de Pistache para fijar la regla sin
+#     levantar el servidor. El difuminado de especies amenazadas se prueba aquí
+#     porque el feed lo aplica fila a fila, no en SQL como el mapa.
 
 find_package(GTest REQUIRED)
 
