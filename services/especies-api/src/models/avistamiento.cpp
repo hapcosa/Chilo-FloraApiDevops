@@ -122,6 +122,9 @@ nlohmann::json Avistamiento::toJson() const {
     writeOpt(json, "foto_url", foto_url);
     json["geo_lat"] = geo_lat;
     json["geo_lng"] = geo_lng;
+    // Quien lee tiene que poder distinguir "aquí exactamente" de "en esta
+    // zona": sin la marca, un punto difuminado se dibujaría como un alfiler.
+    json["ubicacion_difuminada"] = ubicacion_difuminada;
     writeOpt(json, "precision_metros", precision_metros);
     json["precision_declarada"] = precisionDeclaradaToString(precision_declarada);
     writeOpt(json, "observado_en", observado_en);

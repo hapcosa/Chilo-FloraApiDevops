@@ -25,6 +25,17 @@ constexpr const char* kCountCol =
     " WHERE ai.avistamiento_id = a.id AND NOT ai.retirada)"
     " AS identificaciones_count";
 
+// ¿La especie del encuentro está en categoría de riesgo? Subconsulta y no
+// LEFT JOIN para no tener que calificar cada columna del SELECT: el join haría
+// ambiguo `id`, que también existe en `especies`. COALESCE porque un encuentro
+// sin especie asignada deja el escalar en NULL, y sin especie no hay nada que
+// proteger. Mismo patrón que el mapa, generado desde la misma lista de tokens.
+std::string sensibleCol(pqxx::work& txn) {
+    return ", COALESCE((SELECT e.estado_conservacion ~* "
+           + txn.quote(utils::patronSqlEstadoSensible())
+           + " FROM especies e WHERE e.id = a.especie_id), false) AS especie_sensible";
+}
+
 std::optional<int> optInt(const pqxx::field& field) {
     if (field.is_null()) return std::nullopt;
     return field.as<int>();
@@ -86,7 +97,11 @@ Avistamiento PostgresAvistamientoRepository::mapRowToAvistamiento(const pqxx::ro
     avistamiento.setUpdatedAt(utils::toIso8601Opt(optStr(row["updated_at"])));
     if (withCount) {
         avistamiento.setIdentificacionesCount(row["identificaciones_count"].as<int>());
+        avistamiento.setEspecieSensible(row["especie_sensible"].as<bool>());
     }
+    // Las consultas con RETURNING no traen `especie_sensible`: responden a
+    // quien acaba de escribir la fila —su autor o la moderación—, y esos ven el
+    // punto exacto de todas formas.
     return avistamiento;
 }
 
@@ -177,7 +192,8 @@ AvistamientoSearchResult PostgresAvistamientoRepository::find(
                                          : " ORDER BY observado_en DESC, id DESC";
 
         const std::string dataSql =
-            std::string("SELECT ") + kSelectCols + kCountCol + " FROM avistamientos a"
+            std::string("SELECT ") + kSelectCols + kCountCol + sensibleCol(txn)
+            + " FROM avistamientos a"
             + where
             + ordenSql
             + " LIMIT " + std::to_string(filters.limit)
@@ -203,7 +219,7 @@ std::optional<Avistamiento> PostgresAvistamientoRepository::findById(int id) {
         auto conn = database->createConnection();
         pqxx::work txn(*conn);
         const auto result = txn.exec_params(
-            std::string("SELECT ") + kSelectCols + kCountCol
+            std::string("SELECT ") + kSelectCols + kCountCol + sensibleCol(txn)
                 + " FROM avistamientos a WHERE a.id = $1",
             id);
 

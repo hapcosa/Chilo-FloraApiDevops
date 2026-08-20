@@ -35,4 +35,18 @@ AvistamientoFilters restringirVisibilidad(const AvistamientoFilters& filters,
 bool puedeVerAvistamiento(const Avistamiento& avistamiento,
                           const VisibilidadSolicitante& solicitante);
 
+// Redondea la ubicación de un encuentro de especie amenazada antes de
+// publicarlo, a la misma celda mínima que usa el mapa (kCeldaMinimaSensible).
+//
+// El mapa agregado (Fase 9, PR 9) nunca publica el punto exacto de una especie
+// en riesgo, pero el feed devolvía la fila entera: mismo dato, otro endpoint.
+// Difuminar solo en el cliente no serviría de nada — el JSON ya salió.
+//
+// Ven el punto exacto quien lo registró (es su dato) y la moderación (tiene que
+// poder juzgar si el registro es plausible, igual que ve los estados sin
+// aprobar). Para el resto se devuelve el centro de la celda, marcado con
+// `ubicacion_difuminada`.
+Avistamiento difuminarUbicacion(const Avistamiento& avistamiento,
+                                const VisibilidadSolicitante& solicitante);
+
 #endif // AVISTAMIENTO_VISIBILIDAD_HPP
