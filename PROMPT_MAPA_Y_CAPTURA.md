@@ -1,7 +1,8 @@
-# Prompt para la sesión de filtros por subgrupo e íconos
+# Prompt para la sesión siguiente
 
 Copiá todo lo que sigue como primer mensaje de la sesión nueva.
-Estado al 2026-08-20, con todo mergeado y **un redespliegue pendiente**.
+Estado al 2026-08-20, con la Fase 9.4 terminada salvo el merge y **un
+redespliegue pendiente**.
 
 ---
 
@@ -9,10 +10,8 @@ Seguimos con el sistema de biodiversidad de Chiloé:
 `/home/obrero/programacion/Chilo-FloraApiDevops` (backend) y su submódulo
 `mobile/`, que es su propio repo (`hapcosa/chiloe-biodiversidad-mobile`).
 
-La sesión anterior verificó el mapa y la captura en el teléfono, cerró el
-**PR 14 (portada viva)** de la Fase 9.4 y arregló un leak de coordenadas que
-apareció por el camino. Quedan el **PR 15** (filtros por subgrupo) y el
-**PR 16** (íconos de navegación), y hay un redespliegue pendiente que hago yo.
+La sesión anterior cerró los **PR 15 y 16**, que era lo que faltaba de la
+Fase 9.4. Los tres PRs están abiertos y en verde, esperando tu merge.
 
 ## Reglas innegociables
 
@@ -38,40 +37,54 @@ apareció por el camino. Quedan el **PR 15** (filtros por subgrupo) y el
 
 ## Lo que cerró la sesión anterior
 
-- **Trabajo 0 verificado en el SM-A536E**: el mapa dibuja los círculos de la
-  comunidad sobre Chiloé (el `percentDecode` del PR 73 funcionó), el filtro por
-  reino recarga, los puntos calientes filtran, el chip alterna Satelital ↔
-  Híbrida y salen las 7 áreas protegidas. El flujo de captura → encuentro
-  también anda.
-- **PR 14 — Portada viva**, en dos repos:
-  - backend **PR 77**: `GET /api/v1/portada` con últimas publicadas, últimas
-    ediciones y últimos encuentros en una sola llamada. `PortadaService` es un
-    compositor sobre los servicios que ya existían, no una capa de datos nueva.
-  - mobile **PR 39**: `HomeScreen` reescrita con tres carruseles, cache offline
-    en `sync_state` y filtro por reino en cliente. **PR 78** subió el submódulo.
-- **La portada no lleva coordenadas, a propósito.** Está escrito en
-  `include/models/portada.hpp` y hay un test que lo fija. Una portada que
-  devolviera el punto exacto sería la puerta de atrás que deja en nada la
-  ofuscación del mapa.
-- **PR 79 — ruta del gateway.** Me olvidé de ella en el 77 y la portada devolvía
-  el índice del gateway con un **200**, así que la app no veía un error: veía una
-  portada vacía. Nginx lista **una `location` explícita por ruta**; lo que no
-  matchea cae en `location /`. Si agregás un endpoint nuevo, agregá el bloque en
-  `nginx.prod.conf` **y** en `nginx.dev.conf`.
-- **PR 80 — leak de coordenadas del feed.** El mapa nunca publica el punto exacto
-  de una especie en riesgo, pero `GET /api/v1/avistamientos` devolvía la fila
-  entera: mismo dato, otro endpoint. Ahora la BD resuelve si la especie es
-  sensible en la misma consulta y `difuminarUbicacion` redondea al centro de la
-  celda de ~1 km, borra `precision_metros` y marca `ubicacion_difuminada: true`.
-  El autor y quien modera siguen viendo el punto exacto.
+- **PR 16 — íconos de navegación** (mobile **PR 40**). Los siete tabs pasaron de
+  emojis del sistema a SVG de trazo en `src/components/icons/TabIcons.tsx`, que
+  toman el color activo/inactivo del tema —cosa que un emoji no podía hacer,
+  porque trae su propio color— y engordan el trazo al enfocarse. Dependencia
+  nueva: **`react-native-svg`** (MIT), con los trazos de Lucide (ISC) copiados a
+  mano; instalar `lucide-react-native` habría arrastrado más de mil componentes
+  al bundle, porque Metro no hace tree-shaking. La truncación se arregló con
+  `Comunidad → Gente`, fuente de 10 con tracking apretado y
+  `tabBarAllowFontScaling: false`, que era lo que la rompía de nuevo con el
+  tamaño de fuente del sistema subido. Se quedaron las siete pestañas.
+  Entró también el plural roto del mapa ("1 encuentros").
+- **PR 15 — filtros por subgrupo**, en dos repos:
+  - backend **PR 82**: migración `0013` con quince subcategorías, la tabla de
+    referencia `familia_subgrupo` y el backfill; seed `0003`; `total_especies`
+    en `GET /api/v1/categorias`; ADR **#25** en `docs/PLAN_MAESTRO.md`.
+  - mobile **PR 41**: segunda fila de chips en la biblioteca, con cache de
+    categorías en `sync_state` y `categoria_id` en el cache SQLite de especies.
+  - **Falta el PR que suba el submódulo** después de mergear el 41.
+- **La decisión del eje**: se reusó `categorias_moderacion` en vez de crear una
+  tabla `clases`. Consecuencia aceptada: navegación y curaduría comparten
+  registro, así que crear la pestaña "Aves" crea la unidad curable "Aves". La
+  regla que queda escrita: la navegación no inventa agrupaciones que no sean
+  curables. Está en el ADR #25.
+- **Los grupos salen de fuentes, no de la intuición**: los seis de animalia son
+  los del Reglamento de Clasificación de Especies del MMA; fungi se parte en
+  hongos y líquenes como los nombra el propio MMA; las algas siguen al Museo de
+  Historia Natural de Concepción. **Monera quedó sin subgrupos** a propósito:
+  sus seis fichas no dan para un selector.
+- **"Peces" existe vacío** porque es parte de la partición del MMA. La app
+  esconde los subgrupos sin fichas, así que no deja un callejón sin salida —
+  para eso está `total_especies`.
+- **Ojo con el orden migración/seed**: las migraciones corren **antes** que los
+  seeds, así que un backfill en una migración no alcanza a las fichas de un
+  entorno nuevo. Por eso el mapeo vive en `familia_subgrupo` y el seed `0003` lo
+  reaplica. Ese seed tapa además un hueco viejo de la `0004`, donde en una BD
+  recién creada ninguna ficha caía en su categoría "general".
+- **Nada se verificó en el teléfono**: no hubo dispositivo en `adb devices` en
+  toda la sesión. La APK release del PR 16 quedó compilada.
 
 ---
 
 ## Trabajo 0 — Redespliegue pendiente (lo hago yo, pedímelo)
 
-Producción tiene mergeado hasta el PR 80 pero **no desplegado**. Falta:
+Producción tiene mergeado hasta el PR 80 pero **no desplegado**, y a eso se le
+suman los PRs 15 y 16 cuando los mergee. Falta:
 
-1. `especies-api` con la portada (PR 77) y el difuminado del feed (PR 80).
+1. `especies-api` con la portada (PR 77), el difuminado del feed (PR 80) y los
+   subgrupos (PR 82, migración `0013` + seed `0003`).
 2. **El reload del gateway (PR 79).** Ojo con esto: `nginx.conf` es un
    **bind mount** desde el host (`docker-compose.prod.yml:251`), no está
    horneado en la imagen. Un `up -d --build` **no** hace que el Nginx que ya
@@ -81,73 +94,74 @@ Producción tiene mergeado hasta el PR 80 pero **no desplegado**. Falta:
    docker exec chiloe-gateway nginx -t && docker exec chiloe-gateway nginx -s reload
    ```
 
-Cuando te diga que está desplegado, verificá:
+3. **El seed hay que correrlo a mano**: `especies-api-migrate` aplica las
+   migraciones, no los seeds. En producción las 103 fichas ya existen, así que
+   la `0013` las clasifica sola y el `0003` no debería tener nada que hacer;
+   igual conviene correrlo y verificar que dé 0 sin subgrupo.
+
+Cuando me digas que está desplegado, verifico:
 
 ```bash
 curl -s https://api.budaicapital.com/api/v1/portada | head -c 400
+curl -s https://api.budaicapital.com/api/v1/categorias | head -c 600
 ```
 
-Si sale el índice del gateway (`{"service":"...","endpoints":[...]}`) con un 200,
-el reload no pasó. Si sale `ultimas_publicadas`, está bien.
-
-Y en el teléfono (el APK release ya está instalado, basta con reabrir la app):
-que la portada muestre los tres carruseles con contenido de verdad, no vacíos.
-Si siguen vacíos **y** no aparece el aviso "Sin conexión", es este mismo
-problema: el fetch tiene éxito, `data` viene `undefined` y el código cae en
-`portadaVacia()` sin poder distinguir "no hay nada publicado" de "el endpoint
-no existe".
+Si la portada sale como el índice del gateway (`{"service":"...","endpoints":[...]}`)
+con un 200, el reload no pasó. En `categorias` tienen que venir veinte entradas
+con su `total_especies`; si vienen cinco, la `0013` no se aplicó.
 
 ---
 
-## Trabajo 1 — Lo que falta de la Fase 9.4
+## Trabajo 1 — Verificar en el teléfono (pendiente de la sesión anterior)
 
-El plan está en
-[docs/PLAN_FASE_9_TURISMO_Y_COMUNIDAD.md](docs/PLAN_FASE_9_TURISMO_Y_COMUNIDAD.md),
-sección **Fase 9.4**. El PR 14 ya está hecho. Quedan dos.
+**Enchufá el teléfono**: quedó todo sin ver. Hay que confirmar tres cosas con la
+APK release instalada:
 
-### PR 16 — Íconos en vez de emojis *(mobile)* — **hacelo primero**
+1. **Los íconos nuevos**: que los siete se vean como trazos y no como emojis,
+   que tomen el verde activo, y sobre todo **que ninguna etiqueta se trunque**.
+   Si "Guardados" o "Explorar" siguen cortadas, bajar la fuente a 9 es el
+   siguiente paso; está en `styles.tabLabel` de `AppNavigator.tsx`.
+2. **La fila de subgrupos** en Explorar: aparece al elegir un reino, desaparece
+   con "Todos", y en monera no aparece nunca.
+3. **La portada con contenido**, que quedó sin verificar desde el PR 14.
 
-Los íconos de la barra son emojis del sistema (`🏠 🔎 📷 🗺️ 👥 🔖 🙋`) puestos
-como `<Text>` en `src/navigation/AppNavigator.tsx`. Se ven como emoticones de
-teléfono y cambian de forma según el fabricante. Quiero algo **minimalista y
-elegante**.
+Probar por adb a ciegas sale mal: los taps caen en la pestaña equivocada. Sacá
+`screencap` primero y confirmá dónde quedaste con
+`adb shell dumpsys window | grep mCurrentFocus`.
 
-**Ya decidimos**: se quedan las **siete pestañas**, el mapa no se cuelga del
-stack de Comunidad. Lo que hay que arreglar acá es la **truncación de las
-etiquetas** ("Comun…", "Guarda…") — con siete no entran. Etiquetas más cortas,
-tipografía más chica, o solo ícono en las secundarias; decidí vos y mostrámelo
-en el teléfono.
+---
 
-Esto **necesita una dependencia nueva** (librería de íconos SVG o fuente de
-íconos), así que justificala en el PR: cuál, por qué esa, cuánto pesa el bundle.
+## Trabajo 2 — Lo que sigue
 
-Va antes que el 15 porque es solo mobile, no depende de ninguna decisión mía y
-deja la barra terminada de una vez.
+Con la Fase 9.4 cerrada, los pendientes reales son:
 
-### PR 15 — Filtros por subgrupo *(backend + mobile)*
-
-Dentro de `animalia`: aves, peces, reptiles, mamíferos, anfibios. Y lo que
-corresponda en los otros reinos.
-
-**El eje ya existe**: la migración `0004` creó `categorias_moderacion`
-—"subgrupo curable dentro de un reino, sin jerarquía"— y `especies.categoria_id`.
-Está backfilleada con cinco categorías "general", una por reino. La
-recomendación del plan es **reusarla** en vez de crear una tabla `clases` nueva.
-
-⚠️ **Esto arranca con una decisión mía, no con código.** El costo de reusarla:
-acopla el eje de **permisos de curaduría** con el eje de **navegación**. Crear
-la categoría "Aves" para que la app filtre significa crear también una unidad de
-moderación que alguien puede curar. **Planteámelo con las dos opciones y sus
-consecuencias, y esperá mi respuesta antes de escribir código.**
-
-Las subcategorías las crea un admin por la API; hay que sembrarlas.
+- **Fase 9**: faltan los PRs **11** (insignias), **12** (pantalla de usuarios del
+  panel) y **13** (postular a curar). Del 12 hay una **decisión pendiente
+  conmigo**: `users` vive en `auth-service` y las asignaciones a categorías en
+  `especies-api`, así que hay que elegir si el panel consulta a los dos o si uno
+  expone la vista combinada.
+- **`queryStr` no decodifica nada**: el arreglo del PR 73 fue solo para `bbox`.
+  Cualquier búsqueda con espacios o acentos (`?q=zorro%20chilote`) llega mal a
+  los demás endpoints. Es un PR chico y aparte. **Ahora importa más**: la
+  biblioteca combina búsqueda de texto con el filtro de subgrupo.
+- **Sembrar los subgrupos que falten**: "Peces" está vacío, y las familias que
+  no estén en `familia_subgrupo` mandan sus fichas a la categoría "general" del
+  reino. Al agregar especies nuevas hay que agregar su familia al mapeo.
+- Fotos para una especie con "hartas fotos": bloqueado esperándome. No bajes
+  imágenes de licencia indeterminada a producción.
+- Verificación del Paso 3, puntos que faltan: 3 (filtros y paginación),
+  5 (visibilidad), 9 (sync del cache de especies). El 7 solo cuando ponga modo
+  avión a mano.
+- Sin decidir: un PR aparte por la contraseña de Postgres en texto plano que
+  `especies-api` imprime al arrancar y queda en los logs del contenedor de
+  producción.
 
 ---
 
 ## Producción
 
 Desplegada al 2026-08-19: migraciones hasta la **`0012`**, 7 áreas protegidas
-sembradas, 103 especies, 5 reinos. **Le faltan los PRs 77, 79 y 80.**
+sembradas, 103 especies, 5 reinos. **Le faltan los PRs 77, 79, 80 y 82.**
 
 **No hay deploy automático.** El workflow que existía apuntaba a EKS y fallaba
 siempre; se borró en el PR 75. Redesplegar es a mano.
@@ -193,12 +207,19 @@ Los contenedores se llaman `chiloe-postgres`, `chiloe-gateway`,
 - Build de Android: `JAVA_HOME=/usr/lib/jvm/java-17-openjdk`. El default del
   host es **Java 26** y el plugin Gradle de RN revienta parseándolo con un
   `IllegalArgumentException: 26.0.2`. No toques `gradle.properties` por esto:
-  es del entorno, no del repo.
+  es del entorno, no del repo. Con `react-native-svg` recién instalada la
+  primera build de release tardó **12 minutos**; las siguientes son
+  incrementales.
 - `especies-api` **solo compila dentro de Docker**: al host le faltan Pistache y
   libpqxx. Ignorá los errores de clang sobre esos headers. Los tests de gtest se
   reproducen con `docker build --target tester services/especies-api`, que es lo
   que hace CI; para correr un subconjunto:
   `docker run --rm --entrypoint /app/build/tests/unit_tests <img> --gtest_filter='*LoQueSea*'`.
+- **Para probar una migración de verdad** no hace falta el compose entero: un
+  `docker run -d -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=chiloe_flora -p 55432:5432 postgres:16`
+  y después `DB_HOST=localhost DB_PORT=55432 DB_USER=postgres DB_PASSWORD=postgres`
+  con `./scripts/migrate.sh` y `./scripts/seed.sh`. Es lo que confirmó que la
+  `0013` clasifica las 103 fichas y que reaplicarla no cambia nada.
 - `applicationId cl.chiloe.biodiversidad`. El `release` está firmado con la
   clave de debug y `enableProguardInReleaseBuilds = false`.
 - Tiene que ser **release**: `src/config/appConfig.ts` manda el debug a
@@ -218,29 +239,8 @@ Los contenedores se llaman `chiloe-postgres`, `chiloe-gateway`,
   (apt no responde) y GitHub lo cancela a los 20 min. No es el código:
   `gh run rerun <run-id> --failed` y listo. Ojo con la duración que muestra la
   UI, que **suma los dos intentos** y parece un cuelgue de media hora.
-- Probar por adb a ciegas sale mal: los taps caen en la pestaña equivocada.
-  Sacá `screencap` primero, y confirmá dónde quedaste con
-  `adb shell dumpsys window | grep mCurrentFocus`.
-
----
-
-## Otros pendientes, más viejos
-
-- **Plural roto**: `mobile/src/screens/MapaScreen.tsx:196` dice "1 encuentros".
-  Es de una línea; metelo en el PR 16 que ya toca mobile.
-- **`queryStr` no decodifica nada**: el arreglo del PR 73 fue solo para `bbox`.
-  Cualquier búsqueda con espacios o acentos (`?q=zorro%20chilote`) llega mal a
-  los demás endpoints. Es un PR chico y aparte.
-- Fase 9: faltan los PRs **11** (insignias), **12** (pantalla de usuarios del
-  panel) y **13** (postular a curar). Del 12 hay una **decisión pendiente
-  conmigo**: `users` vive en `auth-service` y las asignaciones a categorías en
-  `especies-api`, así que hay que elegir si el panel consulta a los dos o si uno
-  expone la vista combinada.
-- Fotos para una especie con "hartas fotos": bloqueado esperándome. No bajes
-  imágenes de licencia indeterminada a producción.
-- Verificación del Paso 3, puntos que faltan: 3 (filtros y paginación),
-  5 (visibilidad), 9 (sync del cache de especies). El 7 solo cuando ponga modo
-  avión a mano.
-- Sin decidir: un PR aparte por la contraseña de Postgres en texto plano que
-  `especies-api` imprime al arrancar y queda en los logs del contenedor de
-  producción.
+- `npm run lint` en mobile arrastra **48 warnings `no-void`** preexistentes.
+  0 errores es el criterio; no salgas a limpiarlos sin PR propio.
+- Si agregás un endpoint nuevo, agregá su `location` en `nginx.prod.conf` **y**
+  en `nginx.dev.conf`: Nginx lista una por ruta y lo que no matchea cae en
+  `location /`, devolviendo el índice del gateway con un **200**.
