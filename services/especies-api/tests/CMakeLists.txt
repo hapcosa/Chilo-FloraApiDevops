@@ -28,6 +28,9 @@
 #     y qué ignora fromJson.
 #   - query_params.cpp: decodificación de los %XX de la query string, que
 #     Pistache no hace. El bbox del mapa llegaba con las comas como %2C.
+#   - portada.cpp: el recorte del endpoint agregado de la portada (Fase 9.4,
+#     PR 14). Sobre todo que un encuentro proyectado no lleve coordenadas: el
+#     mapa difumina las especies amenazadas y esto no puede deshacerlo.
 #   - avistamiento_visibilidad.cpp: quién puede ver avistamientos sin aprobar,
 #     aislado de Pistache para fijar la regla sin levantar el servidor.
 
@@ -49,6 +52,7 @@ add_executable(unit_tests
         test_avistamiento.cpp
         test_avistamiento_visibilidad.cpp
         test_query_params.cpp
+        test_portada.cpp
         ${CMAKE_SOURCE_DIR}/src/models/reino.cpp
         ${CMAKE_SOURCE_DIR}/src/models/especie_estado.cpp
         ${CMAKE_SOURCE_DIR}/src/models/especie.cpp
@@ -66,6 +70,7 @@ add_executable(unit_tests
         ${CMAKE_SOURCE_DIR}/src/utils/query_params.cpp
         ${CMAKE_SOURCE_DIR}/src/models/celda_mapa.cpp
         ${CMAKE_SOURCE_DIR}/src/models/area_protegida.cpp
+        ${CMAKE_SOURCE_DIR}/src/models/portada.cpp
 )
 
 target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
