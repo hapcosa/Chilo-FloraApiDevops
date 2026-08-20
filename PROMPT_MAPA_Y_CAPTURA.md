@@ -1,7 +1,7 @@
-# Prompt para la sesión de portada, filtros e íconos
+# Prompt para la sesión de filtros por subgrupo e íconos
 
 Copiá todo lo que sigue como primer mensaje de la sesión nueva.
-Estado al 2026-08-19, con cuatro PRs abiertos esperando merge.
+Estado al 2026-08-20, con todo mergeado y **un redespliegue pendiente**.
 
 ---
 
@@ -9,10 +9,10 @@ Seguimos con el sistema de biodiversidad de Chiloé:
 `/home/obrero/programacion/Chilo-FloraApiDevops` (backend) y su submódulo
 `mobile/`, que es su propio repo (`hapcosa/chiloe-biodiversidad-mobile`).
 
-La sesión anterior cerró la captura y arregló el mapa del lado del servidor.
-Falta **verificar el mapa en el teléfono contra producción** —lo bloquea un
-merge y un redespliegue que hago yo— y arrancar la **Fase 9.4**: portada viva,
-filtros por subgrupo e íconos de navegación.
+La sesión anterior verificó el mapa y la captura en el teléfono, cerró el
+**PR 14 (portada viva)** de la Fase 9.4 y arregló un leak de coordenadas que
+apareció por el camino. Quedan el **PR 15** (filtros por subgrupo) y el
+**PR 16** (íconos de navegación), y hay un redespliegue pendiente que hago yo.
 
 ## Reglas innegociables
 
@@ -30,103 +30,99 @@ filtros por subgrupo e íconos de navegación.
 - Avisame explícitamente cada desviación, default elegido u omisión.
   En español, directo.
 - Las claves SSH están en `~/.env`, se usan con `sshpass -e` y **nunca** se
-  imprimen.
+  imprimen. Desde el host de desarrollo **no hay acceso SSH a producción**:
+  pedime a mí los comandos que haya que correr allá.
 - Este archivo está trackeado: actualizalo al cerrar la sesión, en su propio PR.
 
 ---
 
 ## Lo que cerró la sesión anterior
 
-- **La app no arrancaba**: no era el mapa ni un crash nativo. El APK instalado
-  era el **debug**, que no lleva bundle JS y exige Metro en `localhost:8081`.
-  Con `assembleRelease` arrancó. No hubo cambio de código.
-- **El mapa se ve**: teselas satelitales sobre Chiloé con la key de
-  `GOOGLE_MAP_API` del `.env` (el prompt anterior decía que esa key "no la usa
-  nadie" — era falso, es la buena). Los pines de áreas protegidas caen bien, o
-  sea el `bbox` no está invertido.
-- **Los círculos de la comunidad fallaban con 400 en 4 ms**: `parseBbox` del
-  backend partía por comas un valor que llegaba como `%2C`. Pistache **no**
-  decodifica los valores de query. Arreglado con `utils::percentDecode` y 7
-  tests → **backend PR 73**.
-- **Captura → encuentro** (PR 2 de la Fase 9) → **mobile PR 38**.
-- **El deploy automático nunca existió**: el workflow apuntaba a EKS/ECR y
-  fallaba en cada push a master hace meses. Borrado → **backend PR 75**.
-
-## PRs abiertos, esperando que yo los merge
-
-| PR | Repo | Qué | Checks |
-|---|---|---|---|
-| 73 | backend | `percentDecode` del bbox — **desbloquea el mapa** | verde |
-| 74 | backend | Plan de la Fase 9.4 | verde |
-| 75 | backend | Borrar el deploy a EKS | recién abierto |
-| 38 | mobile | Encuentro tras la captura | verde |
-
-**Empezá preguntándome si ya los mergeé.** El trabajo 0 depende del 73.
+- **Trabajo 0 verificado en el SM-A536E**: el mapa dibuja los círculos de la
+  comunidad sobre Chiloé (el `percentDecode` del PR 73 funcionó), el filtro por
+  reino recarga, los puntos calientes filtran, el chip alterna Satelital ↔
+  Híbrida y salen las 7 áreas protegidas. El flujo de captura → encuentro
+  también anda.
+- **PR 14 — Portada viva**, en dos repos:
+  - backend **PR 77**: `GET /api/v1/portada` con últimas publicadas, últimas
+    ediciones y últimos encuentros en una sola llamada. `PortadaService` es un
+    compositor sobre los servicios que ya existían, no una capa de datos nueva.
+  - mobile **PR 39**: `HomeScreen` reescrita con tres carruseles, cache offline
+    en `sync_state` y filtro por reino en cliente. **PR 78** subió el submódulo.
+- **La portada no lleva coordenadas, a propósito.** Está escrito en
+  `include/models/portada.hpp` y hay un test que lo fija. Una portada que
+  devolviera el punto exacto sería la puerta de atrás que deja en nada la
+  ofuscación del mapa.
+- **PR 79 — ruta del gateway.** Me olvidé de ella en el 77 y la portada devolvía
+  el índice del gateway con un **200**, así que la app no veía un error: veía una
+  portada vacía. Nginx lista **una `location` explícita por ruta**; lo que no
+  matchea cae en `location /`. Si agregás un endpoint nuevo, agregá el bloque en
+  `nginx.prod.conf` **y** en `nginx.dev.conf`.
+- **PR 80 — leak de coordenadas del feed.** El mapa nunca publica el punto exacto
+  de una especie en riesgo, pero `GET /api/v1/avistamientos` devolvía la fila
+  entera: mismo dato, otro endpoint. Ahora la BD resuelve si la especie es
+  sensible en la misma consulta y `difuminarUbicacion` redondea al centro de la
+  celda de ~1 km, borra `precision_metros` y marca `ubicacion_difuminada: true`.
+  El autor y quien modera siguen viendo el punto exacto.
 
 ---
 
-## Trabajo 0 — Terminar de verificar el mapa
+## Trabajo 0 — Redespliegue pendiente (lo hago yo, pedímelo)
 
-Requiere que yo haya mergeado el **PR 73** y redesplegado `especies-api` en
-producción. Pedímelo; el redespliegue lo hago yo o te paso el resultado.
+Producción tiene mergeado hasta el PR 80 pero **no desplegado**. Falta:
 
-Después, con el release instalado en el teléfono, mirá en la pestaña **Mapa**:
+1. `especies-api` con la portada (PR 77) y el difuminado del feed (PR 80).
+2. **El reload del gateway (PR 79).** Ojo con esto: `nginx.conf` es un
+   **bind mount** desde el host (`docker-compose.prod.yml:251`), no está
+   horneado en la imagen. Un `up -d --build` **no** hace que el Nginx que ya
+   corre relea el archivo. Después del `git pull` hace falta:
 
-- Que los **círculos de la comunidad** aparezcan y caigan sobre Chiloé, no en
-  el Golfo de Guinea. Es lo que arregla el PR 73.
-- Que el **filtro por reino** recargue las celdas.
-- Que tocar un **punto caliente** filtre por esa especie.
-- Que el chip alterne **Satelital ↔ Híbrida**.
-- Que las tres capas se prendan y apaguen por separado.
-- Que aparezcan **7 áreas protegidas**: PN Chiloé, Tantauco, Tepuhueico,
-  Ahuenco, Islotes de Puñihuil, Humedal de Caulín, Humedales de Putemún.
+   ```bash
+   docker exec chiloe-gateway nginx -t && docker exec chiloe-gateway nginx -s reload
+   ```
 
-Y probá el flujo nuevo de **Capturar** (PR 38, si está mergeado): disparo →
-revisión → Crear encuentro / Repetir / Descartar, incluyendo
-"todavía no sé cuál es". Nunca se probó en el teléfono, solo en CI.
-
-### Decisión pendiente conmigo
-
-El mapa quedó como **séptima pestaña** y con siete las etiquetas se truncan
-("Comun…", "Guarda…"). La alternativa es colgarlo del stack de Comunidad.
-**No la tomes solo**: decidila conmigo mirando el teléfono. Se solapa con el
-PR 16 de abajo, que rehace la barra igual.
-
-Comandos:
+Cuando te diga que está desplegado, verificá:
 
 ```bash
-cd mobile/android
-JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew :app:assembleRelease
-adb devices        # reconfirmá la IP, cambia sola
-adb install -r app/build/outputs/apk/release/app-release.apk
-adb logcat -d --pid=$(adb shell pidof cl.chiloe.biodiversidad)
+curl -s https://api.budaicapital.com/api/v1/portada | head -c 400
 ```
 
-Tiene que ser **release**: `src/config/appConfig.ts` manda el debug a
-`http://localhost:8080` y solo el release habla con `api.budaicapital.com`.
-Si la pantalla sale roja con "Unable to load script", instalaste el debug.
+Si sale el índice del gateway (`{"service":"...","endpoints":[...]}`) con un 200,
+el reload no pasó. Si sale `ultimas_publicadas`, está bien.
+
+Y en el teléfono (el APK release ya está instalado, basta con reabrir la app):
+que la portada muestre los tres carruseles con contenido de verdad, no vacíos.
+Si siguen vacíos **y** no aparece el aviso "Sin conexión", es este mismo
+problema: el fetch tiene éxito, `data` viene `undefined` y el código cae en
+`portadaVacia()` sin poder distinguir "no hay nada publicado" de "el endpoint
+no existe".
 
 ---
 
-## Trabajo 1 — Fase 9.4, "que la app se vea viva"
+## Trabajo 1 — Lo que falta de la Fase 9.4
 
 El plan está en
 [docs/PLAN_FASE_9_TURISMO_Y_COMUNIDAD.md](docs/PLAN_FASE_9_TURISMO_Y_COMUNIDAD.md),
-sección **Fase 9.4** (la agrega el PR 74). Son tres PRs, en este orden:
+sección **Fase 9.4**. El PR 14 ya está hecho. Quedan dos.
 
-### PR 14 — Portada viva *(backend + mobile)*
+### PR 16 — Íconos en vez de emojis *(mobile)* — **hacelo primero**
 
-Hoy la portada muestra **una especie arbitraria por reino** y no cambia nunca.
-Tiene que mostrar **últimas especies publicadas**, **últimas ediciones** y
-**últimos encuentros de la comunidad**.
+Los íconos de la barra son emojis del sistema (`🏠 🔎 📷 🗺️ 👥 🔖 🙋`) puestos
+como `<Text>` en `src/navigation/AppNavigator.tsx`. Se ven como emoticones de
+teléfono y cambian de forma según el fabricante. Quiero algo **minimalista y
+elegante**.
 
-Un solo endpoint `GET /api/v1/portada` que devuelva las tres listas, no tres
-llamadas desde el teléfono.
+**Ya decidimos**: se quedan las **siete pestañas**, el mapa no se cuelga del
+stack de Comunidad. Lo que hay que arreglar acá es la **truncación de las
+etiquetas** ("Comun…", "Guarda…") — con siete no entran. Etiquetas más cortas,
+tipografía más chica, o solo ícono en las secundarias; decidí vos y mostrámelo
+en el teléfono.
 
-⚠️ **No filtres esto en el cliente**: los encuentros de la portada tienen que
-respetar lo mismo que el mapa —privados fuera, y nada que revele la ubicación
-exacta de una especie amenazada (ADR #23)—. Si la portada muestra coordenadas,
-tira abajo la ofuscación del mapa.
+Esto **necesita una dependencia nueva** (librería de íconos SVG o fuente de
+íconos), así que justificala en el PR: cuál, por qué esa, cuánto pesa el bundle.
+
+Va antes que el 15 porque es solo mobile, no depende de ninguna decisión mía y
+deja la barra terminada de una vez.
 
 ### PR 15 — Filtros por subgrupo *(backend + mobile)*
 
@@ -138,32 +134,20 @@ corresponda en los otros reinos.
 Está backfilleada con cinco categorías "general", una por reino. La
 recomendación del plan es **reusarla** en vez de crear una tabla `clases` nueva.
 
-El costo de reusarla, que hay que asumir a conciencia: acopla el eje de
-**permisos de curaduría** con el eje de **navegación**. Crear la categoría
-"Aves" para que la app filtre significa crear también una unidad de moderación
-que alguien puede curar. Si eso no te cierra, decidilo conmigo antes de
-escribir código.
+⚠️ **Esto arranca con una decisión mía, no con código.** El costo de reusarla:
+acopla el eje de **permisos de curaduría** con el eje de **navegación**. Crear
+la categoría "Aves" para que la app filtre significa crear también una unidad de
+moderación que alguien puede curar. **Planteámelo con las dos opciones y sus
+consecuencias, y esperá mi respuesta antes de escribir código.**
 
 Las subcategorías las crea un admin por la API; hay que sembrarlas.
-
-### PR 16 — Íconos en vez de emojis *(mobile)*
-
-Los íconos de la barra son emojis del sistema (`🏠 🔎 📷 🗺️ 👥 🔖 🙋`) puestos
-como `<Text>` en `src/navigation/AppNavigator.tsx`. Se ven como emoticones de
-teléfono y cambian de forma según el fabricante. Quiero algo **minimalista y
-elegante**.
-
-Esto **necesita una dependencia nueva** (una librería de íconos SVG o una fuente
-de íconos), así que justificala en el PR: cuál, por qué esa, cuánto pesa el
-bundle. Y acordate de la decisión de las siete pestañas de arriba: si la barra
-se rehace, se rehace una vez.
 
 ---
 
 ## Producción
 
-Desplegada al 2026-08-18: migraciones hasta la **`0012`**, 7 áreas protegidas
-sembradas, índice `idx_avistamientos_mapa` creado. **Le falta el PR 73.**
+Desplegada al 2026-08-19: migraciones hasta la **`0012`**, 7 áreas protegidas
+sembradas, 103 especies, 5 reinos. **Le faltan los PRs 77, 79 y 80.**
 
 **No hay deploy automático.** El workflow que existía apuntaba a EKS y fallaba
 siempre; se borró en el PR 75. Redesplegar es a mano.
@@ -190,6 +174,8 @@ docker compose -p chiloe-prod --env-file ~/.config/chiloe-prod/chiloe.env \
   -f docker-compose.prod.yml up especies-api-migrate      # sin -d
 docker compose -p chiloe-prod --env-file ~/.config/chiloe-prod/chiloe.env \
   -f docker-compose.prod.yml up -d especies-api gateway
+# y el reload del gateway, que el build no hace (bind mount):
+docker exec chiloe-gateway nginx -t && docker exec chiloe-gateway nginx -s reload
 ```
 
 ⚠️ En **zsh** no sirve meter eso en una variable y hacer `$C build ...`: zsh no
@@ -204,13 +190,20 @@ Los contenedores se llaman `chiloe-postgres`, `chiloe-gateway`,
 
 ## Entorno
 
-- Build de Android: `JAVA_HOME=/usr/lib/jvm/java-17-openjdk` (el default del
-  host es Java 26 y el plugin Gradle de RN no parsea esa versión).
+- Build de Android: `JAVA_HOME=/usr/lib/jvm/java-17-openjdk`. El default del
+  host es **Java 26** y el plugin Gradle de RN revienta parseándolo con un
+  `IllegalArgumentException: 26.0.2`. No toques `gradle.properties` por esto:
+  es del entorno, no del repo.
 - `especies-api` **solo compila dentro de Docker**: al host le faltan Pistache y
-  libpqxx. Los tests de gtest se reproducen con
-  `docker build --target tester services/especies-api`, que es lo que hace CI.
+  libpqxx. Ignorá los errores de clang sobre esos headers. Los tests de gtest se
+  reproducen con `docker build --target tester services/especies-api`, que es lo
+  que hace CI; para correr un subconjunto:
+  `docker run --rm --entrypoint /app/build/tests/unit_tests <img> --gtest_filter='*LoQueSea*'`.
 - `applicationId cl.chiloe.biodiversidad`. El `release` está firmado con la
   clave de debug y `enableProguardInReleaseBuilds = false`.
+- Tiene que ser **release**: `src/config/appConfig.ts` manda el debug a
+  `http://localhost:8080` y solo el release habla con `api.budaicapital.com`.
+  Si la pantalla sale roja con "Unable to load script", instalaste el debug.
 - La key de Google Maps sale de `GOOGLE_MAP_API` en el `.env` y va a
   `mobile/android/local.properties` como `MAPS_API_KEY`. Ese archivo **no se
   commitea**; el `manifestPlaceholder` de `android/app/build.gradle` la inyecta
@@ -225,17 +218,19 @@ Los contenedores se llaman `chiloe-postgres`, `chiloe-gateway`,
   (apt no responde) y GitHub lo cancela a los 20 min. No es el código:
   `gh run rerun <run-id> --failed` y listo. Ojo con la duración que muestra la
   UI, que **suma los dos intentos** y parece un cuelgue de media hora.
+- Probar por adb a ciegas sale mal: los taps caen en la pestaña equivocada.
+  Sacá `screencap` primero, y confirmá dónde quedaste con
+  `adb shell dumpsys window | grep mCurrentFocus`.
 
 ---
 
 ## Otros pendientes, más viejos
 
+- **Plural roto**: `mobile/src/screens/MapaScreen.tsx:196` dice "1 encuentros".
+  Es de una línea; metelo en el PR 16 que ya toca mobile.
 - **`queryStr` no decodifica nada**: el arreglo del PR 73 fue solo para `bbox`.
   Cualquier búsqueda con espacios o acentos (`?q=zorro%20chilote`) llega mal a
-  los demás endpoints. Es un PR chico y aparte; no lo metí en el 73 para no
-  ensancharlo.
-- **Prueba manual de la cámara en el teléfono**: nunca se hizo del todo. Está en
-  [PROMPT_CAMARA_SESION.md](PROMPT_CAMARA_SESION.md) y se solapa con el trabajo 0.
+  los demás endpoints. Es un PR chico y aparte.
 - Fase 9: faltan los PRs **11** (insignias), **12** (pantalla de usuarios del
   panel) y **13** (postular a curar). Del 12 hay una **decisión pendiente
   conmigo**: `users` vive en `auth-service` y las asignaciones a categorías en
