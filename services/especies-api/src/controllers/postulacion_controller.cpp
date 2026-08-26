@@ -1,4 +1,5 @@
 #include "../../include/controllers/postulacion_controller.hpp"
+#include "../../include/utils/query_params.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -94,7 +95,7 @@ void PostulacionController::getAll(const Pistache::Rest::Request& request,
             std::optional<PostulacionEstado> estado;
             const auto query = request.query();
             if (query.has("estado")) {
-                estado = postulacionEstadoFromString(query.get("estado").value());
+                estado = postulacionEstadoFromString(utils::percentDecode(query.get("estado").value()));
             }
             postulaciones = service->getPostulaciones(estado);
         } else {

@@ -1,5 +1,6 @@
 // Copyright 2025 <Obrero/Obrero>
 #include "../../include/controllers/especie_controller.hpp"
+#include "../../include/utils/query_params.hpp"
 
 #include <pistache/http.h>
 
@@ -34,10 +35,11 @@ std::optional<bool> queryBool(const Pistache::Http::Uri::Query& q,
         "Parámetro '" + key + "' debe ser 'true' o 'false'");
 }
 
+// Decodifica el valor: Pistache lo entrega tal como viajó por la red.
 std::optional<std::string> queryStr(const Pistache::Http::Uri::Query& q,
                                      const std::string& key) {
     if (!q.has(key)) return std::nullopt;
-    return q.get(key).value();
+    return utils::percentDecode(q.get(key).value());
 }
 
 }  // namespace
@@ -673,7 +675,7 @@ void EspecieController::searchByNombreCientifico(
       return;
     }
 
-    std::string nombre = query.get("nombre").value();
+    std::string nombre = utils::percentDecode(query.get("nombre").value());
     if (nombre.empty()) {
       json error = {{"success", false},
                     {"error", "El parámetro 'nombre' no puede estar vacío"}};

@@ -1,4 +1,5 @@
 #include "../../include/controllers/area_protegida_controller.hpp"
+#include "../../include/utils/query_params.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -18,10 +19,11 @@ void sendJson(Pistache::Http::ResponseWriter& response,
     response.send(code, payload.dump());
 }
 
+// Decodifica el valor: Pistache lo entrega tal como viajó por la red.
 std::optional<std::string> queryStr(const Pistache::Http::Uri::Query& query,
                                     const std::string& key) {
     if (!query.has(key)) return std::nullopt;
-    return query.get(key).value();
+    return utils::percentDecode(query.get(key).value());
 }
 
 // Mismo orden GeoJSON que el endpoint del mapa: min_lng,min_lat,max_lng,max_lat.

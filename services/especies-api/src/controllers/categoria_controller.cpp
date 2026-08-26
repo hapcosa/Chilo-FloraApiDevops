@@ -1,4 +1,5 @@
 #include "../../include/controllers/categoria_controller.hpp"
+#include "../../include/utils/query_params.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -46,7 +47,7 @@ void CategoriaController::getAll(const Pistache::Rest::Request& request,
         std::optional<Reino> reino;
         const auto query = request.query();
         if (query.has("reino")) {
-            reino = reinoFromString(query.get("reino").value());
+            reino = reinoFromString(utils::percentDecode(query.get("reino").value()));
         }
 
         json data = json::array();

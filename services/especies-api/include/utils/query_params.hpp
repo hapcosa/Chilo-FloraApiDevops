@@ -12,9 +12,14 @@ namespace utils {
 // encodeURIComponent sin que se le pida— dejaba al `bbox` del mapa sin comas
 // que separar, y la API respondía 400 a cada movimiento del mapa.
 //
+// Todo valor de query pasa por aquí, no solo el bbox: una búsqueda como
+// `?q=zorro%20chilote` o `?nombre=Le%C3%B3n` llegaba igual de rota, con el
+// %20 literal dentro del LIKE.
+//
 // Un '%' que no encabeza un par hexadecimal se deja tal cual: es un porcentaje
-// literal, no una secuencia rota. El '+' tampoco se toca, porque solo significa
-// espacio en formularios (x-www-form-urlencoded) y acá los valores son números.
+// literal, no una secuencia rota. El '+' tampoco se toca: solo significa
+// espacio en formularios (x-www-form-urlencoded), y el cliente arma la query
+// con encodeURIComponent, que codifica el espacio como %20.
 std::string percentDecode(const std::string& valor);
 
 } // namespace utils

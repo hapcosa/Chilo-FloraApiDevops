@@ -1,5 +1,6 @@
 // Copyright 2025 <Obrero/Obrero>
 #include "../../include/controllers/familia_controller.hpp"
+#include "../../include/utils/query_params.hpp"
 
 #include <pistache/http.h>
 
@@ -25,7 +26,7 @@ void FamiliaController::getAll(const Pistache::Rest::Request& request,
     auto query = request.query();
     std::vector<Familia> familias;
     if (query.has("reino")) {
-      const std::string reinoStr = query.get("reino").value();
+      const std::string reinoStr = utils::percentDecode(query.get("reino").value());
       familias = service->getFamiliasByReino(reinoFromString(reinoStr));
     } else {
       familias = service->getAllFamilias();
@@ -285,8 +286,8 @@ void FamiliaController::searchByNombre(
       return;
     }
 
-    std::string nombre = query.get("nombre").value();
-    std::string reinoStr = query.get("reino").value();
+    std::string nombre = utils::percentDecode(query.get("nombre").value());
+    std::string reinoStr = utils::percentDecode(query.get("reino").value());
     if (nombre.empty() || reinoStr.empty()) {
       json error = {
           {"error", "'reino' y 'nombre' no pueden estar vacíos"}};
