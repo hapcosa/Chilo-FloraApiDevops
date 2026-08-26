@@ -31,10 +31,11 @@ std::optional<int> queryInt(const Pistache::Http::Uri::Query& query,
     }
 }
 
+// Decodifica el valor: Pistache lo entrega tal como viajó por la red.
 std::optional<std::string> queryStr(const Pistache::Http::Uri::Query& query,
                                     const std::string& key) {
     if (!query.has(key)) return std::nullopt;
-    return query.get(key).value();
+    return utils::percentDecode(query.get(key).value());
 }
 
 VisibilidadSolicitante solicitanteDe(const Pistache::Rest::Request& request) {
@@ -47,10 +48,9 @@ VisibilidadSolicitante solicitanteDe(const Pistache::Rest::Request& request) {
 }
 
 // "min_lng,min_lat,max_lng,max_lat" — el orden de GeoJSON y de las APIs de
-// mapas, para no obligar al cliente a reordenar lo que ya tiene. Llega sin
-// decodificar: ver utils::percentDecode.
-MapaFilters parseBbox(const std::string& original) {
-    const std::string bbox = utils::percentDecode(original);
+// mapas, para no obligar al cliente a reordenar lo que ya tiene. Llega ya
+// decodificado por queryStr.
+MapaFilters parseBbox(const std::string& bbox) {
     MapaFilters filters;
     double valores[4] = {0, 0, 0, 0};
     std::size_t inicio = 0;
