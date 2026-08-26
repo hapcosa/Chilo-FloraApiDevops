@@ -94,10 +94,18 @@ suman los PRs 15 y 16 cuando los mergee. Falta:
    docker exec chiloe-gateway nginx -t && docker exec chiloe-gateway nginx -s reload
    ```
 
-3. **El seed hay que correrlo a mano**: `especies-api-migrate` aplica las
-   migraciones, no los seeds. En producción las 103 fichas ya existen, así que
-   la `0013` las clasifica sola y el `0003` no debería tener nada que hacer;
-   igual conviene correrlo y verificar que dé 0 sin subgrupo.
+3. **El seed hay que correrlo a mano, y no es opcional**: `especies-api-migrate`
+   aplica las migraciones, no los seeds. La `0013` clasifica por familia, así
+   que deja fuera lo que ninguna familia mapea —monera no tiene subgrupos a
+   propósito— y esas fichas quedan con `categoria_id NULL`. El único que las
+   manda a la categoría "general" del reino es el seed `0003`. Verificado en
+   producción el 2026-08-26: tras el redespliegue quedaban 2 fichas de monera
+   sin subgrupo, y el seed las arregló con un `UPDATE 2`.
+
+   ```bash
+   docker exec -i chiloe-postgres psql -U chiloe_prod -d chiloe_biodiversidad \
+     < ~/servicios/chiloe-biodiversidad-api/services/especies-api/seeds/0003_subgrupos_por_familia.sql
+   ```
 
 Cuando me digas que está desplegado, verifico:
 
