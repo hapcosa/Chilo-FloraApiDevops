@@ -21,6 +21,10 @@ private:
     std::optional<std::string> descripcion;
     std::optional<std::string> created_at;
     std::optional<std::string> updated_at;
+    // Cuántas fichas publicadas cuelgan de la categoría. No es una columna:
+    // lo calcula la consulta de listado. La app lo usa para no ofrecer un
+    // subgrupo vacío, que sería un filtro que devuelve una pantalla en blanco.
+    int total_especies = 0;
 
 public:
     int getId() const { return id; }
@@ -30,6 +34,7 @@ public:
     const std::optional<std::string>& getDescripcion() const { return descripcion; }
     const std::optional<std::string>& getCreatedAt() const { return created_at; }
     const std::optional<std::string>& getUpdatedAt() const { return updated_at; }
+    int getTotalEspecies() const { return total_especies; }
 
     void setId(int value) { id = value; }
     void setSlug(std::string value) { slug = std::move(value); }
@@ -38,6 +43,7 @@ public:
     void setDescripcion(std::optional<std::string> value) { descripcion = std::move(value); }
     void setCreatedAt(std::optional<std::string> value) { created_at = std::move(value); }
     void setUpdatedAt(std::optional<std::string> value) { updated_at = std::move(value); }
+    void setTotalEspecies(int value) { total_especies = value; }
 
     bool esValida() const;
     nlohmann::json toJson() const;

@@ -11,6 +11,13 @@ namespace {
 constexpr const char* kSelectCols =
     "id, slug, nombre, reino, descripcion, created_at, updated_at";
 
+// El listado agrega cuántas fichas publicadas cuelgan de cada categoría: la app
+// esconde los subgrupos vacíos en vez de ofrecer un filtro que no devuelve
+// nada. Los borradores no cuentan, porque para quien navega no existen.
+constexpr const char* kSelectColsConTotal =
+    "c.id, c.slug, c.nombre, c.reino, c.descripcion, c.created_at, c.updated_at,"
+    " COUNT(e.id) FILTER (WHERE e.estado = 'publicada') AS total_especies";
+
 std::optional<std::string> optStr(const pqxx::field& field) {
     if (field.is_null()) return std::nullopt;
     return std::string(field.c_str());
@@ -43,19 +50,22 @@ std::vector<CategoriaModeracion> PostgresCategoriaRepository::findAll(
         auto conn = database->createConnection();
         pqxx::work txn(*conn);
 
-        std::string sql = std::string("SELECT ") + kSelectCols
-            + " FROM categorias_moderacion";
+        std::string sql = std::string("SELECT ") + kSelectColsConTotal
+            + " FROM categorias_moderacion c"
+              " LEFT JOIN especies e ON e.categoria_id = c.id";
         if (reino) {
-            sql += " WHERE reino = " + txn.quote(reinoToString(*reino)) + "::reino_enum";
+            sql += " WHERE c.reino = " + txn.quote(reinoToString(*reino)) + "::reino_enum";
         }
-        sql += " ORDER BY reino, nombre";
+        sql += " GROUP BY c.id ORDER BY c.reino, c.nombre";
 
         const auto rows = txn.exec(sql);
 
         std::vector<CategoriaModeracion> categorias;
         categorias.reserve(rows.size());
         for (const auto& row : rows) {
-            categorias.push_back(mapRowToCategoria(row));
+            auto categoria = mapRowToCategoria(row);
+            categoria.setTotalEspecies(row["total_especies"].as<int>());
+            categorias.push_back(std::move(categoria));
         }
         return categorias;
     } catch (const std::exception& error) {

@@ -78,3 +78,18 @@ TEST(CategoriaModeracionTest, EsValidaRechazaNombreVacio) {
     categoria.setNombre("");
     EXPECT_FALSE(categoria.esValida());
 }
+
+// La app decide con este número si muestra el subgrupo en el selector, así que
+// tiene que viajar siempre, incluso en cero: si faltara la clave, el cliente no
+// podría distinguir "categoría vacía" de "versión vieja del backend".
+TEST(CategoriaModeracionTest, ToJsonSiempreLlevaTotalEspecies) {
+    CategoriaModeracion categoria;
+    categoria.setSlug("animalia-peces");
+    categoria.setNombre("Peces");
+    categoria.setReino(Reino::Animalia);
+
+    EXPECT_EQ(categoria.toJson()["total_especies"], 0);
+
+    categoria.setTotalEspecies(23);
+    EXPECT_EQ(categoria.toJson()["total_especies"], 23);
+}
