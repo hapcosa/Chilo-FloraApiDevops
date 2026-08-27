@@ -1,7 +1,8 @@
 # Prompt para la sesión siguiente
 
 Copiá todo lo que sigue como primer mensaje de la sesión nueva.
-Estado al 2026-08-26, con la Fase 9.4 cerrada, mergeada **y desplegada**.
+Estado al 2026-08-26, con la Fase 9.4 cerrada, mergeada **y desplegada**, y
+con los puntos 1, 2 y 3 de la lista de abajo ya resueltos.
 
 > Para la sesión de **diseño visual de la app** no uses este archivo: está
 > [PROMPT_DISENO_APP.md](PROMPT_DISENO_APP.md), que es su propio encargo.
@@ -51,50 +52,69 @@ actualizar la app).
 siempre; se borró en el PR 75. Redesplegar es a mano, con el bloque de comandos
 del final de este archivo.
 
+Mergeado después: **#43** (ubicación en el mapa) y el **#89** del backend, que
+sube su puntero.
+
 ## Lo que quedó sin verificar
 
-**La fila de chips de subgrupo y la portada con contenido no se vieron nunca en
-pantalla.** La app pidió login al arrancar (la sesión se perdió durante los
-arranques fallidos del bug del #42) y no tengo las credenciales. Es lo primero
-que conviene cerrar: entrá en la app y pedime que verifique.
+- **La pantalla de postulación a curador (PR 44 de mobile) no se vio nunca en
+  el teléfono.** Se bloqueó antes de poder recorrerla. El APK release ya está
+  instalado: desbloqueá y pedime que la verifique.
+- Los chips de subgrupo y la portada con contenido **sí se verificaron** el
+  2026-08-26.
+
+## Deuda inmediata
+
+- **Producción no tiene el PR 88.** El decode de los query params está
+  mergeado pero no desplegado: `?q=zorro chilote` sigue roto en la app hasta
+  que se reconstruya `especies-api`. Sin migraciones nuevas ni cambio de
+  `nginx.conf`, así que basta el `build` + `up -d` **de `especies-api` sola**.
+- **El PR 44 de mobile está abierto con los checks verdes, sin mergear.** Al
+  mergearlo hay que subir el puntero del submódulo en el backend, en su propio
+  PR.
 
 ---
 
 ## Lo que sigue, en el orden que yo haría
 
-### 1. `queryStr` no decodifica nada
+### 1. ~~`queryStr` no decodifica nada~~ — hecho (PR 88, mergeado)
 
-El arreglo del PR 73 fue solo para `bbox`. Cualquier búsqueda con espacios o
-acentos (`?q=zorro%20chilote`) llega mal a los demás endpoints. Es un PR chico y
-aparte. **Ahora importa más**: la biblioteca cruza búsqueda de texto con el
-filtro de subgrupo.
+Todo valor de query pasa ahora por `utils::percentDecode`, no solo el `bbox`, y
+`parseBbox` dejó de decodificar dos veces. **Falta desplegarlo** (ver "Deuda
+inmediata").
 
-### 2. El mapa
+### 2. El mapa — hecho a medias (PR 43, mergeado)
 
-Dos problemas distintos, los dos reales:
+- **El GPS ya se lee.** Botón de "mi ubicación", permiso en runtime, punto azul
+  y mensajes distintos para "no me dejaron" y "el GPS no respondió". El permiso
+  y `native/location.ts` ya existían: lo que faltaba era que el mapa los usara.
+- **Los tirones siguen sin diagnosticar.** Memoicé los overlays y saqué
+  `region` del estado, pero al medir con `dumpsys gfxinfo` **no hubo mejora**:
+  master 13/659 frames con jank (1,97%), la rama 10/668 (1,50%), p95 idéntico.
+  Es ruido, porque hoy producción pinta **una** celda y 7 áreas. La causa real
+  está sin encontrar; el cambio se justifica solo por cuando haya densidad.
 
-- **Nunca lee el GPS.** No es que apunte mal: `MapaScreen.tsx` monta el
-  `MapView` con `initialRegion={REGION_CHILOE}` y nada más. No hay
-  `showsUserLocation`, ni botón de "mi ubicación", ni se pide el permiso. Hay
-  que implementarlo, incluyendo el permiso en runtime y el caso de que lo
-  nieguen.
-- **Se mueve con tirones.** Cada gesto dispara `onRegionChangeComplete` →
-  `setRegion` → re-render de todos los `Marker` y `Circle`, más una llamada de
-  red por movimiento. `regionesEquivalentes` amortigua las llamadas pero no el
-  re-render. Memoizar los marcadores y sacar `region` del estado que redibuja
-  es por donde empezaría.
+Corrección a lo que decía este archivo: el `onPress` del `Marker` **no** navega
+a la ficha, llama a `filtrarPorCelda`. El callout se pierde igual, porque
+`setEspecieId` recarga las celdas y los `Marker` se desmontan. **Sigue siendo
+una decisión tuya** qué debería hacer el tap: filtrar, mostrar el resumen de la
+celda, o distinguir tap de long-press.
 
-Anotado de paso: el `title` del `Marker` —donde se arregló el "1 encuentros"—
-**es inalcanzable en la práctica**. Al tocar el pin, el `onPress` navega a la
-ficha de la especie antes de que el callout se dibuje. Si el tap debería mostrar
-el resumen de la celda en vez de saltar a la ficha, es una decisión mía: preguntá.
+### 3. Fase 9 — PR 13: postular a curador desde la app — hecho (PR 44 de mobile, **sin mergear**)
 
-### 3. Fase 9 — PR 13: postular a curador desde la app
+Pantalla nueva en Mi perfil: subgrupo agrupado por reino, texto de experiencia
+con el tope real de la tabla (4000), y el listado de las postulaciones propias
+con estado y el motivo del rechazo. Los subgrupos con una pendiente o ya
+aprobada aparecen deshabilitados; tras un rechazo el chip se rehabilita, que es
+lo que permite el índice único parcial de la `0005`.
 
-**Está a medias, y la mitad que falta es la que ve el usuario.** El backend está
-completo (migración `0005`, controller, service, ruta en el gateway) y el panel
-de curaduría ya tiene su pantalla para aprobar o rechazar. En `mobile/src` no
-hay una sola línea: hoy se pueden aprobar postulaciones que nadie puede enviar.
+Dos cosas que decidí y podés revertir:
+
+- **No es offline-first**, contra la regla del `CLAUDE.md` del móvil. Postular
+  depende de validaciones que solo viven en el servidor y es una acción única y
+  deliberada; encolarla sería aceptar un envío que rebota días después.
+- **No hay aviso al postulante** cuando le resuelven: la app dice "te
+  avisaremos" y hoy eso es entrar y mirar.
 
 ### 4. Fase 9 — PR 12: pantalla de usuarios del panel
 
@@ -149,6 +169,14 @@ de especies). El 7 solo cuando ponga modo avión a mano.
   `docker run -d -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=chiloe_flora -p 55432:5432 postgres:16`
   y después `DB_HOST=localhost DB_PORT=55432 DB_USER=postgres DB_PASSWORD=postgres`
   con `./scripts/migrate.sh` y `./scripts/seed.sh`.
+- **Las dos APIs no reportan los errores igual.** El `auth-service` (Go) manda
+  `message` y la `especies-api` (C++) manda `error`. `apiClient` solo miraba el
+  primero, así que **todo** error de la API de especies llegaba a la UI como un
+  `HTTP 400` pelado. Arreglado en el PR 44; si aparece un servicio nuevo,
+  revisá con cuál de los dos formatos habla.
+- **Medir antes de afirmar que algo mejoró el rendimiento.** La memoización del
+  mapa parecía obvia y no movió la aguja: `adb shell dumpsys gfxinfo <pkg>` con
+  la misma secuencia de gestos en las dos builds es la forma barata de saberlo.
 - **Al mergear mobile hay que subir el puntero del submódulo** en el repo
   backend, en su propio PR. Es fácil de olvidar.
 
@@ -158,8 +186,8 @@ de especies). El 7 solo cuando ponga modo avión a mano.
 
 - Build de Android: `JAVA_HOME=/usr/lib/jvm/java-17-openjdk`. El default del
   host es **Java 26** y el plugin Gradle de RN revienta con
-  `IllegalArgumentException: 26.0.2`. No toques `gradle.properties` por eso: es
-  del entorno, no del repo. La release incremental tarda ~4 min; desde limpio, 12.
+  `IllegalArgumentException: 26.0.2.1`. No toques `gradle.properties` por eso:
+  es del entorno, no del repo. La release incremental tarda ~4 min; desde limpio, 12.
 - Tiene que ser **release**: `src/config/appConfig.ts` manda el debug a
   `http://localhost:8080` y solo el release habla con `api.budaicapital.com`.
   Si la pantalla sale roja con "Unable to load script", instalaste el debug.
@@ -178,7 +206,7 @@ de especies). El 7 solo cuando ponga modo avión a mano.
 - La key de Google Maps sale de `GOOGLE_MAP_API` en el `.env` y va a
   `mobile/android/local.properties` como `MAPS_API_KEY`. Ese archivo **no se
   commitea**.
-- `npm run lint` en mobile arrastra **48 warnings `no-void`** preexistentes.
+- `npm run lint` en mobile arrastra **51 warnings `no-void`** preexistentes.
   0 errores es el criterio; no salgas a limpiarlos sin PR propio.
 - El CI del backend corre **solo en `pull_request`** desde el PR #70. El job
   `test-especies-api` se cuelga a veces en `Install postgresql-client` y GitHub
