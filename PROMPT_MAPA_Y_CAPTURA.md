@@ -1,8 +1,9 @@
 # Prompt para la sesión siguiente
 
 Copiá todo lo que sigue como primer mensaje de la sesión nueva.
-Estado al 2026-08-26, con la Fase 9.4 cerrada, mergeada **y desplegada**, y
-con los puntos 1, 2 y 3 de la lista de abajo ya resueltos.
+Estado al 2026-08-27, con los puntos 1, 2, 3 y 5 de la lista de abajo
+resueltos y mergeados. **Lo primero de la sesión nueva es desplegar**: el
+código de las insignias está en `master` y no en producción.
 
 > Para la sesión de **diseño visual de la app** no uses este archivo: está
 > [PROMPT_DISENO_APP.md](PROMPT_DISENO_APP.md), que es su propio encargo.
@@ -53,8 +54,9 @@ siempre; se borró en el PR 75. Redesplegar es a mano, con el bloque de comandos
 del final de este archivo.
 
 Mergeado después: **#43** (ubicación en el mapa) y el **#89** del backend, que
-sube su puntero. Luego **#44** de mobile (postular a curador) con su **#91**, y
-el **#92** del backend (insignias).
+sube su puntero. Luego **#44** de mobile (postular a curador) con su **#91**,
+el **#92** del backend (insignias) y el **#45** de mobile (insignias en los
+perfiles) con su **#94**.
 
 **El PR 88 ya está en producción y verificado en el teléfono** (2026-08-26):
 buscar `zorro de darwin` —con espacios— devuelve la ficha N° 001 sin banner de
@@ -83,9 +85,8 @@ buscar `zorro de darwin` —con espacios— devuelve la ficha N° 001 sin banner
   segundo `cloudflared`). Las insignias no aparecen solas: después del deploy
   hay que llamar una vez a `POST /api/v1/insignias/recalcular` con un token de
   admin.
-- **El PR 45 de mobile está abierto con los checks verdes, sin mergear.** Al
-  mergearlo hay que subir el puntero del submódulo en el backend, en su propio
-  PR.
+- **Nada más quedó a medias**: todo lo de las insignias está mergeado en los
+  dos repos y el puntero del submódulo apunta a `6431792`.
 
 ---
 
@@ -136,7 +137,7 @@ Dos cosas que decidí y podés revertir:
 asignaciones a categorías en `especies-api`. Hay que elegir si el panel consulta
 a los dos o si uno expone la vista combinada. Preguntame antes de escribir código.
 
-### 5. Fase 9 — PR 11: insignias — hecho (backend PR 92 mergeado; mobile PR 45 **sin mergear**)
+### 5. Fase 9 — PR 11: insignias — hecho y mergeado (backend #92, mobile #45)
 
 Migración `0014` con `insignias` y `usuario_insignias`, ocho automáticas
 (`primer-encuentro`, `observador`, `constante`, `curioso`, `coleccionista`,
