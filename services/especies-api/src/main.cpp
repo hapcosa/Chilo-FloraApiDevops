@@ -12,6 +12,7 @@
 #include "../include/controllers/categoria_controller.hpp"
 #include "../include/controllers/familia_controller.hpp"
 #include "../include/controllers/identificacion_controller.hpp"
+#include "../include/controllers/insignia_controller.hpp"
 #include "../include/controllers/genero_controller.hpp"
 #include "../include/controllers/moderador_controller.hpp"
 #include "../include/controllers/postulacion_controller.hpp"
@@ -25,6 +26,7 @@
 #include "../include/repository/postgres_categoria_repository.hpp"
 #include "../include/repository/postgres_moderador_categoria_repository.hpp"
 #include "../include/repository/postgres_identificacion_repository.hpp"
+#include "../include/repository/postgres_insignia_repository.hpp"
 #include "../include/repository/postgres_postulacion_repository.hpp"
 #include "../include/services/area_protegida_service.hpp"
 #include "../include/services/avistamiento_service.hpp"
@@ -34,6 +36,7 @@
 #include "../include/services/familia_service.hpp"
 #include "../include/services/genero_service.hpp"
 #include "../include/services/identificacion_service.hpp"
+#include "../include/services/insignia_service.hpp"
 #include "../include/services/moderacion_service.hpp"
 #include "../include/services/postulacion_service.hpp"
 #include "../include/services/upload_presign_service.hpp"
@@ -88,6 +91,8 @@ int main(int argc, char** argv) {
       std::make_shared<PostgresIdentificacionRepository>(dataBase);
   auto areaProtegidaRepository =
       std::make_shared<PostgresAreaProtegidaRepository>(dataBase);
+  auto insigniaRepository =
+      std::make_shared<PostgresInsigniaRepository>(dataBase);
 
   // El schema lo gestiona scripts/migrate.sh contra la BD antes de arrancar
   // el binario (ver services/especies-api/migrations/README.md).
@@ -124,6 +129,7 @@ int main(int argc, char** argv) {
       moderacionService);
   auto portadaService =
       std::make_shared<PortadaService>(especieService, avistamientoService);
+  auto insigniaService = std::make_shared<InsigniaService>(insigniaRepository);
 
   // Initialize controllers
   auto familiaController = std::make_shared<FamiliaController>(familiaService);
@@ -146,6 +152,8 @@ int main(int argc, char** argv) {
       std::make_shared<UploadController>(uploadPresignService);
   auto schemaController = std::make_shared<SchemaController>(schemaValidator);
   auto portadaController = std::make_shared<PortadaController>(portadaService);
+  auto insigniaController =
+      std::make_shared<InsigniaController>(insigniaService);
 
   // Setup router
   auto router = std::make_shared<Pistache::Rest::Router>();
@@ -172,6 +180,7 @@ int main(int argc, char** argv) {
   IdentificacionController::setupRoutes(*router, identificacionController);
   UploadController::setupRoutes(*router, uploadController);
   SchemaController::setupRoutes(*router, schemaController);
+  InsigniaController::setupRoutes(*router, insigniaController);
 
   // Configure server - MEJORADO para red local
   Pistache::Http::Endpoint server(addr);
