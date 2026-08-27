@@ -1,8 +1,9 @@
 # Prompt para la sesión siguiente
 
 Copiá todo lo que sigue como primer mensaje de la sesión nueva.
-Estado al 2026-08-26, con la Fase 9.4 cerrada, mergeada **y desplegada**, y
-con los puntos 1, 2 y 3 de la lista de abajo ya resueltos.
+Estado al 2026-08-27, con los puntos 1, 2, 3 y 5 de la lista de abajo
+resueltos y mergeados. **Lo primero de la sesión nueva es desplegar**: el
+código de las insignias está en `master` y no en producción.
 
 > Para la sesión de **diseño visual de la app** no uses este archivo: está
 > [PROMPT_DISENO_APP.md](PROMPT_DISENO_APP.md), que es su propio encargo.
@@ -53,25 +54,39 @@ siempre; se borró en el PR 75. Redesplegar es a mano, con el bloque de comandos
 del final de este archivo.
 
 Mergeado después: **#43** (ubicación en el mapa) y el **#89** del backend, que
-sube su puntero.
+sube su puntero. Luego **#44** de mobile (postular a curador) con su **#91**,
+el **#92** del backend (insignias) y el **#45** de mobile (insignias en los
+perfiles) con su **#94**.
+
+**El PR 88 ya está en producción y verificado en el teléfono** (2026-08-26):
+buscar `zorro de darwin` —con espacios— devuelve la ficha N° 001 sin banner de
+"sin conexión", así que la respuesta vino de la API y no del cache SQLite.
 
 ## Lo que quedó sin verificar
 
-- **La pantalla de postulación a curador (PR 44 de mobile) no se vio nunca en
-  el teléfono.** Se bloqueó antes de poder recorrerla. El APK release ya está
-  instalado: desbloqueá y pedime que la verifique.
+- **La pantalla de postulación a curador se verificó** en el teléfono el
+  2026-08-27: subgrupos reales de producción agrupados por reino (Animalia 7,
+  Plantae 5, Fungi 3, Protista 4, Monera 1), contador 0/4000 → 4/4000 y la
+  validación de 20 caracteres saltando sin llamar al servidor. **No mandé una
+  postulación real**: escribiría en la BD de producción con tu cuenta y caería
+  en la bandeja del panel. Pedímelo y la mando.
+- **Las insignias no se han visto en el teléfono.** El APK instalado es
+  anterior; hay que recompilar (`JAVA_HOME=/usr/lib/jvm/java-17-openjdk`) y,
+  antes, desplegar el backend con la migración `0014`.
 - Los chips de subgrupo y la portada con contenido **sí se verificaron** el
   2026-08-26.
 
 ## Deuda inmediata
 
-- **Producción no tiene el PR 88.** El decode de los query params está
-  mergeado pero no desplegado: `?q=zorro chilote` sigue roto en la app hasta
-  que se reconstruya `especies-api`. Sin migraciones nuevas ni cambio de
-  `nginx.conf`, así que basta el `build` + `up -d` **de `especies-api` sola**.
-- **El PR 44 de mobile está abierto con los checks verdes, sin mergear.** Al
-  mergearlo hay que subir el puntero del submódulo en el backend, en su propio
-  PR.
+- **Producción no tiene las insignias (PR 92).** Es el primer despliegue con
+  **migración nueva** (`0014`) y con **cambio de `nginx.prod.conf`** desde hace
+  varios: hay que correr `scripts/migrate.sh` y reconstruir **`especies-api` y
+  `gateway`**, nombrando los dos servicios (un `up` pelado levantaría un
+  segundo `cloudflared`). Las insignias no aparecen solas: después del deploy
+  hay que llamar una vez a `POST /api/v1/insignias/recalcular` con un token de
+  admin.
+- **Nada más quedó a medias**: todo lo de las insignias está mergeado en los
+  dos repos y el puntero del submódulo apunta a `6431792`.
 
 ---
 
@@ -100,7 +115,7 @@ a la ficha, llama a `filtrarPorCelda`. El callout se pierde igual, porque
 una decisión tuya** qué debería hacer el tap: filtrar, mostrar el resumen de la
 celda, o distinguir tap de long-press.
 
-### 3. Fase 9 — PR 13: postular a curador desde la app — hecho (PR 44 de mobile, **sin mergear**)
+### 3. Fase 9 — PR 13: postular a curador desde la app — hecho (PR 44 de mobile, mergeado)
 
 Pantalla nueva en Mi perfil: subgrupo agrupado por reino, texto de experiencia
 con el tope real de la tabla (4000), y el listado de las postulaciones propias
@@ -122,9 +137,36 @@ Dos cosas que decidí y podés revertir:
 asignaciones a categorías en `especies-api`. Hay que elegir si el panel consulta
 a los dos o si uno expone la vista combinada. Preguntame antes de escribir código.
 
-### 5. Fase 9 — PR 11: insignias
+### 5. Fase 9 — PR 11: insignias — hecho y mergeado (backend #92, mobile #45)
 
-Sin empezar.
+Migración `0014` con `insignias` y `usuario_insignias`, ocho automáticas
+(`primer-encuentro`, `observador`, `constante`, `curioso`, `coleccionista`,
+`tres-reinos`, `cinco-reinos`, `en-comunidad`) y tres de rol (moderador,
+curador, administrador). En el móvil se ven en el perfil propio —con lo que
+falta y su criterio— y en el perfil público.
+
+Lo decidido, anotado como **ADR #26**:
+
+- **El criterio va como datos** (`metrica` + `umbral`), no como código: el
+  recálculo es una sola sentencia SQL y una insignia nueva es una fila.
+- **El disparador es `POST /api/v1/insignias/recalcular`** (solo admin,
+  idempotente), no un contenedor de cron: el panel le pone un botón y el host
+  puede cronearlo, sin pieza nueva en el compose.
+- **Solo cuentan encuentros aprobados** e identificaciones **ajenas**.
+- Un admin solo otorga a mano las de **rol**; pedir una automática da 400.
+- **Sin ranking**, como manda la Fase 9.0.
+
+Lo que falta, y por qué no lo hice:
+
+- **Las insignias no se muestran en el feed**, aunque el plan lo pide. El feed
+  **no muestra autores**: las tarjetas llevan especie, foto y grado, nunca
+  quién lo registró. No hay nombre al lado del cual ponerlas. El único lugar
+  con personas es la lista de identificaciones del detalle ("Usuario #N"), y
+  ahí harían falta N peticiones por pantalla. Antes de eso conviene un
+  `GET /api/v1/insignias?usuarios=1,2,3`. `InsigniasRow` ya está lista para
+  colgarse donde aparezca la autoría.
+- **El botón de recálculo en el panel de curaduría** no existe todavía; hoy el
+  endpoint se llama a mano. Encaja con el PR 12.
 
 ### 6. Diseño de la app
 
@@ -147,6 +189,16 @@ de especies). El 7 solo cuando ponga modo avión a mano.
 ---
 
 ## Lo que se aprendió y no conviene volver a aprender
+
+- **El recálculo de insignias se probó contra un Postgres real**, no solo con
+  gtest: `docker run postgres:16-alpine`, las catorce migraciones en orden y
+  datos sembrados. Ahí se confirmó que la autoidentificación no suma y que
+  correrlo dos veces otorga cero. Los tests unitarios no tocan SQL y no habrían
+  visto ninguna de las dos cosas.
+- **Las tablas del catálogo no traen seed de especies**: una BD recién migrada
+  tiene `especies` vacía, así que cualquier prueba de agregación hay que
+  sembrarla a mano (ojo: `generos` no tiene columna `reino`, la tiene
+  `familias`).
 
 - **Las migraciones corren antes que los seeds.** Un backfill dentro de una
   migración no alcanza a las fichas que un entorno nuevo siembra después. Por
