@@ -78,6 +78,7 @@ set(REQUIRED_SOURCES
         src/controllers/moderador_controller.cpp
         src/controllers/identificacion_controller.cpp
         src/controllers/postulacion_controller.cpp
+        src/controllers/insignia_controller.cpp
         src/controllers/schema_controller.cpp
         src/controllers/upload_controller.cpp
         src/models/familia.cpp
@@ -90,6 +91,7 @@ set(REQUIRED_SOURCES
         src/models/categoria_moderacion.cpp
         src/models/identificacion.cpp
         src/models/postulacion_curador.cpp
+        src/models/insignia.cpp
         src/models/especie_estado.cpp
         src/models/reino.cpp
         src/repository/postgres_familia_repository.cpp
@@ -101,6 +103,7 @@ set(REQUIRED_SOURCES
         src/repository/postgres_moderador_categoria_repository.cpp
         src/repository/postgres_identificacion_repository.cpp
         src/repository/postgres_postulacion_repository.cpp
+        src/repository/postgres_insignia_repository.cpp
         src/services/familia_service.cpp
         src/services/genero_service.cpp
         src/services/especie_service.cpp
@@ -112,6 +115,7 @@ set(REQUIRED_SOURCES
         src/services/moderacion_service.cpp
         src/services/identificacion_service.cpp
         src/services/postulacion_service.cpp
+        src/services/insignia_service.cpp
         src/services/upload_presign_service.cpp
         src/utils/config.cpp
         src/utils/atributos_schema_validator.cpp
@@ -141,6 +145,7 @@ set(REQUIRED_HEADERS
         include/controllers/moderador_controller.hpp
         include/controllers/identificacion_controller.hpp
         include/controllers/postulacion_controller.hpp
+        include/controllers/insignia_controller.hpp
         include/controllers/portada_controller.hpp
         include/controllers/schema_controller.hpp
         include/controllers/upload_controller.hpp
@@ -150,6 +155,7 @@ set(REQUIRED_HEADERS
         include/models/categoria_moderacion.hpp
         include/models/identificacion.hpp
         include/models/postulacion_curador.hpp
+        include/models/insignia.hpp
         include/models/familia.hpp
         include/models/genero.hpp
         include/models/especie_estado.hpp
@@ -167,6 +173,8 @@ set(REQUIRED_HEADERS
         include/repository/postgres_identificacion_repository.hpp
         include/repository/postulacion_repository.hpp
         include/repository/postgres_postulacion_repository.hpp
+        include/repository/insignia_repository.hpp
+        include/repository/postgres_insignia_repository.hpp
         include/repository/familia_repository.hpp
         include/repository/genero_repository.hpp
         include/repository/especie_repository.hpp
@@ -179,6 +187,7 @@ set(REQUIRED_HEADERS
         include/services/identificacion_service.hpp
         include/services/portada_service.hpp
         include/services/postulacion_service.hpp
+        include/services/insignia_service.hpp
         include/services/upload_presign_service.hpp
         include/utils/config.hpp
         include/utils/atributos_schema_validator.hpp
@@ -210,6 +219,7 @@ set(SOURCES
         src/controllers/moderador_controller.cpp
         src/controllers/identificacion_controller.cpp
         src/controllers/postulacion_controller.cpp
+        src/controllers/insignia_controller.cpp
         src/controllers/schema_controller.cpp
         src/controllers/upload_controller.cpp
         src/models/familia.cpp
@@ -222,6 +232,7 @@ set(SOURCES
         src/models/categoria_moderacion.cpp
         src/models/identificacion.cpp
         src/models/postulacion_curador.cpp
+        src/models/insignia.cpp
         src/models/especie_estado.cpp
         src/models/reino.cpp
         src/repository/postgres_familia_repository.cpp
@@ -233,6 +244,7 @@ set(SOURCES
         src/repository/postgres_moderador_categoria_repository.cpp
         src/repository/postgres_identificacion_repository.cpp
         src/repository/postgres_postulacion_repository.cpp
+        src/repository/postgres_insignia_repository.cpp
         src/services/familia_service.cpp
         src/services/genero_service.cpp
         src/services/especie_service.cpp
@@ -244,6 +256,7 @@ set(SOURCES
         src/services/moderacion_service.cpp
         src/services/identificacion_service.cpp
         src/services/postulacion_service.cpp
+        src/services/insignia_service.cpp
         src/services/upload_presign_service.cpp
         src/utils/config.cpp
         src/utils/atributos_schema_validator.cpp
