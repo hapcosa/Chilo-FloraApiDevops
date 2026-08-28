@@ -1,9 +1,9 @@
 # Prompt para la sesión siguiente
 
 Copiá todo lo que sigue como primer mensaje de la sesión nueva.
-Estado al 2026-08-27. **Producción está desplegada, verificada y al día**: no
-hay nada urgente que hacer al arrancar. La sesión nueva empieza por decidir,
-no por desplegar.
+Estado al 2026-08-28. **Producción está desplegada, verificada y al día**, y
+esta sesión no la tocó: los cambios fueron todos de la app. No hay nada urgente
+que hacer al arrancar.
 
 > Para la sesión de **diseño visual de la app** no uses este archivo: está
 > [PROMPT_DISENO_APP.md](PROMPT_DISENO_APP.md), que es su propio encargo.
@@ -34,67 +34,81 @@ Seguimos con el sistema de biodiversidad de Chiloé:
   permisos de Claude Code**: aunque el host es alcanzable por ZeroTier y el
   puerto 22 responde, tanto `ssh` como leer `~/.env` se deniegan. Pedime a mí
   los comandos que haya que correr allá, o corrélos con el prefijo `!` para que
-  la salida caiga en la conversación.
+  la salida caiga en la conversación. **Y con `!` tampoco alcanza un `ssh`
+  pelado**: sin `SSH_ASKPASS` no puede pedir la contraseña y muere con
+  `Permission denied`. El que sirve es `sshpass -e`.
 - Este archivo está trackeado: actualizalo al cerrar la sesión, en su propio PR.
 
 ---
 
-## Estado: producción está al día, con las insignias
+## Estado
 
-Desplegado y **verificado el 2026-08-27**: PR 92 (insignias) en producción,
-migraciones hasta la **`0014`**, 11 insignias en el catálogo, y el recálculo
-corrido una vez (**`{"otorgadas":1,"success":true}`**). Las rutas
-`/api/v1/insignias*` responden 401 sin token, que es lo correcto.
+**Producción**: sin cambios desde el 2026-08-27. PR 92 (insignias) desplegado y
+verificado, migraciones hasta la **`0014`**, 11 insignias en el catálogo, el
+recálculo corrido una vez (**`{"otorgadas":1,"success":true}`**). Las rutas
+`/api/v1/insignias*` responden 401 sin token, que es lo correcto. Antes de eso,
+PRs 77, 79, 80 y 82: 103 especies en veinte subgrupos, `sin_subgrupo` en 0,
+7 áreas protegidas, 5 reinos.
 
-Antes de eso, desplegado y verificado el 2026-08-26: PRs 77, 79, 80 y 82, 103
-especies clasificadas en veinte subgrupos, `sin_subgrupo` en 0, 7 áreas
-protegidas, 5 reinos.
+**Nada que desplegar.** Lo de esta sesión es todo `mobile/`.
 
-Mergeado en mobile: **#40** (íconos de trazo), **#41** (filtro por subgrupo),
-**#42** (cuelgue al actualizar), **#43** (ubicación en el mapa) con el **#89**
-del backend, **#44** (postular a curador) con el **#91**, y **#45** (insignias
-en los perfiles) con el **#94**. El puntero del submódulo apunta a `6431792`.
+Mergeado en mobile: **#40** (íconos), **#41** (filtro por subgrupo), **#42**
+(cuelgue al actualizar), **#43** (ubicación en el mapa) con el **#89**, **#44**
+(postular a curador) con el **#91**, **#45** (insignias en los perfiles) con el
+**#94**, y de esta sesión **#46** ("reinos vistos") y **#47** (hoja de resumen
+del mapa).
+
+**Quedaron abiertos esperando tu merge**:
+
+- **mobile #48** — `fix(mapa): no decir "0 especies" en una zona sin identificar`.
+  Rescata un commit que quedó fuera del #47 (llegó a la rama después del merge).
+- **backend #96** — sube el puntero del submódulo a `4994ebe` (#46 y #47).
+  Ojo: **no incluye el #48**; si mergeás el 48 hay que subir el puntero otra vez.
 
 **No hay deploy automático.** El workflow que existía apuntaba a EKS y fallaba
 siempre; se borró en el PR 75. Redesplegar es a mano, con el bloque de comandos
 del final de este archivo.
 
-**El APK con insignias está instalado en el teléfono** (2026-08-27 08:51,
-release, sobre la instalación previa). La actualización sobre una instalación
-existente **no** reprodujo el cuelgue del índice SQLite.
+**El APK con la hoja del mapa está instalado en el teléfono** (2026-08-28 23:11,
+release, `adb install -r` sobre la instalación previa, sin cuelgue). Ese APK
+**no** trae el #48.
+
+## Lo que se verificó en el teléfono el 2026-08-28
+
+- **La hoja de resumen del mapa funciona, y funciona en el caso que importaba.**
+  Al tocar el pin, Google recentró el mapa solo → eso disparó
+  `onRegionChangeComplete` → las celdas se recargaron y los `Marker` se
+  remontaron, **y la hoja siguió en pantalla**. Con el callout nativo eso era
+  exactamente lo que la borraba.
+- **El botón "Mi ubicación" se corre por encima de la hoja**, midiéndola con
+  `onLayout`.
+- **Ahí se vio el "1 encuentro · 0 especies"** que arregla el #48.
+- El perfil propio sigue mostrando la sección de insignias con el bloque
+  POR GANAR y sus criterios, o sea que habla con la API.
 
 ## Lo que quedó sin verificar
 
-- **Las insignias en un perfil público ajeno.** El perfil propio sí se verificó
-  (ver abajo), pero el público no se puede probar hoy: los únicos usuarios que
-  aparecen en el feed son el **#6** y el **#7**, y ninguno publicó su perfil —
-  la app muestra correctamente "Perfil no disponible". Para verificarlo hay que
-  o publicar el perfil de alguno, o que mi cuenta gane una insignia, y las dos
-  cosas escriben en la BD de producción. **Pedímelo y lo hacemos.**
-- **A quién le tocó la única insignia otorgada** no se sabe. Vale un
+- **La postulación a curador**: llegué a tocar el botón y no pasé de ahí — el
+  teléfono se lo llevó su dueño a mitad de la verificación. **Ninguna
+  postulación se envió.** Escribiría en la BD de producción con tu cuenta y
+  caería en la bandeja del panel. Pedímelo y la mando.
+- **A quién le tocó la única insignia otorgada.** El `ssh` interactivo falló
+  (ver "Entorno"). Vale la pena correr en prod:
   `SELECT ui.usuario_id, i.codigo FROM usuario_insignias ui JOIN insignias i ON
-  i.id = ui.insignia_id;` en prod para distinguir "el criterio funciona y hay
-  poca data" de "el criterio matchea algo raro".
-- **La pantalla de postulación a curador se verificó** el 2026-08-27, pero
-  **no mandé una postulación real**: escribiría en la BD de producción con tu
-  cuenta y caería en la bandeja del panel. Pedímelo y la mando.
-
-## Lo que sí se verificó en el teléfono el 2026-08-27
-
-- **La sección Insignias del perfil propio funciona y habla con el servidor.**
-  Con 0 encuentros muestra el estado vacío ("Todavía no tienes insignias") y
-  debajo el bloque **POR GANAR** con las ocho automáticas y su criterio:
-  primer encuentro (1 aprobado), observador, constante, curioso (10 especies
-  distintas), coleccionista (30), tres reinos, cinco reinos, en comunidad
-  (5 encuentros identificados por otros). Esos criterios solo pueden venir del
-  catálogo de la API, así que la llamada a `/api/v1/insignias/mias` está bien.
-- **El perfil público responde bien el caso "no publicado"**, con el texto que
-  aclara que los encuentros compartidos siguen visibles.
+  i.id = ui.insignia_id;` para distinguir "el criterio funciona y hay poca data"
+  de "el criterio matchea algo raro".
+- **Las insignias en un perfil público ajeno.** Acá hay que corregir lo que
+  decía este archivo: **el perfil de tu cuenta ya está público**, eso no era lo
+  que faltaba. Lo que falta es un usuario **ajeno** con perfil público **y** al
+  menos una insignia. Los del feed (#6 y #7) no publicaron el suyo, y publicarlo
+  por ellos es un `UPDATE` a mano en prod que además no garantiza que tengan
+  insignia. El camino limpio es que tu cuenta gane "Primer encuentro"
+  (1 encuentro aprobado) y mirarla desde otra sesión.
 
 ## Deuda inmediata
 
-Ninguna urgente. Lo único abierto es una decisión tuya (el PR 12, punto 1 de
-la lista de abajo).
+Ninguna urgente. Lo abierto es el merge del #48 y del #96, y dos decisiones
+tuyas (puntos 1 y 2 de la lista de abajo).
 
 ---
 
@@ -108,31 +122,58 @@ a los dos o si uno expone la vista combinada. Preguntame antes de escribir
 código. Acá encaja también el **botón de recálculo de insignias** en el panel de
 curaduría, que hoy no existe: el endpoint se llama a mano.
 
-### 2. "3 reinos" quiere decir dos cosas distintas en la misma pantalla
+### 2. El pin rojo del mapa miente — decidido, pero bloqueado
 
-Encontrado el 2026-08-27 mirando el perfil. La tarjeta de estadísticas dice
-**"3 reinos"** mientras la insignia **"Tres reinos — 3 reinos distintos"**
-sigue en gris, tres centímetros más abajo. No es un bug: `PerfilScreen.tsx:122`
-cuenta los reinos de las **fichas consultadas** (SQLite local), y la insignia
-cuenta los reinos con **encuentros aprobados** (servidor). Son dos métricas con
-la misma palabra, y puestas juntas se leen como una contradicción.
+Lo encontraste vos mirando la pantalla el 2026-08-28: *"la indicación roja se
+mueve sola y no entiendo qué me está indicando"*.
 
-Arreglo barato: renombrar la tarjeta a algo como "reinos explorados" o
-"reinos vistos". **Decisión tuya**, porque toca copy visible.
+**El pin rojo no es un lugar: es el centro de una celda de la rejilla.** El
+servidor nunca devuelve encuentros sueltos, agrupa por una rejilla cuyo tamaño
+depende del zoom (`postgres_avistamiento_repository.cpp:354`:
+`floor(geo_lat / tam) * tam + tam / 2`). Al cambiar el zoom, `tam` cambia, la
+celda se redefine y su centro se recalcula: **el punto salta aunque el encuentro
+no se haya movido**. El círculo verde alrededor es el que dice la verdad.
 
-### 3. El mapa — hecho a medias (PR 43, mergeado)
+El problema es que una chincheta roja de Google significa "acá, en este punto"
+para cualquiera que use mapas, y acá significa "en algún lugar de esta zona".
+Los dos símbolos se contradicen y gana el falso. (Que la coordenada no sea
+exacta es deliberado: para especies `sensible` el servidor la redondea todavía
+más a propósito.)
 
-- **El GPS ya se lee.** Botón de "mi ubicación", permiso en runtime, punto azul
-  y mensajes distintos para "no me dejaron" y "el GPS no respondió".
-- **Los tirones siguen sin diagnosticar.** Memoicé los overlays y saqué
-  `region` del estado, pero al medir con `dumpsys gfxinfo` **no hubo mejora**:
-  master 13/659 frames con jank (1,97%), la rama 10/668 (1,50%), p95 idéntico.
-  Es ruido, porque hoy producción pinta **una** celda y 7 áreas. La causa real
+**Decidiste sacar el pin y dejar solo el círculo**, que además cambia de tamaño
+con el zoom, cosa honesta porque la precisión realmente cambia.
+
+**Está bloqueado por la librería**: en `react-native-maps` 1.29 el `Circle`
+**no expone `onPress` ni `tappable` en JS** — `MapCircleProps`
+(`node_modules/react-native-maps/src/MapCircle.tsx`) solo declara `center`,
+`fillColor`, `lineCap`, `lineDashPattern`, `lineDashPhase`, `lineJoin`,
+`miterLimit`, `radius`, `strokeColor`, `strokeWidth` y `zIndex`. El lado Android
+**sí** lo tiene (`MapCircle.java:80`, `setTappable` → `circle.setClickable`),
+así que la prop podría estar llegando al nativo sin tipo. **Sin verificar.**
+Los caminos, de menor a mayor riesgo:
+
+1. Probar `tappable` + `onPress` en el `Circle` con un cast y ver si el nativo
+   responde. Si anda, es el cambio de tres líneas.
+2. Dejar un `Marker` invisible o con vista propia (una `View` redonda chata) en
+   el centro: conserva el blanco de tap y deja de parecer una chincheta.
+3. Capturar el tap en el `MapView` (`onPress` con la coordenada) y resolver a
+   mano qué celda lo contiene. Es el más caro y el que no depende de nadie.
+
+Sea cual sea, hay que reponer el `accessibilityLabel` que hoy vive en el
+`Marker` de la celda: el `Circle` no acepta uno.
+
+### 3. El mapa — lo que queda
+
+- **El tap ya está resuelto** (PR 47): abre la hoja de resumen, con "Ver solo
+  esta especie" y "Abrir la ficha" como acciones explícitas. La tab Mapa quedó
+  envuelta en `SpeciesStackNavigator` para poder navegar a la ficha.
+- **El GPS ya se lee** (PR 43): botón de "mi ubicación", permiso en runtime,
+  punto azul y mensajes distintos para "no me dejaron" y "el GPS no respondió".
+- **Los tirones siguen sin diagnosticar.** Memoicé los overlays y saqué `region`
+  del estado, pero al medir con `dumpsys gfxinfo` **no hubo mejora**: master
+  13/659 frames con jank (1,97%), la rama 10/668 (1,50%), p95 idéntico. Es
+  ruido, porque hoy producción pinta **una** celda y 7 áreas. La causa real
   está sin encontrar; el cambio se justifica solo por cuando haya densidad.
-- El `onPress` del `Marker` **no** navega a la ficha: llama a `filtrarPorCelda`.
-  El callout se pierde igual, porque `setEspecieId` recarga las celdas y los
-  `Marker` se desmontan. **Sigue siendo una decisión tuya** qué debería hacer el
-  tap: filtrar, mostrar el resumen de la celda, o distinguir tap de long-press.
 
 ### 4. Insignias: lo que falta
 
@@ -168,6 +209,32 @@ de especies). El 7 solo cuando ponga modo avión a mano.
 
 ## Lo que se aprendió y no conviene volver a aprender
 
+- **El callout nativo de Google Maps es hijo del `Marker`, así que no sirve
+  para nada que tenga que quedarse en pantalla.** Cualquier `setState` que
+  recree la lista de celdas desmonta los `Marker` y se lo lleva puesto. Y no
+  hace falta filtrar para provocarlo: **tocar un `Marker` hace que Google
+  recentre el mapa solo**, eso dispara `onRegionChangeComplete`, que recarga las
+  celdas. Lo que deba sobrevivir va en el estado de la pantalla, dibujado por
+  React. Diagnosticado en el PR 47.
+- **Un mismo gesto que hace dos cosas distintas según el dato es un síntoma, no
+  una casualidad.** El tap viejo filtraba, salvo cuando `especie_dominante_id`
+  era `null`: ahí salía temprano, no recargaba, y el callout sí sobrevivía. Esa
+  asimetría era la pista de que el filtro y la recarga eran el problema.
+- **`especies_distintas = 0` y `especie_dominante_id = null` son la misma
+  condición**, no dos: el servidor cuenta
+  `COUNT(*) FILTER (WHERE especie_id IS NOT NULL)` y toma el dominante del mismo
+  `array_agg` filtrado (`postgres_avistamiento_repository.cpp:359`). Si hubiera
+  alguna especie no nula habría dominante. Tratarlas como casos separados
+  produce textos que se contradicen.
+- **Un PR se puede mergear entre tu último `push` y tu `gh pr checks`.** Pasó
+  con el #47: el fix del "0 especies" llegó a la rama después del merge y quedó
+  fuera de master, con la rama remota aparentando estar completa. Antes de dar
+  una rama por cerrada, `git log origin/master` y confirmá que estén **todos**
+  los commits, no que el PR figure mergeado.
+- **El `ssh` interactivo no funciona desde acá**: sin `SSH_ASKPASS` falla con
+  `exec(/usr/lib/ssh/ssh-askpass): No such file or directory` y después
+  `Permission denied`. Hay que usar `sshpass -e` con la clave de `~/.env`, o
+  correr el comando con el prefijo `!`.
 - **El `nginx.conf` del gateway es un bind mount de *archivo*, y por eso un
   `git pull` no lo actualiza nunca.** Diagnosticado el 2026-08-27, después de
   que el deploy de las insignias dejara la ruta nueva sin funcionar. Docker
@@ -260,6 +327,10 @@ de especies). El 7 solo cuando ponga modo avión a mano.
   **volvé a confirmarlo antes de cada captura** — el 2026-08-27 el dueño volvió
   a su app entre el `dumpsys` y el `screencap`, y la captura salió con una
   pantalla suya. Ya pasó también abrir la galería con tres fotos seleccionadas.
+  El 2026-08-28 volvió a pasar en mitad de una verificación: el foco saltó al
+  selector de fotos de Google y después a Expo Go, y la postulación a curador
+  quedó a medio hacer. **Si el foco no es `cl.chiloe.biodiversidad`, se para y
+  se avisa**; la captura que ya salió se borra sin mirarla.
   Y `adb exec-out screencap` escribe en el cwd, que se resetea después de un
   comando en background: usá rutas absolutas o vas a ensuciar el repo.
 - `especies-api` **solo compila dentro de Docker**: al host le faltan Pistache y
