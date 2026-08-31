@@ -1,6 +1,9 @@
 #include "../../include/repository/postgres_insignia_repository.hpp"
 
+#include <cstddef>
 #include <iostream>
+#include <string>
+#include <vector>
 #include <stdexcept>
 #include <utility>
 
@@ -10,6 +13,18 @@ namespace {
 
 constexpr const char* kSelectCols =
     "id, codigo, nombre, descripcion, criterio, tipo, metrica, umbral";
+
+// Literal de array de Postgres, `{1,2,3}`, para pasar la lista entera como un
+// solo parámetro en lugar de armar N placeholders. Los ids ya vienen parseados
+// como enteros, así que no hay nada que escapar.
+std::string arrayLiteral(const std::vector<int>& ids) {
+    std::string literal = "{";
+    for (std::size_t i = 0; i < ids.size(); ++i) {
+        if (i > 0) literal += ',';
+        literal += std::to_string(ids[i]);
+    }
+    return literal + "}";
+}
 
 std::optional<std::string> optStr(const pqxx::field& field) {
     if (field.is_null()) return std::nullopt;
@@ -119,6 +134,49 @@ std::vector<InsigniaOtorgada> PostgresInsigniaRepository::findByUsuario(
     } catch (const std::exception& error) {
         std::cerr << "Error al listar insignias del usuario: " << error.what()
                   << std::endl;
+        throw;
+    }
+}
+
+std::map<int, std::vector<InsigniaOtorgada>>
+PostgresInsigniaRepository::findByUsuarios(const std::vector<int>& usuarioIds) {
+    // Toda clave pedida aparece en el resultado, aunque esa persona no tenga
+    // ninguna insignia: así el cliente no tiene que cruzar contra su pedido.
+    std::map<int, std::vector<InsigniaOtorgada>> porUsuario;
+    for (const int id : usuarioIds) {
+        porUsuario.emplace(id, std::vector<InsigniaOtorgada>{});
+    }
+    if (usuarioIds.empty()) return porUsuario;
+
+    try {
+        auto conn = database->createConnection();
+        pqxx::work txn(*conn);
+        const auto rows = txn.exec_params(
+            "SELECT ui.usuario_id,"
+            " i.id, i.codigo, i.nombre, i.descripcion, i.criterio,"
+            " i.tipo, i.metrica, i.umbral,"
+            " ui.otorgada_en, ui.otorgada_por, ui.motivo"
+            " FROM usuario_insignias ui"
+            " JOIN insignias i ON i.id = ui.insignia_id"
+            " WHERE ui.usuario_id = ANY($1::int[])"
+            // Mismo orden que findByUsuario, para que una fila del lote se vea
+            // igual que la misma fila pedida sola.
+            " ORDER BY ui.usuario_id, ui.otorgada_en DESC, i.codigo",
+            arrayLiteral(usuarioIds));
+
+        for (const auto& row : rows) {
+            InsigniaOtorgada otorgada;
+            otorgada.setInsignia(mapRowToInsignia(row));
+            otorgada.setOtorgadaEn(
+                utils::toIso8601Opt(optStr(row["otorgada_en"])).value_or(""));
+            otorgada.setOtorgadaPor(optInt(row["otorgada_por"]));
+            otorgada.setMotivo(optStr(row["motivo"]));
+            porUsuario[row["usuario_id"].as<int>()].push_back(std::move(otorgada));
+        }
+        return porUsuario;
+    } catch (const std::exception& error) {
+        std::cerr << "Error al listar insignias de varios usuarios: "
+                  << error.what() << std::endl;
         throw;
     }
 }

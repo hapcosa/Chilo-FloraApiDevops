@@ -1,7 +1,11 @@
 #include "../../include/controllers/insignia_controller.hpp"
+#include "../../include/utils/query_params.hpp"
 
 #include <nlohmann/json.hpp>
 
+#include <cstddef>
+#include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -25,6 +29,33 @@ json toArray(const std::vector<InsigniaOtorgada>& otorgadas) {
         data.push_back(otorgada.toJson());
     }
     return data;
+}
+
+// Decodifica el valor: Pistache lo entrega tal como viajó por la red.
+std::optional<std::string> queryStr(const Pistache::Http::Uri::Query& query,
+                                    const std::string& key) {
+    if (!query.has(key)) return std::nullopt;
+    return utils::percentDecode(query.get(key).value());
+}
+
+// `1,2,3` → {1, 2, 3}. Un id que no sea entero es un error del cliente, no una
+// lista más corta: callarlo devolvería insignias de gente que no se pidió.
+std::vector<int> parseIds(const std::string& valor) {
+    std::vector<int> ids;
+    std::stringstream flujo(valor);
+    std::string parte;
+    while (std::getline(flujo, parte, ',')) {
+        if (parte.empty()) continue;
+        try {
+            std::size_t consumidos = 0;
+            const int id = std::stoi(parte, &consumidos);
+            if (consumidos != parte.size()) throw std::invalid_argument("sobra texto");
+            ids.push_back(id);
+        } catch (const std::exception&) {
+            throw std::invalid_argument("'ids' debe ser una lista de enteros separados por coma");
+        }
+    }
+    return ids;
 }
 
 } // namespace
@@ -102,6 +133,36 @@ void InsigniaController::getDeUsuario(const Pistache::Rest::Request& request,
         sendJson(response, Pistache::Http::Code::Ok,
                  {{"success", true},
                   {"data", toArray(service->getInsigniasDe(usuarioId))}});
+    } catch (const std::exception& error) {
+        sendJson(response, Pistache::Http::Code::Internal_Server_Error,
+                 {{"success", false}, {"error", error.what()}});
+    }
+}
+
+void InsigniaController::getDeUsuarios(const Pistache::Rest::Request& request,
+                                       Pistache::Http::ResponseWriter response) {
+    auto identity = requireSesion(request, response);
+    if (!identity) return;
+
+    try {
+        const auto valor = queryStr(request.query(), "ids");
+        if (!valor) {
+            sendJson(response, Pistache::Http::Code::Bad_Request,
+                     {{"success", false}, {"error", "Falta el parámetro 'ids'"}});
+            return;
+        }
+
+        // Objeto y no arreglo: el cliente busca por id, no recorre.
+        json data = json::object();
+        for (const auto& [usuarioId, otorgadas] :
+             service->getInsigniasDeVarios(parseIds(*valor))) {
+            data[std::to_string(usuarioId)] = toArray(otorgadas);
+        }
+        sendJson(response, Pistache::Http::Code::Ok,
+                 {{"success", true}, {"data", data}});
+    } catch (const std::invalid_argument& error) {
+        sendJson(response, Pistache::Http::Code::Bad_Request,
+                 {{"success", false}, {"error", error.what()}});
     } catch (const std::exception& error) {
         sendJson(response, Pistache::Http::Code::Internal_Server_Error,
                  {{"success", false}, {"error", error.what()}});

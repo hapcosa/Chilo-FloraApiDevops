@@ -3,9 +3,13 @@
 // otorga a dedo. El recálculo en sí es una sentencia SQL y no se prueba aquí.
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <map>
 #include <memory>
+#include <numeric>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "services/insignia_service.hpp"
 
@@ -42,6 +46,17 @@ public:
     }
 
     std::vector<InsigniaOtorgada> findByUsuario(int) override { return {}; }
+
+    std::vector<int> ultimoLote;
+    std::map<int, std::vector<InsigniaOtorgada>> findByUsuarios(
+        const std::vector<int>& usuarioIds) override {
+        ultimoLote = usuarioIds;
+        std::map<int, std::vector<InsigniaOtorgada>> resultado;
+        for (const int id : usuarioIds) {
+            resultado.emplace(id, std::vector<InsigniaOtorgada>{});
+        }
+        return resultado;
+    }
 
     bool otorgar(int usuarioId, int insigniaId, int,
                  const std::optional<std::string>& motivo) override {
@@ -174,4 +189,38 @@ TEST_F(InsigniaServiceTest, RevocarLoQueNoSeTieneDevuelveFalse) {
 TEST_F(InsigniaServiceTest, RecalcularDelegaYDevuelveCuantasSeOtorgaron) {
     EXPECT_EQ(service.recalcular(), 3);
     EXPECT_EQ(repo->recalculos, 1);
+}
+
+TEST_F(InsigniaServiceTest, ElLoteDeduplicaLosIdsRepetidos) {
+    const auto resultado = service.getInsigniasDeVarios({7, 3, 7, 3, 7});
+    EXPECT_EQ(repo->ultimoLote, (std::vector<int>{3, 7}));
+    EXPECT_EQ(resultado.size(), 2u);
+}
+
+TEST_F(InsigniaServiceTest, ElLoteDevuelveClaveVaciaParaQuienNoTieneNinguna) {
+    const auto resultado = service.getInsigniasDeVarios({4});
+    ASSERT_EQ(resultado.count(4), 1u);
+    EXPECT_TRUE(resultado.at(4).empty());
+}
+
+TEST_F(InsigniaServiceTest, UnLoteVacioNoConsultaLaBase) {
+    EXPECT_TRUE(service.getInsigniasDeVarios({}).empty());
+    EXPECT_TRUE(repo->ultimoLote.empty());
+}
+
+TEST_F(InsigniaServiceTest, ElLoteRechazaPedirDeMasDeCien) {
+    std::vector<int> demasiados(InsigniaService::kMaxUsuariosPorLote + 1);
+    std::iota(demasiados.begin(), demasiados.end(), 1);
+    EXPECT_THROW(service.getInsigniasDeVarios(demasiados), std::invalid_argument);
+}
+
+TEST_F(InsigniaServiceTest, ElTopeSeCuentaDespuesDeDeduplicar) {
+    // Cien personas nombradas mil veces siguen siendo cien personas.
+    std::vector<int> conRepetidos;
+    for (int vuelta = 0; vuelta < 3; ++vuelta) {
+        for (std::size_t i = 1; i <= InsigniaService::kMaxUsuariosPorLote; ++i) {
+            conRepetidos.push_back(static_cast<int>(i));
+        }
+    }
+    EXPECT_NO_THROW(service.getInsigniasDeVarios(conRepetidos));
 }
