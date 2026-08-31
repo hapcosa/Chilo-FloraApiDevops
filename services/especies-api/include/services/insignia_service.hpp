@@ -1,6 +1,8 @@
 #ifndef INSIGNIA_SERVICE_HPP
 #define INSIGNIA_SERVICE_HPP
 
+#include <cstddef>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -17,6 +19,14 @@ public:
 
     std::vector<Insignia> getCatalogo();
     std::vector<InsigniaOtorgada> getInsigniasDe(int usuarioId);
+    // Ver `findByUsuarios`: una consulta para toda una pantalla. Ignora ids
+    // repetidos y rechaza pedir más de `kMaxUsuariosPorLote` de una vez.
+    std::map<int, std::vector<InsigniaOtorgada>> getInsigniasDeVarios(
+        const std::vector<int>& usuarioIds);
+
+    // Tope del lote. Una pantalla nombra unas pocas personas; un número más
+    // alto solo sirve para barrer el padrón de usuarios de a poco.
+    static constexpr std::size_t kMaxUsuariosPorLote = 100;
 
     // Solo insignias de rol: las automáticas las gana el job o no se ganan.
     // Devuelve false si esa persona ya la tenía.

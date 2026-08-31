@@ -30,6 +30,10 @@ public:
     // Perfil público: las insignias de alguien son visibles para cualquier
     // sesión, igual que su nombre en el feed.
     void getDeUsuario(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
+    // `?ids=1,2,3`. Existe para las pantallas que nombran a varias personas
+    // —la lista de identificaciones de una ficha— y que si no harían una
+    // petición por fila.
+    void getDeUsuarios(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     // Solo admin, e idempotente: es el job de las automáticas.
     void recalcular(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response);
     // Solo admin: {"usuario_id":1,"codigo":"curador","motivo":"Categoría Aves"}.
@@ -44,6 +48,10 @@ public:
                     Routes::bind(&InsigniaController::getCatalogo, controller));
         Routes::Get(router, "/api/v1/insignias/mias",
                     Routes::bind(&InsigniaController::getMias, controller));
+        // Antes que la ruta con parámetro: `usuarios` es un segmento fijo y no
+        // debe caer en `:usuarioId`.
+        Routes::Get(router, "/api/v1/insignias/usuarios",
+                    Routes::bind(&InsigniaController::getDeUsuarios, controller));
         Routes::Get(router, "/api/v1/insignias/usuario/:usuarioId",
                     Routes::bind(&InsigniaController::getDeUsuario, controller));
         Routes::Post(router, "/api/v1/insignias/recalcular",

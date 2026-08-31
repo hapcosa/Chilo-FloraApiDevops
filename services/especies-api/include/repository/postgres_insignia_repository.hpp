@@ -22,6 +22,8 @@ public:
     std::vector<Insignia> findAll() override;
     std::optional<Insignia> findByCodigo(const std::string& codigo) override;
     std::vector<InsigniaOtorgada> findByUsuario(int usuarioId) override;
+    std::map<int, std::vector<InsigniaOtorgada>> findByUsuarios(
+        const std::vector<int>& usuarioIds) override;
     bool otorgar(int usuarioId, int insigniaId, int otorgadaPor,
                  const std::optional<std::string>& motivo) override;
     bool revocar(int usuarioId, int insigniaId) override;

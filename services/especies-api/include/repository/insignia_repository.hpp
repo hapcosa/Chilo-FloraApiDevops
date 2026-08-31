@@ -1,6 +1,7 @@
 #ifndef INSIGNIA_REPOSITORY_HPP
 #define INSIGNIA_REPOSITORY_HPP
 
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -17,6 +18,14 @@ public:
     virtual std::optional<Insignia> findByCodigo(const std::string& codigo) = 0;
 
     virtual std::vector<InsigniaOtorgada> findByUsuario(int usuarioId) = 0;
+
+    // Las insignias de varias personas de una sola consulta. La lista de
+    // identificaciones de una ficha nombra a N usuarios distintos, y pedirlas
+    // de a una sería una petición por fila. Las claves son los ids pedidos;
+    // quien no tenga ninguna viene con la lista vacía, para que el cliente
+    // distinga "no tiene" de "no lo pregunté" sin comparar contra su pedido.
+    virtual std::map<int, std::vector<InsigniaOtorgada>> findByUsuarios(
+        const std::vector<int>& usuarioIds) = 0;
 
     // Otorgamiento manual. false si esa persona ya la tenía: volver a
     // otorgarla no es un error, simplemente no cambia nada.

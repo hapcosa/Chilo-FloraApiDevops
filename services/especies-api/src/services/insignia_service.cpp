@@ -1,6 +1,8 @@
 #include "../../include/services/insignia_service.hpp"
 
+#include <set>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 InsigniaService::InsigniaService(std::shared_ptr<IInsigniaRepository> repository)
@@ -12,6 +14,21 @@ std::vector<Insignia> InsigniaService::getCatalogo() {
 
 std::vector<InsigniaOtorgada> InsigniaService::getInsigniasDe(int usuarioId) {
     return repository->findByUsuario(usuarioId);
+}
+
+std::map<int, std::vector<InsigniaOtorgada>> InsigniaService::getInsigniasDeVarios(
+    const std::vector<int>& usuarioIds) {
+    // Se deduplican antes de contar contra el tope: una pantalla que nombra
+    // diez veces a la misma persona pide una sola.
+    const std::set<int> unicos(usuarioIds.begin(), usuarioIds.end());
+    if (unicos.size() > kMaxUsuariosPorLote) {
+        throw std::invalid_argument(
+            "no se pueden pedir las insignias de más de " +
+            std::to_string(kMaxUsuariosPorLote) + " personas a la vez");
+    }
+    if (unicos.empty()) return {};
+
+    return repository->findByUsuarios({unicos.begin(), unicos.end()});
 }
 
 bool InsigniaService::otorgar(int usuarioId, const std::string& codigo,
