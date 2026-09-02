@@ -105,11 +105,32 @@ porque solo tiene claves vacías.
 
 ### 5.1 Túnel
 
+> ⚠️ **No corras `cloudflared tunnel login` en este host.** Ese comando
+> sobrescribe `~/.cloudflared/cert.pem`, que es uno solo por usuario y lo
+> comparten los túneles de los otros proyectos que viven en la misma máquina.
+> Reemplazarlo por un cert de otra cuenta no tira abajo los túneles que ya
+> están corriendo —el `run` usa el JSON de credenciales, no el cert— pero deja
+> sin poder administrarlos: `tunnel list`, `route dns` y `tunnel delete`
+> empiezan a responder `Authentication error`.
+
+El túnel se crea con un API token, que no toca `cert.pem`:
+
 ```bash
-cloudflared tunnel login          # abre el navegador, elige la zona y escribe cert.pem
-cloudflared tunnel create chiloe-api
-# → escribe ~/.cloudflared/<uuid>.json y muestra el UUID
+ACCOUNT_ID=$(curl -sS -H "Authorization: Bearer $CF_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/zones?name=piedrasdelrayadito.cl" \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"][0]["account"]["id"])')
+
+SECRET=$(head -c32 /dev/urandom | base64)
+
+curl -sS -X POST -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
+  "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/cfd_tunnel" \
+  --data "{\"name\":\"chiloe-api\",\"tunnel_secret\":\"$SECRET\",\"config_src\":\"local\"}"
 ```
+
+El `credentials.json` se arma a mano con lo que devuelve esa llamada —
+`AccountTag`, `TunnelID`, `TunnelName`, `TunnelSecret` — y se guarda en
+`~/.cloudflared/<uuid>.json` con permisos 600. El token necesita
+`Account · Cloudflare Tunnel · Edit`, `Zone · DNS · Edit` y `Zone · Zone · Read`.
 
 Ese UUID va en `CLOUDFLARED_TUNNEL_ID` y la ruta del JSON en
 `CLOUDFLARED_CREDENTIALS_FILE`, los dos en el env de despliegue. En
@@ -118,22 +139,14 @@ corre el túnel.
 
 ### 5.2 DNS
 
-```bash
-cloudflared tunnel route dns chiloe-api api.piedrasdelrayadito.cl
-cloudflared tunnel route dns chiloe-api storage.piedrasdelrayadito.cl
-```
+`cloudflared tunnel route dns` depende del `cert.pem`, que por lo de arriba en
+este host no es el de esta zona. Los dos registros se crean desde el dashboard,
+o con el mismo API token (`Zone · DNS · Edit`), como CNAME **proxied**:
 
-> Esto solo funciona si el `~/.cloudflared/cert.pem` del host es de la cuenta
-> **dueña de la zona**. Un `cert.pem` que solo trae el bloque `ARGO TUNNEL
-> TOKEN` alcanza para crear túneles (operación de cuenta) pero no para editar
-> DNS, y `route dns` responde `code: 10000, Authentication error`. En ese caso
-> los dos registros se crean desde el dashboard, o con un API token que tenga
-> `Zone:DNS:Edit`:
->
-> ```
-> api.piedrasdelrayadito.cl      CNAME  <uuid>.cfargotunnel.com   (proxied)
-> storage.piedrasdelrayadito.cl  CNAME  <uuid>.cfargotunnel.com   (proxied)
-> ```
+```
+api.piedrasdelrayadito.cl      CNAME  <uuid>.cfargotunnel.com   (proxied)
+storage.piedrasdelrayadito.cl  CNAME  <uuid>.cfargotunnel.com   (proxied)
+```
 
 ### 5.3 Entorno
 
