@@ -80,7 +80,7 @@ app móvil.
   No es un secreto: viaja en el bundle.
 - Requisito externo: el dominio donde se sirve el panel debe estar en
   **Authorized JavaScript origins** de ese cliente OAuth en Google Cloud Console
-  (`https://api.budaicapital.com` para producción, `http://localhost:5173` para
+  (`https://api.piedrasdelrayadito.cl` para producción, `http://localhost:5173` para
   desarrollo). Sin eso Google no dibuja el botón.
 - El backend no necesitó cambios: `GoogleIDTokenLogin` ya acepta el campo
   `credential` y `GOOGLE_CLIENT_ID` ya admite lista de audiencias separada por comas.

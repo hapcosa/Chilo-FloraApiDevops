@@ -1,7 +1,7 @@
 # Producción sobre Docker Compose + Cloudflare Tunnel
 
-Guía operativa del despliegue público actual: `https://api.budaicapital.com`
-(API) y `https://storage.budaicapital.com` (object storage).
+Guía operativa del despliegue público actual: `https://api.piedrasdelrayadito.cl`
+(API) y `https://storage.piedrasdelrayadito.cl` (object storage).
 
 Este documento describe el despliegue **en un host compartido**. Para un VPS
 dedicado con Kubernetes, ver [K3S_PRODUCCION.md](K3S_PRODUCCION.md); son dos
@@ -35,12 +35,12 @@ Registrado como ADR #13 en [PLAN_MAESTRO.md §10](../PLAN_MAESTRO.md).
 
 ```
 internet → Cloudflare edge (TLS) → cloudflared (chiloe-cloudflared)
-                                        │  red chiloe-prod-network
-        api.budaicapital.com  ──────────┴──→ gateway (nginx) ──→ especies-api (C++)
-                                                              └─→ auth-service (Go)
-                                                                     │
-                                                          postgres ──┴── redis
-        storage.budaicapital.com ───────────────────────→ minio
+                                             │  red chiloe-prod-network
+        api.piedrasdelrayadito.cl  ──────────┴──→ gateway (nginx) ──→ especies-api (C++)
+                                                                 └─→ auth-service (Go)
+                                                                        │
+                                                             postgres ──┴── redis
+        storage.piedrasdelrayadito.cl ──────────────────────────→ minio
 ```
 
 Puntos que no son obvios:
@@ -106,30 +106,33 @@ porque solo tiene claves vacías.
 ### 5.1 Túnel
 
 ```bash
+cloudflared tunnel login          # abre el navegador, elige la zona y escribe cert.pem
 cloudflared tunnel create chiloe-api
 # → escribe ~/.cloudflared/<uuid>.json y muestra el UUID
 ```
 
-Poner ese UUID en `infrastructure/docker/cloudflared/config.yml` y la ruta del
-JSON en `CLOUDFLARED_CREDENTIALS_FILE`.
+Ese UUID va en `CLOUDFLARED_TUNNEL_ID` y la ruta del JSON en
+`CLOUDFLARED_CREDENTIALS_FILE`, los dos en el env de despliegue. En
+`cloudflared/config.yml` ya no hay ningún id: el repo no sabe en qué cuenta
+corre el túnel.
 
 ### 5.2 DNS
 
 ```bash
-cloudflared tunnel route dns chiloe-api api.budaicapital.com
-cloudflared tunnel route dns chiloe-api storage.budaicapital.com
+cloudflared tunnel route dns chiloe-api api.piedrasdelrayadito.cl
+cloudflared tunnel route dns chiloe-api storage.piedrasdelrayadito.cl
 ```
 
-> **En este host esto falla.** El `~/.cloudflared/cert.pem` de la máquina
-> contiene solo un bloque `ARGO TUNNEL TOKEN`, sin certificado de zona: sirve
-> para crear túneles (operación de cuenta) pero no lleva permiso de edición DNS
-> sobre `budaicapital.com`, y `route dns` responde `code: 10000, Authentication
-> error`. Los dos registros hay que crearlos desde el dashboard de Cloudflare, o
-> con un API token que tenga `Zone:DNS:Edit`:
+> Esto solo funciona si el `~/.cloudflared/cert.pem` del host es de la cuenta
+> **dueña de la zona**. Un `cert.pem` que solo trae el bloque `ARGO TUNNEL
+> TOKEN` alcanza para crear túneles (operación de cuenta) pero no para editar
+> DNS, y `route dns` responde `code: 10000, Authentication error`. En ese caso
+> los dos registros se crean desde el dashboard, o con un API token que tenga
+> `Zone:DNS:Edit`:
 >
 > ```
-> api.budaicapital.com      CNAME  <uuid>.cfargotunnel.com   (proxied)
-> storage.budaicapital.com  CNAME  <uuid>.cfargotunnel.com   (proxied)
+> api.piedrasdelrayadito.cl      CNAME  <uuid>.cfargotunnel.com   (proxied)
+> storage.piedrasdelrayadito.cl  CNAME  <uuid>.cfargotunnel.com   (proxied)
 > ```
 
 ### 5.3 Entorno
@@ -268,28 +271,28 @@ docker run --rm -it --network chiloe-prod_chiloe-prod-network minio/mc:latest \
 Desde fuera del host:
 
 ```bash
-curl -s https://api.budaicapital.com/health
+curl -s https://api.piedrasdelrayadito.cl/health
 
 # registro + login
-curl -s -X POST https://api.budaicapital.com/api/v1/auth/register \
+curl -s -X POST https://api.piedrasdelrayadito.cl/api/v1/auth/register \
   -H 'Content-Type: application/json' \
   -d '{"email":"...","password":"...","nombre":"..."}'
 
-TOKEN=$(curl -s -X POST https://api.budaicapital.com/api/v1/auth/login \
+TOKEN=$(curl -s -X POST https://api.piedrasdelrayadito.cl/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"...","password":"..."}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
 
 # especies: requiere sesión (auth_request, ADR #10). Sin token → 401.
 curl -s -H "Authorization: Bearer $TOKEN" \
-  "https://api.budaicapital.com/api/v1/especies?limit=3" | grep -o '"total":[0-9]*'
+  "https://api.piedrasdelrayadito.cl/api/v1/especies?limit=3" | grep -o '"total":[0-9]*'
 # → "total":13
 
 curl -s -H "Authorization: Bearer $TOKEN" \
-  "https://api.budaicapital.com/api/v1/especies?reino=fungi" | grep -o '"total":[0-9]*'
+  "https://api.piedrasdelrayadito.cl/api/v1/especies?reino=fungi" | grep -o '"total":[0-9]*'
 # → "total":2
 
 # ciclo de foto completo
-curl -s -X POST https://api.budaicapital.com/api/v1/uploads/presign \
+curl -s -X POST https://api.piedrasdelrayadito.cl/api/v1/uploads/presign \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"bucket":"avistamientos-fotos","filename":"prueba.jpg","content_type":"image/jpeg"}'
 # → PUT del archivo a la url devuelta, con el header Content-Type que indica
@@ -310,6 +313,6 @@ chiloe-prod ps            # ninguno debe estar reiniciándose
   `chiloe-prod_postgres_data` y `mc mirror` de MinIO a almacenamiento externo,
   más una prueba de restauración.
 - **App móvil.** `appConfig.apiBaseUrl` apunta a `http://localhost:8080`. Para
-  la APK de producción hay que apuntarlo a `https://api.budaicapital.com`.
+  la APK de producción hay que apuntarlo a `https://api.piedrasdelrayadito.cl`.
 - **`/api/v1/uploads` en dev.** Sigue sin exigir sesión (ver §7).
 - **Observabilidad.** Este stack no levanta Prometheus ni Grafana.
