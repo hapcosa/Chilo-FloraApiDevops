@@ -16,7 +16,7 @@ Verificado en el repo y contra producción el 2026-08-18.
 
 | Pregunta | Respuesta |
 |---|---|
-| ¿El panel de curaduría/moderación está listo? | **Sí, y está arriba.** `https://api.budaicapital.com/curaduria/` responde 200. Login, listado y edición de fichas con formulario generado desde el JSON Schema, publicar/despublicar, bandeja de postulaciones a curador (solo `admin`) y bandeja de avistamientos (`admin`/`moderator`). Se compila dentro de la imagen del gateway; no es un servicio con puerto propio. |
+| ¿El panel de curaduría/moderación está listo? | **Sí, y está arriba.** `https://api.piedrasdelrayadito.cl/curaduria/` responde 200. Login, listado y edición de fichas con formulario generado desde el JSON Schema, publicar/despublicar, bandeja de postulaciones a curador (solo `admin`) y bandeja de avistamientos (`admin`/`moderator`). Se compila dentro de la imagen del gateway; no es un servicio con puerto propio. |
 | ¿Qué son las "24 descubiertas"? | **Fichas que abriste**, no encuentros. `BibliotecaScreen` llama `markSpeciesViewed(id)` al tocar un ítem, y el perfil cuenta esas filas. Registrar un encuentro también marca la especie como vista, pero el número está dominado por la simple navegación. |
 | ¿"Actualizar perfil" hace algo? | **Casi nada.** Llama `authApi.whoami()` y refresca los datos que el servidor ya tiene. No edita nada. El endpoint de edición (`PUT /api/v1/auth/me`) existe y solo acepta `name` y `avatar`. |
 | ¿Hay mapa? | No. No hay ninguna dependencia de mapas en `mobile/package.json`. |

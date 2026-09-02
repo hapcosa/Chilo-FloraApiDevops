@@ -1,12 +1,14 @@
 # Configuración del túnel `chiloe-api`.
 #
-# El UUID no es secreto (aparece en el CNAME público). El secreto es
-# credentials.json, que se monta desde fuera del repo vía
-# CLOUDFLARED_CREDENTIALS_FILE en el .env de despliegue.
+# El UUID del túnel NO vive acá: se pasa como argumento del `run` desde el
+# compose, con CLOUDFLARED_TUNNEL_ID en el .env de despliegue. El id es de la
+# instalación, no del código: cada cuenta de Cloudflare tiene el suyo, y
+# tenerlo fijo en el repo obligaba a un commit por cada mudanza de cuenta.
+# El secreto sigue siendo credentials.json, que se monta desde fuera del repo
+# vía CLOUDFLARED_CREDENTIALS_FILE.
 #
 # Este túnel es exclusivo de este proyecto. Los túneles de otros proyectos que
 # corren en el mismo host (p. ej. `cyber-api`) no se tocan.
-tunnel: 14f93feb-40ec-4781-b363-c156c179de49
 credentials-file: /etc/cloudflared/credentials.json
 
 # Expuesto solo dentro de la red Docker, para `docker exec ... curl`.
@@ -16,12 +18,12 @@ no-autoupdate: true
 
 ingress:
   # API pública: gateway nginx → especies-api / auth-service.
-  - hostname: api.budaicapital.com
+  - hostname: api.piedrasdelrayadito.cl
     service: http://gateway:80
 
   # Object storage. Hace falta un hostname propio porque el cliente sube las
   # fotos DIRECTO a MinIO con una URL presignada; nunca pasan por el gateway.
-  - hostname: storage.budaicapital.com
+  - hostname: storage.piedrasdelrayadito.cl
     service: http://minio:9000
     originRequest:
       # MinIO responde 411 a un PUT con Transfer-Encoding: chunked y sin
